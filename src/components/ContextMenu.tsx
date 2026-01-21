@@ -88,12 +88,14 @@ export default function ContextMenu({
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={200}>
             <Paper elevation={8} onContextMenu={e => e.preventDefault()} sx={{ py: 0.5, minWidth: 180 }}>
-              <MenuItem onClick={() => { onAddNode(); onClose(); }}>
-                <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Add Node</ListItemText>
-              </MenuItem>
+              {!hasSelection && (
+                <MenuItem onClick={() => { onAddNode(); onClose(); }}>
+                  <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Add Node</ListItemText>
+                </MenuItem>
+              )}
 
-              {onAddSimNode && (
+              {!hasSelection && onAddSimNode && (
                 <MenuItem onClick={() => { onAddSimNode(); onClose(); }}>
                   <ListItemIcon><SimNodeIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Add SimNode</ListItemText>

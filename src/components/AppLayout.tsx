@@ -129,7 +129,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
         <AppBar position="static" elevation={1} sx={{ bgcolor: 'var(--color-primary)' }}>
           <Toolbar variant="dense">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+              <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
               <Typography variant="h6" sx={{ fontWeight: 200, color: 'white' }}>
                 {TITLE}
               </Typography>

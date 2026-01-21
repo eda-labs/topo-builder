@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const schemaPath = path.join(__dirname, '../public/schema.json');
+const schemaPath = path.join(__dirname, '../src/static/schema.json');
 const outputPath = path.join(__dirname, '../src/types/topology.ts');
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
@@ -38,7 +38,8 @@ const linkSpeedEnum = extractEnum(specSchema, 'links.items.endpoints.items.speed
                       extractEnum(specSchema, 'linkTemplates.items.speed');
 const encapTypeEnum = extractEnum(specSchema, 'links.items.encapType') ||
                       extractEnum(specSchema, 'linkTemplates.items.encapType');
-
+const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type') ||
+                        extractEnum(specSchema, 'simulation.simNodeTemplates.items.type');
 
 const output = `// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
@@ -51,7 +52,7 @@ export type LinkSpeed = ${linkSpeedEnum ? linkSpeedEnum.map(v => `'${v}'`).join(
 
 export type EncapType = ${encapTypeEnum ? encapTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
 
-export type LayoutMode = 'horizontal' | 'vertical';
+export type SimNodeType = ${simNodeTypeEnum ? simNodeTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
 
 export interface TopologyNodeData {
   [key: string]: unknown;
@@ -131,7 +132,6 @@ export interface TopologyState {
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
   selectedEdgeLinkIndex: number | null;
-  layoutMode: LayoutMode;
   yamlRefreshCounter: number;
 }
 `;
@@ -148,3 +148,4 @@ console.log('--> Operation:', operationEnum);
 console.log('--> LinkType:', linkTypeEnum);
 console.log('--> LinkSpeed:', linkSpeedEnum);
 console.log('--> EncapType:', encapTypeEnum);
+console.log('--> SimNodeType:', simNodeTypeEnum);

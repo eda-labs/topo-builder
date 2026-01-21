@@ -1,4 +1,4 @@
-// Auto-generated from schema.json - do not edit manually
+// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
 
 export type Operation = 'create' | 'replace' | 'replaceAll' | 'delete' | 'deleteAll';
@@ -11,39 +11,6 @@ export type EncapType = 'null' | 'dot1q';
 
 export type SimNodeType = 'Linux' | 'TestMan' | 'SrlTest';
 
-// Simulation types
-export interface SimNodeTemplate {
-  name: string;
-  type: SimNodeType;
-  image?: string;
-  imagePullSecret?: string;
-}
-
-export interface SimNode {
-  id: string; // Stable internal ID for React Flow
-  name: string;
-  template?: string;
-  type?: SimNodeType;
-  image?: string;
-  imagePullSecret?: string;
-  labels?: Record<string, string>;
-  // UI position (exported to YAML as x/y labels)
-  position?: { x: number; y: number };
-}
-
-export interface SimTopologyMapping {
-  node: string;
-  interface: string;
-  simNode: string;
-}
-
-export interface Simulation {
-  topology?: SimTopologyMapping[];
-  simNodeTemplates: SimNodeTemplate[];
-  simNodes: SimNode[];
-}
-
-// Index signatures required for React Flow compatibility
 export interface TopologyNodeData {
   [key: string]: unknown;
   id: string;
@@ -93,16 +60,11 @@ export interface EdgeLinkEndpoint {
     node: string;
     interface?: string;
   };
-  sim?: {
-    simNode: string;
-    simNodeInterface?: string;
-  };
 }
 
 export interface EdgeLink {
   name: string;
   template?: string;
-  labels?: Record<string, string>;
   endpoints: EdgeLinkEndpoint[];
 }
 
@@ -123,14 +85,9 @@ export interface TopologyState {
   nodes: import('@xyflow/react').Node<TopologyNodeData>[];
   edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
   edgeLinks: EdgeLink[];
-  simulation: Simulation;
+  simulation?: unknown;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
   selectedEdgeLinkIndex: number | null;
-  selectedSimNodeName: string | null;
   yamlRefreshCounter: number;
-  layoutVersion: number;
-  darkMode: boolean;
-  showSimNodes: boolean;
-  error: string | null;
 }

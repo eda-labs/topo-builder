@@ -19,8 +19,6 @@ import {
   ThemeProvider,
   createTheme,
   Snackbar,
-  Menu,
-  MenuItem,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -30,6 +28,7 @@ import {
   Error as ErrorIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material';
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, downloadYaml } from '../lib/converter';
@@ -49,18 +48,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     palette: {
       mode: darkMode ? 'dark' : 'light',
       primary: { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
-      secondary: { main: '#7b1fa2' },
-      success: { main: '#2e7d32' },
-      info: { main: '#7d33f2' },
-      background: {
-        default: darkMode ? '#121212' : '#fafafa',
-        paper: darkMode ? '#1e1e1e' : '#ffffff',
-      },
-      grey: {
-        50: '#fafafa', 100: '#f5f5f5', 200: '#eeeeee', 300: '#e0e0e0',
-        400: '#bdbdbd', 500: '#9e9e9e', 600: '#757575', 700: '#616161',
-        800: '#424242', 900: '#212121',
-      },
     },
     components: {
       MuiPaper: {
@@ -89,8 +76,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
-  const [copyMenuAnchor, setCopyMenuAnchor] = useState<null | HTMLElement>(null);
-
+  
   const getYaml = () => exportToYaml({
     topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, edgeLinks, simulation,
   });
@@ -100,7 +86,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(getYaml());
     setCopied(true);
-    setCopyMenuAnchor(null);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -108,7 +93,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const yaml = getYaml();
     await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${yaml}\nEOF`);
     setCopied(true);
-    setCopyMenuAnchor(null);
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -142,15 +126,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={copied ? 'Copied!' : 'Copy'}>
-                <IconButton size="small" onClick={(e) => setCopyMenuAnchor(e.currentTarget)} sx={{ color: 'white' }}>
+              <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
+                <IconButton size="small" onClick={handleCopy} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Menu anchorEl={copyMenuAnchor} open={Boolean(copyMenuAnchor)} onClose={() => setCopyMenuAnchor(null)}>
-                <MenuItem onClick={handleCopy}>Copy YAML</MenuItem>
-                <MenuItem onClick={handleCopyKubectl}>Copy as kubectl apply</MenuItem>
-              </Menu>
+              <Tooltip title="Copy as kubectl apply">
+                <IconButton size="small" onClick={handleCopyKubectl} sx={{ color: 'white' }}>
+                  <TerminalIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Download YAML">
                 <IconButton size="small" onClick={handleDownload} sx={{ color: 'white' }}>
                   <DownloadIcon fontSize="small" />

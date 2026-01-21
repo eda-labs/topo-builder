@@ -122,7 +122,7 @@ export default function ContextMenu({
                   </MenuItem>
 
                   {showSubmenu && (
-                    <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 140, ml: 0.5 }}>
+                    <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 140 }}>
                       {nodeTemplates.map(template => (
                         <MenuItem
                           key={template.name}

@@ -1002,7 +1002,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
                 // Create key including handles (allows multiple edges between same node pair)
                 const sourceHandle = link.labels?.sourceHandle || 'bottom';
-                const targetHandle = link.labels?.targetHandle || 'top';
+                const targetHandle = link.labels?.targetHandle || 'top-target';
                 const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
 
                 // Add to member links for this pair+handle combo

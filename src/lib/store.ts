@@ -4,6 +4,7 @@ import type { Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/rea
 import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import yaml from 'js-yaml';
 import baseTemplateYaml from '../static/base-template.yaml?raw';
+import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
 import type {
   TopologyNodeData,
   TopologyEdgeData,
@@ -933,8 +934,8 @@ export const useTopologyStore = create<TopologyStore>()(
               }
 
               // Get position from labels or fall back to existing/default
-              const labelX = node.labels?.['pos/x'];
-              const labelY = node.labels?.['pos/y'];
+              const labelX = node.labels?.[LABEL_POS_X];
+              const labelY = node.labels?.[LABEL_POS_Y];
               const positionFromLabels = labelX && labelY
                 ? { x: parseFloat(labelX), y: parseFloat(labelY) }
                 : null;
@@ -1009,8 +1010,8 @@ export const useTopologyStore = create<TopologyStore>()(
                 }
 
                 // Create key including handles (allows multiple edges between same node pair)
-                const sourceHandle = link.labels?.sourceHandle || 'bottom';
-                const targetHandle = link.labels?.targetHandle || 'top-target';
+                const sourceHandle = link.labels?.[LABEL_SRC_HANDLE] || 'bottom';
+                const targetHandle = link.labels?.[LABEL_DST_HANDLE] || 'top-target';
                 const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
 
                 // Add to member links for this pair+handle combo
@@ -1064,8 +1065,8 @@ export const useTopologyStore = create<TopologyStore>()(
           if (parsed.spec?.simulation) {
             const simDataFromYaml = parsed.spec.simulation as Simulation;
             const simNodes = (simDataFromYaml.simNodes || []).map((simNode, index) => {
-              const labelX = simNode.labels?.['pos/x'];
-              const labelY = simNode.labels?.['pos/y'];
+              const labelX = simNode.labels?.[LABEL_POS_X];
+              const labelY = simNode.labels?.[LABEL_POS_Y];
               const positionFromLabels = labelX && labelY
                 ? { x: parseFloat(labelX), y: parseFloat(labelY) }
                 : null;

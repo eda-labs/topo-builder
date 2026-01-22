@@ -10,6 +10,7 @@ import type {
   Operation,
   Simulation,
 } from '../types/topology';
+import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
 
 interface ExportOptions {
   topologyName: string;
@@ -80,8 +81,8 @@ export function exportToYaml(options: ExportOptions): string {
     };
 
     const labels: Record<string, string> = {};
-    labels['pos/x'] = String(Math.round(node.position.x));
-    labels['pos/y'] = String(Math.round(node.position.y));
+    labels[LABEL_POS_X] = String(Math.round(node.position.x));
+    labels[LABEL_POS_Y] = String(Math.round(node.position.y));
 
     if (node.data.template) {
       networkNode.template = node.data.template;
@@ -121,8 +122,8 @@ export function exportToYaml(options: ExportOptions): string {
       if (targetIsSimNode) {
         const simNodeName = simNodeIdToName.get(edge.target) || edge.target;
         const labels: Record<string, string> = {};
-        if (edge.sourceHandle) labels.sourceHandle = edge.sourceHandle;
-        if (edge.targetHandle) labels.targetHandle = edge.targetHandle;
+        if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
+        if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
         simEdgeLinks.push({
           name: member.name,
           template: member.template,
@@ -142,8 +143,8 @@ export function exportToYaml(options: ExportOptions): string {
         // Sim node is the source, topology node is target
         const simNodeName = simNodeIdToName.get(edge.source) || edge.source;
         const labels: Record<string, string> = {};
-        if (edge.sourceHandle) labels.sourceHandle = edge.sourceHandle;
-        if (edge.targetHandle) labels.targetHandle = edge.targetHandle;
+        if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
+        if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
         simEdgeLinks.push({
           name: member.name,
           template: member.template,
@@ -184,10 +185,10 @@ export function exportToYaml(options: ExportOptions): string {
         // Store handles as labels
         const labels: Record<string, string> = {};
         if (edge.sourceHandle) {
-          labels.sourceHandle = edge.sourceHandle;
+          labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
         }
         if (edge.targetHandle) {
-          labels.targetHandle = edge.targetHandle;
+          labels[LABEL_DST_HANDLE] = edge.targetHandle;
         }
         if (Object.keys(labels).length > 0) {
           link.labels = labels;
@@ -232,8 +233,8 @@ export function exportToYaml(options: ExportOptions): string {
         labels: {
           ...rest.labels,
           ...(position ? {
-            'pos/x': String(Math.round(position.x)),
-            'pos/y': String(Math.round(position.y)),
+            [LABEL_POS_X]: String(Math.round(position.x)),
+            [LABEL_POS_Y]: String(Math.round(position.y)),
           } : {}),
         },
       })),

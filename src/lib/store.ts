@@ -716,7 +716,14 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       selectEdge: (id: string | null) => {
-        set({ selectedEdgeId: id, selectedNodeId: null, selectedEdgeLinkIndex: null, selectedSimNodeName: null });
+        set({
+          selectedEdgeId: id,
+          selectedNodeId: null,
+          selectedEdgeLinkIndex: null,
+          selectedSimNodeName: null,
+          edges: get().edges.map(e => ({ ...e, selected: e.id === id })),
+          nodes: get().nodes.map(n => ({ ...n, selected: false })),
+        });
       },
 
       selectEdgeLink: (index: number | null) => {

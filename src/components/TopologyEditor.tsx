@@ -478,7 +478,7 @@ function TopologyEditorInner() {
             fitView
             snapToGrid
             snapGrid={[15, 15]}
-            defaultEdgeOptions={{ type: 'linkEdge' }}
+            defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: 20 }}
             colorMode={darkMode ? 'dark' : 'light'}
           >
             <Controls />

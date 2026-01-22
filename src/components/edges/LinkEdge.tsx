@@ -1,4 +1,4 @@
-import { getBezierPath, Position, type EdgeProps } from '@xyflow/react';
+import { getBezierPath, BaseEdge, Position, type EdgeProps } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 
 function getControlPoint(x: number, y: number, position: Position, offset: number): { x: number; y: number } {
@@ -57,15 +57,14 @@ export default function LinkEdge({
   }
 
   return (
-    <path
+    <BaseEdge
       id={id}
-      d={edgePath}
-      className={`react-flow__edge-path ${isSimNodeEdge ? 'sim-edge' : ''}`}
+      path={edgePath}
+      className={isSimNodeEdge ? 'sim-edge' : ''}
+      interactionWidth={20}
       style={{
         stroke: selected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)',
         strokeWidth: 1,
-        cursor: 'pointer',
-        fill: 'none',
       }}
     />
   );

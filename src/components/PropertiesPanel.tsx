@@ -66,6 +66,8 @@ export function SelectionPanel() {
   const nodeNameInputRef = useRef<HTMLInputElement>(null);
   const prevSelectedNodeIdRef = useRef<string | null>(null);
 
+  const linkNameInputRef = useRef<HTMLInputElement>(null);
+
   // Count selected items
   const selectedNodesCount = nodes.filter((n) => n.selected).length;
   const selectedEdgesCount = edges.filter((e) => e.selected).length;
@@ -503,6 +505,7 @@ export function SelectionPanel() {
   if (selectedEdge && selectedEdge.data) {
     const edgeData = selectedEdge.data;
     const memberLinks = edgeData.memberLinks || [];
+    const isNewLink = sessionStorage.getItem('topology-is-new-link') === 'true';
 
     const handleAddLink = () => {
       const newLink: MemberLink = {
@@ -572,6 +575,13 @@ export function SelectionPanel() {
                       handleUpdateLink(index, { name: e.target.value })
                     }
                     sx={{ flex: 1, mr: 1 }}
+                    inputRef={index === 0 ? linkNameInputRef : undefined}
+                    autoFocus={index === 0 && isNewLink}
+                    onFocus={(e) => {
+                      if (index === 0 && isNewLink) {
+                        e.target.select();
+                      }
+                    }}
                   />
                   <IconButton
                     size="small"

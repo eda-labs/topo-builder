@@ -365,6 +365,7 @@ export const useTopologyStore = create<TopologyStore>()(
           target: connection.target!,
           sourceHandle: connection.sourceHandle,
           targetHandle: connection.targetHandle,
+          selected: true,
           data: {
             id,
             sourceNode,
@@ -377,7 +378,15 @@ export const useTopologyStore = create<TopologyStore>()(
             }],
           },
         };
-        set({ edges: addEdge(newEdge, get().edges) });
+        const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
+        const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
+        set({
+          nodes: deselectedNodes,
+          edges: addEdge(newEdge, deselectedEdges),
+          selectedEdgeId: id,
+          selectedNodeId: null,
+          selectedSimNodeName: null,
+        });
         get().triggerYamlRefresh();
       },
 
@@ -870,7 +879,7 @@ export const useTopologyStore = create<TopologyStore>()(
               nodeTemplates: initialState.nodeTemplates,
               linkTemplates: initialState.linkTemplates,
               simulation: {
-                simNodeTemplates: [],
+                simNodeTemplates: baseTemplate.simulation?.simNodeTemplates || [],
                 simNodes: [],
               },
             });

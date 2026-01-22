@@ -178,8 +178,15 @@ function TopologyEditorInner() {
 
   const { screenToFlowPosition } = useReactFlow();
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = sessionStorage.getItem('topology-active-tab');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [panelOpen, setPanelOpen] = useState(true);
+
+  useEffect(() => {
+    sessionStorage.setItem('topology-active-tab', activeTab.toString());
+  }, [activeTab]);
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
     position: { x: number; y: number };
@@ -196,6 +203,27 @@ function TopologyEditorInner() {
     simNodes: typeof simulation.simNodes;
   }>({ nodes: [], edges: [], simNodes: [] });
 
+  // Track tab to restore after new link creation (using sessionStorage for reliability)
+  const getPrevTabForNewLink = () => {
+    const saved = sessionStorage.getItem('topology-prev-tab-for-new-link');
+    return saved ? parseInt(saved, 10) : null;
+  };
+  const setPrevTabForNewLink = (tab: number | null) => {
+    if (tab === null) {
+      sessionStorage.removeItem('topology-prev-tab-for-new-link');
+    } else {
+      sessionStorage.setItem('topology-prev-tab-for-new-link', tab.toString());
+    }
+  };
+  const getIsNewLink = () => sessionStorage.getItem('topology-is-new-link') === 'true';
+  const setIsNewLink = (value: boolean) => {
+    if (value) {
+      sessionStorage.setItem('topology-is-new-link', 'true');
+    } else {
+      sessionStorage.removeItem('topology-is-new-link');
+    }
+  };
+
   const [selectedSimNodes, setSelectedSimNodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -203,6 +231,25 @@ function TopologyEditorInner() {
       setSelectedSimNodes(new Set());
     }
   }, [selectedNodeId, selectedEdgeId]);
+
+  // Switch back to previous tab when new link is deselected
+  useEffect(() => {
+    const prevTab = getPrevTabForNewLink();
+    if (!selectedEdgeId && getIsNewLink() && prevTab !== null) {
+      setActiveTab(prevTab);
+      setPrevTabForNewLink(null);
+      setIsNewLink(false);
+    }
+  }, [selectedEdgeId]);
+
+  // Wrap onConnect to switch to Selection tab for new links
+  const handleConnect = useCallback((connection: Parameters<typeof onConnect>[0]) => {
+    // Store current tab and switch to Selection
+    setPrevTabForNewLink(activeTab);
+    setIsNewLink(true);
+    setActiveTab(1); // Selection tab
+    onConnect(connection);
+  }, [onConnect, activeTab]);
 
   const simFlowNodes: Node<SimDeviceNodeData>[] = useMemo(() => {
     if (!showSimNodes) return [];
@@ -463,7 +510,7 @@ function TopologyEditorInner() {
             edges={edges}
             onNodesChange={handleNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            onConnect={handleConnect}
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}

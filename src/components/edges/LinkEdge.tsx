@@ -167,7 +167,7 @@ export default function LinkEdge({
     const mid = bezier.get(0.5);
     edgeMidpoint = { x: mid.x, y: mid.y };
   } else {
-    [edgePath] = getBezierPath({
+    const [path, labelX, labelY] = getBezierPath({
       sourceX,
       sourceY,
       targetX,
@@ -175,17 +175,8 @@ export default function LinkEdge({
       sourcePosition,
       targetPosition,
     });
-    const curvature = Math.max(50, Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2) * 0.3);
-    const c1 = getControlPoint(sourceX, sourceY, sourcePosition, curvature);
-    const c2 = getControlPoint(targetX, targetY, targetPosition, curvature);
-    const bezier = new Bezier(
-      sourceX, sourceY,
-      c1.x, c1.y,
-      c2.x, c2.y,
-      targetX, targetY
-    );
-    const mid = bezier.get(0.5);
-    edgeMidpoint = { x: mid.x, y: mid.y };
+    edgePath = path;
+    edgeMidpoint = { x: labelX, y: labelY };
   }
 
   if (isExpanded && linkCount > 0) {

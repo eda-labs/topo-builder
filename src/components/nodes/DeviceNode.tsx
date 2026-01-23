@@ -31,7 +31,8 @@ export default function DeviceNode({ id, data, selected }: NodeProps) {
       selected={selected ?? false}
       name={nodeData.name}
       icon={iconSvg ? <span dangerouslySetInnerHTML={{ __html: iconSvg }} /> : undefined}
-      onNameChange={(newName) => updateNode(id, { name: newName })}
+      isNew={nodeData.isNew as boolean | undefined}
+      onNameChange={(newName) => updateNode(id, { name: newName, isNew: false })}
       onNameBlur={triggerYamlRefresh}
     />
   );

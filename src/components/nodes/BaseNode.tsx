@@ -8,6 +8,7 @@ export interface BaseNodeProps {
   selected: boolean;
   name: string;
   icon?: ReactNode;
+  isNew?: boolean;
   onNameChange: (newName: string) => void;
   onNameBlur: () => void;
   className?: string;
@@ -18,15 +19,19 @@ export default function BaseNode({
   selected,
   name,
   icon,
+  isNew,
   onNameChange,
   onNameBlur,
   className = '',
 }: BaseNodeProps) {
   const darkMode = useTopologyStore((state) => state.darkMode);
   const edges = useTopologyStore((state) => state.edges);
+  const setError = useTopologyStore((state) => state.setError);
   const [isEditing, setIsEditing] = useState(false);
   const [localName, setLocalName] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const originalName = useRef(name);
+  const hasShownEmptyError = useRef(false);
   const hasAutoEdited = useRef(false);
 
   // Check if a connection is in progress
@@ -44,15 +49,17 @@ export default function BaseNode({
   });
 
   useEffect(() => {
-    if (!hasAutoEdited.current && selected) {
+    if (isNew && selected && !hasAutoEdited.current) {
       hasAutoEdited.current = true;
       setIsEditing(true);
+      originalName.current = name;
+      hasShownEmptyError.current = false;
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 50); // 50ms debounce
     }
-  }, [selected]);
+  }, [isNew, selected, name]);
 
   useEffect(() => {
     setLocalName(name);
@@ -66,6 +73,22 @@ export default function BaseNode({
   }, [isEditing]);
 
   const alwaysShowAll = selected || isConnecting;
+
+  const startEditing = () => {
+    originalName.current = name;
+    hasShownEmptyError.current = false;
+    setIsEditing(true);
+  };
+
+  const finishEditing = () => {
+    const trimmedName = localName.trim();
+    if (trimmedName === '') {
+      setLocalName(originalName.current);
+      onNameChange(originalName.current);
+    }
+    setIsEditing(false);
+    onNameBlur();
+  };
 
   const getHandleClassName = (handleId: string) => {
     const isConnected = connectedHandles.has(handleId);
@@ -82,7 +105,7 @@ export default function BaseNode({
       className={`group relative w-20 h-20 bg-(--color-node-bg) border rounded-lg flex flex-col items-center justify-center gap-0.5 ${
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
       } ${darkMode ? 'dark' : ''} ${className || 'border-solid'}`}
-      onDoubleClick={() => setIsEditing(true)}
+      onDoubleClick={startEditing}
     >
       <Handle type="source" position={Position.Top} id="top" className={getHandleClassName('top')} />
       <Handle type="target" position={Position.Top} id="top-target" className={getHandleClassName('top-target')} />
@@ -102,14 +125,20 @@ export default function BaseNode({
             variant="standard"
             value={localName}
             onChange={(e) => {
-              setLocalName(e.target.value);
-              onNameChange(e.target.value);
+              const newValue = e.target.value;
+              setLocalName(newValue);
+              onNameChange(newValue);
+              if (newValue.trim() === '') {
+                if (!hasShownEmptyError.current) {
+                  hasShownEmptyError.current = true;
+                  setError("Node name can't be empty");
+                }
+              } else {
+                hasShownEmptyError.current = false;
+              }
             }}
-            onBlur={() => {
-              setIsEditing(false);
-              onNameBlur();
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && (setIsEditing(false), onNameBlur())}
+            onBlur={finishEditing}
+            onKeyDown={(e) => e.key === 'Enter' && finishEditing()}
             sx={{
               width: 70,
               '& .MuiInputBase-input': {

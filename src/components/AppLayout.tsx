@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -79,6 +79,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [displayedError, setDisplayedError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      setDisplayedError(error);
+    }
+  }, [error]);
   
   const getYaml = (withTimestamp = false) => exportToYaml({
     topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
@@ -232,7 +239,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           onClose={(_, reason) => reason !== 'clickaway' && setError(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert onClose={() => setError(null)} severity="error" variant="filled">{error}</Alert>
+          <Alert onClose={() => setError(null)} severity="error" variant="filled">{displayedError}</Alert>
         </Snackbar>
       </Box>
     </ThemeProvider>

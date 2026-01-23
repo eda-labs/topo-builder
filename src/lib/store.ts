@@ -229,6 +229,7 @@ export const useTopologyStore = create<TopologyStore>()(
             id,
             name,
             template,
+            isNew: true,
           },
         };
         const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
@@ -638,6 +639,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const simNode: SimNode = {
           ...simNodeData,
           id: generateSimNodeId(),
+          isNew: true,
         };
         const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
         const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));

@@ -34,7 +34,8 @@ function SimDeviceNode({ id, data, selected }: NodeProps) {
       selected={selected ?? false}
       name={simNode.name}
       icon={icon}
-      onNameChange={(newName) => updateSimNode(simNode.name, { name: newName })}
+      isNew={simNode.isNew as boolean | undefined}
+      onNameChange={(newName) => updateSimNode(simNode.name, { name: newName, isNew: false })}
       onNameBlur={triggerYamlRefresh}
       className="border-dashed"
     />

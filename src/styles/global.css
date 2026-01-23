@@ -16,6 +16,8 @@
 }
 
 .dark {
+  --color-link-stroke: #8994a37f;
+  --color-node-border: #8994a37f;
   --color-node-bg: #000000;
   --color-node-text: #ffffff;
   --color-handle-bg: #1e1e1e;

@@ -130,9 +130,6 @@ export default function LinkEdge({
     }
   }
 
-  const midX = (sourceX + targetX) / 2;
-  const midY = (sourceY + targetY) / 2;
-
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (linkCount > 1) {
@@ -152,6 +149,8 @@ export default function LinkEdge({
   };
 
   let edgePath: string;
+  let edgeMidpoint: { x: number; y: number };
+
   if (sourcePosition === targetPosition) {
     const distance = Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2);
     const curvature = Math.max(50, distance * 0.5);
@@ -165,6 +164,8 @@ export default function LinkEdge({
       targetX, targetY
     );
     edgePath = bezier.toSVG();
+    const mid = bezier.get(0.5);
+    edgeMidpoint = { x: mid.x, y: mid.y };
   } else {
     [edgePath] = getBezierPath({
       sourceX,
@@ -174,6 +175,17 @@ export default function LinkEdge({
       sourcePosition,
       targetPosition,
     });
+    const curvature = Math.max(50, Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2) * 0.3);
+    const c1 = getControlPoint(sourceX, sourceY, sourcePosition, curvature);
+    const c2 = getControlPoint(targetX, targetY, targetPosition, curvature);
+    const bezier = new Bezier(
+      sourceX, sourceY,
+      c1.x, c1.y,
+      c2.x, c2.y,
+      targetX, targetY
+    );
+    const mid = bezier.get(0.5);
+    edgeMidpoint = { x: mid.x, y: mid.y };
   }
 
   if (isExpanded && linkCount > 0) {
@@ -309,7 +321,7 @@ export default function LinkEdge({
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${midX}px, ${midY}px)`,
+              transform: `translate(-50%, -50%) translate(${edgeMidpoint.x}px, ${edgeMidpoint.y}px)`,
               pointerEvents: 'all',
             }}
             onDoubleClick={handleDoubleClick}

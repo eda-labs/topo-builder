@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useMemo, useRef, type SyntheticEvent 
 import {
   ReactFlow,
   Controls,
+  ControlButton,
   Background,
   BackgroundVariant,
   useReactFlow,
@@ -13,12 +14,14 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Box, Tabs, Tab, useTheme, IconButton, Tooltip, Drawer } from '@mui/material';
+import { Box, Tabs, Tab, useTheme, IconButton, Drawer } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   ChevronRight as ChevronRightIcon,
   ChevronLeft as ChevronLeftIcon,
+  OpenInFull as OpenInFullIcon,
+  CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
 import { useTopologyStore } from '../lib/store';
@@ -128,7 +131,7 @@ function SidePanel({
           scrollButtons="auto"
         >
           <Tab label="YAML" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
-          <Tab label="Selection" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
+          <Tab label="Edit" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Node Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Link Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Sim Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
@@ -158,6 +161,7 @@ function TopologyEditorInner() {
     selectedNodeId,
     selectedEdgeId,
     selectedSimNodeName,
+    selectedMemberLinkIndices,
     addNode,
     deleteNode,
     deleteEdge,
@@ -166,6 +170,8 @@ function TopologyEditorInner() {
     simulation,
     showSimNodes,
     setShowSimNodes,
+    expandedEdges,
+    toggleAllEdgesExpanded,
     updateSimNodePosition,
     clearAll,
     layoutVersion,
@@ -173,6 +179,7 @@ function TopologyEditorInner() {
     darkMode,
     nodeTemplates,
     pasteSelection,
+    createLagFromMemberLinks,
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -431,13 +438,16 @@ function TopologyEditorInner() {
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     event.preventDefault();
-    selectEdge(edge.id);
+    // Only call selectEdge if it's a different edge - preserve member link selection on same edge
+    if (selectedEdgeId !== edge.id) {
+      selectEdge(edge.id);
+    }
     setContextMenu({
       open: true,
       position: { x: event.clientX, y: event.clientY },
       flowPosition: { x: 0, y: 0 },
     });
-  }, [selectEdge]);
+  }, [selectEdge, selectedEdgeId]);
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, open: false }));
@@ -447,6 +457,11 @@ function TopologyEditorInner() {
   const handleAddNode = (templateName?: string) => addNode(contextMenu.flowPosition, templateName);
   const handleDeleteNode = () => selectedNodeId && deleteNode(selectedNodeId);
   const handleDeleteEdge = () => selectedEdgeId && deleteEdge(selectedEdgeId);
+  const handleCreateLag = () => {
+    if (selectedEdgeId && selectedMemberLinkIndices.length >= 2) {
+      createLagFromMemberLinks(selectedEdgeId, selectedMemberLinkIndices);
+    }
+  };
 
   const handleChangeNodeTemplate = (templateName: string) => {
     if (selectedNodeId) {
@@ -485,23 +500,6 @@ function TopologyEditorInner() {
             '& .react-flow__nodes': { zIndex: '1 !important' },
           }}
         >
-          {simulation.simNodes.length > 0 && (
-            <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}>
-              <Tooltip title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}>
-                <IconButton
-                  onClick={() => setShowSimNodes(!showSimNodes)}
-                  sx={{
-                    bgcolor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
           <ReactFlow
             key={layoutVersion}
             nodes={allNodes}
@@ -526,7 +524,24 @@ function TopologyEditorInner() {
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: 20 }}
             colorMode={darkMode ? 'dark' : 'light'}
           >
-            <Controls />
+            <Controls position="top-right">
+              {simulation.simNodes.length > 0 && (
+                <ControlButton
+                  onClick={() => setShowSimNodes(!showSimNodes)}
+                  title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}
+                >
+                  {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                </ControlButton>
+              )}
+              {edges.some(e => (e.data?.memberLinks?.length || 0) > 1) && (
+                <ControlButton
+                  onClick={toggleAllEdgesExpanded}
+                  title={expandedEdges.size > 0 ? 'Collapse all links' : 'Expand all links'}
+                >
+                  {expandedEdges.size > 0 ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+                </ControlButton>
+              )}
+            </Controls>
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <LayoutHandler layoutVersion={layoutVersion} />
           </ReactFlow>
@@ -550,11 +565,13 @@ function TopologyEditorInner() {
         onDeleteEdge={handleDeleteEdge}
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
+        onCreateLag={handleCreateLag}
         currentNodeTemplate={currentNodeTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
         hasContent={nodes.length > 0 || edges.length > 0 || simulation.simNodes.length > 0}
         nodeTemplates={nodeTemplates}
+        selectedMemberLinkCount={selectedMemberLinkIndices.length}
       />
     </AppLayout>
   );

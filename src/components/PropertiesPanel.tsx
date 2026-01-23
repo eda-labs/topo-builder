@@ -12,6 +12,7 @@ import {
   InputLabel,
   Autocomplete,
   useTheme,
+  Chip,
 } from "@mui/material";
 import { Delete as DeleteIcon, Add as AddIcon } from "@mui/icons-material";
 import { useTopologyStore } from "../lib/store";
@@ -21,6 +22,7 @@ import {
 } from "../lib/constants";
 import type {
   MemberLink,
+  LagGroup,
   TopologyNodeData,
   NodeTemplate,
   LinkTemplate,
@@ -37,6 +39,10 @@ export function SelectionPanel() {
   const selectedSimNodeName = useTopologyStore(
     (state) => state.selectedSimNodeName,
   );
+  const selectedMemberLinkIndices = useTopologyStore(
+    (state) => state.selectedMemberLinkIndices,
+  );
+  const expandedEdges = useTopologyStore((state) => state.expandedEdges);
   const nodes = useTopologyStore((state) => state.nodes);
   const edges = useTopologyStore((state) => state.edges);
   const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
@@ -132,19 +138,16 @@ export function SelectionPanel() {
   if (selectedEdge && selectedEdge.data) {
     const edgeData = selectedEdge.data;
     const memberLinks = edgeData.memberLinks || [];
+    const lagGroups = edgeData.lagGroups || [];
     const isNewLink = sessionStorage.getItem('topology-is-new-link') === 'true';
+    const isExpanded = expandedEdges.has(selectedEdge.id);
 
-    const handleAddLink = () => {
-      const newLink: MemberLink = {
-        name: `${edgeData.sourceNode}-${edgeData.targetNode}-${memberLinks.length + 1}`,
-        template:
-          linkTemplates.find((t) => t.type === "interSwitch")?.name || "isl",
-        sourceInterface: `ethernet-1-${memberLinks.length + 1}`,
-        targetInterface: `ethernet-1-${memberLinks.length + 1}`,
-      };
-      updateEdge(selectedEdge.id, { memberLinks: [...memberLinks, newLink] });
-      triggerYamlRefresh();
-    };
+    const indicesInLags = new Set<number>();
+    for (const lag of lagGroups) {
+      for (const idx of lag.memberLinkIndices) {
+        indicesInLags.add(idx);
+      }
+    }
 
     const handleUpdateLink = (index: number, update: Partial<MemberLink>) => {
       const newLinks = memberLinks.map((link, i) =>
@@ -155,10 +158,171 @@ export function SelectionPanel() {
     };
 
     const handleDeleteLink = (index: number) => {
+      const newLagGroups = lagGroups.map(lag => ({
+        ...lag,
+        memberLinkIndices: lag.memberLinkIndices
+          .filter(i => i !== index)
+          .map(i => i > index ? i - 1 : i), // Adjust indices
+      })).filter(lag => lag.memberLinkIndices.length > 0);
+
       const newLinks = memberLinks.filter((_, i) => i !== index);
-      updateEdge(selectedEdge.id, { memberLinks: newLinks });
+      updateEdge(selectedEdge.id, {
+        memberLinks: newLinks,
+        lagGroups: newLagGroups.length > 0 ? newLagGroups : undefined,
+      });
       triggerYamlRefresh();
     };
+
+    const handleUpdateLagGroup = (lagId: string, update: Partial<LagGroup>) => {
+      const newLagGroups = lagGroups.map(lag =>
+        lag.id === lagId ? { ...lag, ...update } : lag
+      );
+      updateEdge(selectedEdge.id, { lagGroups: newLagGroups });
+      triggerYamlRefresh();
+    };
+
+    const selectedLag = lagGroups.find(lag =>
+      selectedMemberLinkIndices.length > 0 &&
+      selectedMemberLinkIndices.every(idx => lag.memberLinkIndices.includes(idx)) &&
+      lag.memberLinkIndices.every(idx => selectedMemberLinkIndices.includes(idx))
+    );
+
+    const linksToShow = isExpanded && memberLinks.length > 1
+      ? (selectedMemberLinkIndices.length > 0
+          ? selectedMemberLinkIndices
+              .filter(i => i >= 0 && i < memberLinks.length)
+              .map(i => ({ link: memberLinks[i], index: i }))
+          : [])
+      : memberLinks.map((link, index) => ({ link, index }));
+
+    if (selectedLag) {
+      const lagMemberLinksWithIndices = selectedLag.memberLinkIndices
+        .filter(i => i >= 0 && i < memberLinks.length)
+        .map(i => ({ link: memberLinks[i], index: i }));
+
+      const addLinkToLag = useTopologyStore.getState().addLinkToLag;
+      const removeLinkFromLag = useTopologyStore.getState().removeLinkFromLag;
+
+      return (
+        <Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              {edgeData.sourceNode} ↔ {edgeData.targetNode}
+            </Typography>
+            <Chip
+              label="LAG"
+              size="small"
+              sx={{
+                height: '20px',
+                fontSize: '10px',
+                fontWeight: 600,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+              }}
+            />
+          </Box>
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="LAG Name"
+              size="small"
+              value={selectedLag.name || ""}
+              onChange={(e) => handleUpdateLagGroup(selectedLag.id, { name: e.target.value })}
+              fullWidth
+            />
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Template</InputLabel>
+              <Select
+                label="Template"
+                value={selectedLag.template || ""}
+                onChange={(e) => handleUpdateLagGroup(selectedLag.id, { template: e.target.value })}
+              >
+                <MenuItem value="">None</MenuItem>
+                {linkTemplates.map((t) => (
+                  <MenuItem key={t.name} value={t.name}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 1,
+                }}
+              >
+                <Typography variant="body2" fontWeight={600}>
+                  Endpoints ({lagMemberLinksWithIndices.length})
+                </Typography>
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => addLinkToLag(selectedEdge.id, selectedLag.id)}
+                >
+                  Add
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {lagMemberLinksWithIndices.map(({ link, index }) => (
+                  <Paper
+                    key={index}
+                    variant="outlined"
+                    sx={{ p: 1 }}
+                  >
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr auto",
+                        gap: 1,
+                        alignItems: "center",
+                      }}
+                    >
+                      <TextField
+                        label={edgeData.sourceNode}
+                        size="small"
+                        value={link.sourceInterface}
+                        onChange={(e) =>
+                          handleUpdateLink(index, { sourceInterface: e.target.value })
+                        }
+                        fullWidth
+                      />
+                      <TextField
+                        label={edgeData.targetNode}
+                        size="small"
+                        value={link.targetInterface}
+                        onChange={(e) =>
+                          handleUpdateLink(index, { targetInterface: e.target.value })
+                        }
+                        fullWidth
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => removeLinkFromLag(selectedEdge.id, selectedLag.id, index)}
+                        title={lagMemberLinksWithIndices.length <= 2 ? "Remove LAG (min 2 links)" : "Remove from LAG"}
+                      >
+                        <DeleteIcon fontSize="small" color="error" />
+                      </IconButton>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      );
+    }
 
     return (
       <Box>
@@ -173,19 +337,29 @@ export function SelectionPanel() {
           <Typography variant="subtitle2" fontWeight={600}>
             {edgeData.sourceNode} ↔ {edgeData.targetNode}
           </Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-            Add Link
-          </Button>
+          {memberLinks.length > 1 && (
+            <Typography variant="caption" color="text.secondary">
+              {memberLinks.length} links
+            </Typography>
+          )}
         </Box>
 
         {memberLinks.length === 0 ? (
           <Typography color="text.secondary" textAlign="center" py={2}>
             No member links
           </Typography>
+        ) : linksToShow.length === 0 ? (
+          <Typography color="text.secondary" textAlign="center" py={2}>
+            Select a link to edit
+          </Typography>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {memberLinks.map((link, index) => (
-              <Paper key={index} variant="outlined" sx={{ p: 1 }}>
+            {linksToShow.map(({ link, index }) => (
+              <Paper
+                key={index}
+                variant="outlined"
+                sx={{ p: 1 }}
+              >
                 <Box
                   sx={{
                     display: "flex",

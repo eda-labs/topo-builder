@@ -16,6 +16,7 @@ import {
   ViewInAr as SimNodeIcon,
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
 import type { NodeTemplate } from '../types/topology';
@@ -30,11 +31,13 @@ interface ContextMenuProps {
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
+  onCreateLag?: () => void;
   onClearAll: () => void;
   hasSelection: 'node' | 'edge' | 'simNode' | null;
   hasContent: boolean;
   nodeTemplates?: NodeTemplate[];
   currentNodeTemplate?: string;
+  selectedMemberLinkCount?: number;
 }
 
 export default function ContextMenu({
@@ -47,11 +50,13 @@ export default function ContextMenu({
   onDeleteEdge,
   onDeleteSimNode,
   onChangeNodeTemplate,
+  onCreateLag,
   onClearAll,
   hasSelection,
   hasContent,
   nodeTemplates = [],
   currentNodeTemplate,
+  selectedMemberLinkCount = 0,
 }: ContextMenuProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);
@@ -136,6 +141,13 @@ export default function ContextMenu({
                 }}>
                   <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                   <ListItemText>Delete Node</ListItemText>
+                </MenuItem>
+              )}
+
+              {hasSelection === 'edge' && selectedMemberLinkCount >= 2 && onCreateLag && (
+                <MenuItem onClick={() => { onCreateLag(); onClose(); }}>
+                  <ListItemIcon><LinkIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Create Local LAG</ListItemText>
                 </MenuItem>
               )}
 

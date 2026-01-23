@@ -71,12 +71,20 @@ export interface MemberLink {
   targetInterface: string;
 }
 
+export interface LagGroup {
+  id: string;
+  name: string;
+  template?: string;
+  memberLinkIndices: number[];
+}
+
 export interface TopologyEdgeData {
   [key: string]: unknown;
   id: string;
   sourceNode: string;
   targetNode: string;
   memberLinks?: MemberLink[];
+  lagGroups?: LagGroup[];
 }
 
 export interface NodeTemplate {
@@ -138,6 +146,8 @@ export interface TopologyState {
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
   selectedSimNodeName: string | null;
+  expandedEdges: Set<string>;
+  selectedMemberLinkIndices: number[];
   yamlRefreshCounter: number;
   layoutVersion: number;
   darkMode: boolean;

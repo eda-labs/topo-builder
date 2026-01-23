@@ -99,6 +99,15 @@ interface TopologyActions {
   selectNode: (id: string | null) => void;
   selectEdge: (id: string | null) => void;
   selectSimNode: (name: string | null) => void;
+  selectMemberLink: (edgeId: string, index: number | null, addToSelection?: boolean) => void;
+  clearMemberLinkSelection: () => void;
+
+  createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => void;
+  addLinkToLag: (edgeId: string, lagId: string) => void;
+  removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => void;
+
+  toggleEdgeExpanded: (edgeId: string) => void;
+  toggleAllEdgesExpanded: () => void;
 
   // Import from YAML
   importFromYaml: (yaml: string) => boolean;
@@ -176,6 +185,8 @@ const initialState: TopologyState = {
   selectedNodeId: null,
   selectedEdgeId: null,
   selectedSimNodeName: null,
+  expandedEdges: new Set<string>(),
+  selectedMemberLinkIndices: [],
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   darkMode: true,
@@ -302,17 +313,17 @@ export const useTopologyStore = create<TopologyStore>()(
 
       // Edge actions
       addEdge: (connection: Connection) => {
-        const id = generateEdgeId();
         const nodes = get().nodes;
         const edges = get().edges;
         const sourceNode = nodes.find(n => n.id === connection.source)?.data.name || connection.source!;
         const targetNode = nodes.find(n => n.id === connection.target)?.data.name || connection.target!;
 
-        // Count existing edges between these nodes to increment link name
-        const existingCount = edges.filter(e =>
-          (e.source === connection.source && e.target === connection.target) ||
-          (e.source === connection.target && e.target === connection.source)
-        ).length;
+        const existingEdge = edges.find(e =>
+          ((e.source === connection.source && e.target === connection.target) ||
+           (e.source === connection.target && e.target === connection.source)) &&
+          e.sourceHandle === connection.sourceHandle &&
+          e.targetHandle === connection.targetHandle
+        );
 
         // Find highest port number used by source node
         const sourcePortNumbers = edges.flatMap(e => {
@@ -350,6 +361,40 @@ export const useTopologyStore = create<TopologyStore>()(
         });
         const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
+        if (existingEdge && existingEdge.data) {
+          const existingMemberLinks = existingEdge.data.memberLinks || [];
+          const newMemberLink: MemberLink = {
+            name: `${sourceNode}-${targetNode}-${existingMemberLinks.length + 1}`,
+            template: 'isl',
+            sourceInterface: `ethernet-1-${nextSourcePort}`,
+            targetInterface: `ethernet-1-${nextTargetPort}`,
+          };
+          const updatedEdges = edges.map(e =>
+            e.id === existingEdge.id
+              ? {
+                  ...e,
+                  selected: true,
+                  data: {
+                    ...e.data,
+                    memberLinks: [...existingMemberLinks, newMemberLink],
+                  } as TopologyEdgeData,
+                }
+              : { ...e, selected: false }
+          );
+          const deselectedNodes = nodes.map(n => ({ ...n, selected: false }));
+          set({
+            nodes: deselectedNodes,
+            edges: updatedEdges,
+            selectedEdgeId: existingEdge.id,
+            selectedNodeId: null,
+            selectedSimNodeName: null,
+            selectedMemberLinkIndices: [existingMemberLinks.length], // Select the newly added link
+          });
+          get().triggerYamlRefresh();
+          return;
+        }
+
+        const id = generateEdgeId();
         const newEdge: Edge<TopologyEdgeData> = {
           id,
           type: 'linkEdge',
@@ -363,21 +408,22 @@ export const useTopologyStore = create<TopologyStore>()(
             sourceNode,
             targetNode,
             memberLinks: [{
-              name: `${sourceNode}-${targetNode}-${existingCount + 1}`,
+              name: `${sourceNode}-${targetNode}-1`,
               template: 'isl',
               sourceInterface: `ethernet-1-${nextSourcePort}`,
               targetInterface: `ethernet-1-${nextTargetPort}`,
             }],
           },
         };
-        const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
-        const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
+        const deselectedNodes = nodes.map(n => ({ ...n, selected: false }));
+        const deselectedEdges = edges.map(e => ({ ...e, selected: false }));
         set({
           nodes: deselectedNodes,
           edges: addEdge(newEdge, deselectedEdges),
           selectedEdgeId: id,
           selectedNodeId: null,
           selectedSimNodeName: null,
+          selectedMemberLinkIndices: [],
         });
         get().triggerYamlRefresh();
       },
@@ -393,9 +439,13 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       deleteEdge: (id: string) => {
+        const newExpandedEdges = new Set(get().expandedEdges);
+        newExpandedEdges.delete(id);
         set({
           edges: get().edges.filter((edge) => edge.id !== id),
           selectedEdgeId: get().selectedEdgeId === id ? null : get().selectedEdgeId,
+          selectedMemberLinkIndices: get().selectedEdgeId === id ? [] : get().selectedMemberLinkIndices,
+          expandedEdges: newExpandedEdges,
         });
         get().triggerYamlRefresh();
       },
@@ -682,9 +732,209 @@ export const useTopologyStore = create<TopologyStore>()(
           selectedEdgeId: id,
           selectedNodeId: null,
           selectedSimNodeName: null,
+          selectedMemberLinkIndices: [],
           edges: get().edges.map(e => ({ ...e, selected: e.id === id })),
           nodes: get().nodes.map(n => ({ ...n, selected: false })),
         });
+      },
+
+      selectMemberLink: (edgeId: string, index: number | null, addToSelection?: boolean) => {
+        const currentIndices = get().selectedMemberLinkIndices;
+        const currentEdgeId = get().selectedEdgeId;
+
+        let newIndices: number[];
+        if (index === null) {
+          newIndices = [];
+        } else if (addToSelection && currentEdgeId === edgeId) {
+          if (currentIndices.includes(index)) {
+            newIndices = currentIndices.filter(i => i !== index);
+          } else {
+            newIndices = [...currentIndices, index].sort((a, b) => a - b);
+          }
+        } else {
+          newIndices = [index];
+        }
+
+        set({
+          selectedEdgeId: edgeId,
+          selectedNodeId: null,
+          selectedSimNodeName: null,
+          selectedMemberLinkIndices: newIndices,
+          edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
+          nodes: get().nodes.map(n => ({ ...n, selected: false })),
+        });
+      },
+
+      clearMemberLinkSelection: () => {
+        set({ selectedMemberLinkIndices: [] });
+      },
+
+      toggleEdgeExpanded: (edgeId: string) => {
+        const current = get().expandedEdges;
+        const newSet = new Set(current);
+        if (newSet.has(edgeId)) {
+          newSet.delete(edgeId);
+        } else {
+          newSet.add(edgeId);
+        }
+        set({ expandedEdges: newSet });
+      },
+
+      toggleAllEdgesExpanded: () => {
+        const edges = get().edges;
+        const current = get().expandedEdges;
+        const multiLinkEdges = edges.filter(e => (e.data?.memberLinks?.length || 0) > 1);
+        const anyExpanded = multiLinkEdges.some(e => current.has(e.id));
+        if (anyExpanded) {
+          set({ expandedEdges: new Set() });
+        } else {
+          set({ expandedEdges: new Set(multiLinkEdges.map(e => e.id)) });
+        }
+      },
+
+      createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => {
+        const edges = get().edges;
+        const sourceEdge = edges.find(e => e.id === edgeId);
+        if (!sourceEdge || !sourceEdge.data?.memberLinks) return;
+
+        const allMemberLinks = sourceEdge.data.memberLinks;
+        const validIndices = memberLinkIndices
+          .filter(i => i >= 0 && i < allMemberLinks.length)
+          .sort((a, b) => a - b);
+
+        if (validIndices.length < 2) return;
+
+        const existingLagGroups = sourceEdge.data.lagGroups || [];
+        const alreadyInLag = existingLagGroups.some(lag =>
+          validIndices.some(idx => lag.memberLinkIndices.includes(idx))
+        );
+        if (alreadyInLag) return;
+
+        const lagGroupCount = existingLagGroups.length + 1;
+        const newLagGroup = {
+          id: `lag-${edgeId}-${lagGroupCount}`,
+          name: `${sourceEdge.data.sourceNode}-${sourceEdge.data.targetNode}-lag${lagGroupCount > 1 ? lagGroupCount : ''}`,
+          template: 'isl',
+          memberLinkIndices: validIndices,
+        };
+
+        const updatedEdges = edges.map(e => {
+          if (e.id === edgeId) {
+            return {
+              ...e,
+              data: {
+                ...e.data!,
+                lagGroups: [...existingLagGroups, newLagGroup],
+              },
+            };
+          }
+          return e;
+        });
+
+        set({
+          edges: updatedEdges,
+          selectedMemberLinkIndices: [],
+        });
+        get().triggerYamlRefresh();
+      },
+
+      addLinkToLag: (edgeId: string, lagId: string) => {
+        const edges = get().edges;
+        const edge = edges.find(e => e.id === edgeId);
+        if (!edge || !edge.data) return;
+
+        const lagGroups = edge.data.lagGroups || [];
+        const lag = lagGroups.find(l => l.id === lagId);
+        if (!lag) return;
+
+        const memberLinks = edge.data.memberLinks || [];
+
+        const sourcePortNumbers = memberLinks.map(ml => {
+          const match = ml.sourceInterface.match(/ethernet-1-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
+
+        const targetPortNumbers = memberLinks.map(ml => {
+          const match = ml.targetInterface.match(/ethernet-1-(\d+)/);
+          return match ? parseInt(match[1], 10) : 0;
+        });
+        const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+
+        const newLink: MemberLink = {
+          name: `${lag.name}-${lag.memberLinkIndices.length + 1}`,
+          template: lag.template || 'isl',
+          sourceInterface: `ethernet-1-${nextSourcePort}`,
+          targetInterface: `ethernet-1-${nextTargetPort}`,
+        };
+
+        const newMemberLinkIndex = memberLinks.length;
+
+        const updatedEdges = edges.map(e => {
+          if (e.id === edgeId) {
+            return {
+              ...e,
+              data: {
+                ...e.data!,
+                memberLinks: [...memberLinks, newLink],
+                lagGroups: lagGroups.map(l =>
+                  l.id === lagId
+                    ? { ...l, memberLinkIndices: [...l.memberLinkIndices, newMemberLinkIndex] }
+                    : l
+                ),
+              },
+            };
+          }
+          return e;
+        });
+
+        set({ edges: updatedEdges });
+        get().triggerYamlRefresh();
+      },
+
+      removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => {
+        const edges = get().edges;
+        const edge = edges.find(e => e.id === edgeId);
+        if (!edge || !edge.data) return;
+
+        const lagGroups = edge.data.lagGroups || [];
+        const lag = lagGroups.find(l => l.id === lagId);
+        if (!lag) return;
+
+        if (lag.memberLinkIndices.length <= 2) {
+          const updatedEdges = edges.map(e => {
+            if (e.id === edgeId) {
+              return {
+                ...e,
+                data: {
+                  ...e.data!,
+                  lagGroups: lagGroups.filter(l => l.id !== lagId),
+                },
+              };
+            }
+            return e;
+          });
+          set({ edges: updatedEdges, selectedMemberLinkIndices: [] });
+        } else {
+          const updatedEdges = edges.map(e => {
+            if (e.id === edgeId) {
+              return {
+                ...e,
+                data: {
+                  ...e.data!,
+                  lagGroups: lagGroups.map(l =>
+                    l.id === lagId
+                      ? { ...l, memberLinkIndices: l.memberLinkIndices.filter(i => i !== memberLinkIndex) }
+                      : l
+                  ),
+                },
+              };
+            }
+            return e;
+          });
+          set({ edges: updatedEdges });
+        }
+        get().triggerYamlRefresh();
       },
 
       selectSimNode: (name: string | null) => {
@@ -927,48 +1177,80 @@ export const useTopologyStore = create<TopologyStore>()(
               // Add simNode IDs to the mapping (using pre-generated IDs)
               simNodeIdMap.forEach((id, name) => nameToNewId.set(name, id));
 
-              // Group ISL links by node pair
-              const islLinksByPair = new Map<string, { memberLinks: MemberLink[], sourceHandle: string, targetHandle: string }>();
+              // Group all links by node pair + handles
+              interface EdgeData {
+                memberLinks: MemberLink[];
+                lagGroups: { id: string; name: string; template?: string; memberLinkIndices: number[] }[];
+                sourceHandle: string;
+                targetHandle: string;
+              }
+              const edgesByPair = new Map<string, EdgeData>();
 
               for (const link of parsed.spec.links) {
-                // Check if this is an ISL (has remote to another topology node)
-                const endpoint = link.endpoints?.[0];
-                const hasRemote = endpoint?.remote?.node;
-                const hasLocal = endpoint?.local?.node;
+                const endpoints = link.endpoints || [];
+                if (endpoints.length === 0) continue;
+
+                const firstEndpoint = endpoints[0];
+                const hasRemote = firstEndpoint?.remote?.node;
+                const hasLocal = firstEndpoint?.local?.node;
 
                 if (!hasRemote || !hasLocal) {
                   // Skip non-ISL links (edge links, sim links, etc.)
                   continue;
                 }
 
-                const sourceName = endpoint.local!.node;
-                const targetName = endpoint.remote!.node;
+                const sourceName = firstEndpoint.local!.node;
+                const targetName = firstEndpoint.remote!.node;
 
                 // Skip if source or target node doesn't exist
                 if (!nameToNewId.has(sourceName) || !nameToNewId.has(targetName)) {
                   continue;
                 }
 
-                // Create key including handles (allows multiple edges between same node pair)
                 const sourceHandle = link.labels?.[LABEL_SRC_HANDLE] || 'bottom';
                 const targetHandle = link.labels?.[LABEL_DST_HANDLE] || 'top-target';
                 const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
 
-                // Add to member links for this pair+handle combo
-                if (!islLinksByPair.has(pairKey)) {
-                  islLinksByPair.set(pairKey, { memberLinks: [], sourceHandle, targetHandle });
+                if (!edgesByPair.has(pairKey)) {
+                  edgesByPair.set(pairKey, { memberLinks: [], lagGroups: [], sourceHandle, targetHandle });
                 }
-                islLinksByPair.get(pairKey)!.memberLinks.push({
-                  name: link.name,
-                  template: link.template,
-                  sourceInterface: endpoint.local!.interface || 'ethernet-1-1',
-                  targetInterface: endpoint.remote!.interface || 'ethernet-1-1',
-                });
+                const edgeData = edgesByPair.get(pairKey)!;
+
+                const isLag = endpoints.length > 1 && endpoints.every(ep => ep.local?.node && ep.remote?.node);
+
+                if (isLag) {
+                  const startIdx = edgeData.memberLinks.length;
+                  const lagMemberIndices: number[] = [];
+
+                  endpoints.forEach((ep, idx) => {
+                    edgeData.memberLinks.push({
+                      name: `${link.name}-${idx + 1}`,
+                      template: link.template,
+                      sourceInterface: ep.local!.interface || 'ethernet-1-1',
+                      targetInterface: ep.remote!.interface || 'ethernet-1-1',
+                    });
+                    lagMemberIndices.push(startIdx + idx);
+                  });
+
+                  edgeData.lagGroups.push({
+                    id: `lag-${pairKey}-${edgeData.lagGroups.length + 1}`,
+                    name: link.name,
+                    template: link.template,
+                    memberLinkIndices: lagMemberIndices,
+                  });
+                } else {
+                  edgeData.memberLinks.push({
+                    name: link.name,
+                    template: link.template,
+                    sourceInterface: firstEndpoint.local!.interface || 'ethernet-1-1',
+                    targetInterface: firstEndpoint.remote!.interface || 'ethernet-1-1',
+                  });
+                }
               }
 
               // Create one edge per node pair + handle combination
               const newEdges: Edge<TopologyEdgeData>[] = [];
-              for (const [pairKey, { memberLinks, sourceHandle, targetHandle }] of islLinksByPair) {
+              for (const [pairKey, { memberLinks, lagGroups, sourceHandle, targetHandle }] of edgesByPair) {
                 const [nodeName1, nodeName2] = pairKey.split('|');
                 const sourceId = nameToNewId.get(nodeName1)!;
                 const targetId = nameToNewId.get(nodeName2)!;
@@ -993,6 +1275,7 @@ export const useTopologyStore = create<TopologyStore>()(
                     sourceNode: nodeName1,
                     targetNode: nodeName2,
                     memberLinks,
+                    lagGroups: lagGroups.length > 0 ? lagGroups : undefined,
                   },
                 });
               }
@@ -1036,19 +1319,27 @@ export const useTopologyStore = create<TopologyStore>()(
     }),
     {
       name: 'topology-storage',
+      partialize: (state) => ({
+        ...state,
+        expandedEdges: Array.from(state.expandedEdges),
+      }),
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<TopologyState>;
+        const persisted = persistedState as Partial<TopologyState> & { expandedEdges?: string[] };
         const nodes = persisted.nodes?.map(node => ({ ...node, data: { ...node.data, isNew: false } })) || currentState.nodes;
         const persistedSimulation = persisted.simulation as Simulation | undefined;
         const simulation: Simulation = persistedSimulation ? {
           ...persistedSimulation,
           simNodes: persistedSimulation.simNodes?.map((simNode: SimNode) => ({ ...simNode, isNew: false })) || [],
         } : currentState.simulation;
+        const expandedEdges = persisted.expandedEdges
+          ? new Set(persisted.expandedEdges)
+          : currentState.expandedEdges;
         return {
           ...currentState,
           ...persisted,
           nodes,
           simulation,
+          expandedEdges,
           // Ensure default templates if persisted state has empty arrays
           nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : initialState.nodeTemplates,
           linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : initialState.linkTemplates,

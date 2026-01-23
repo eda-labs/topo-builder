@@ -113,19 +113,68 @@ export function exportToYaml(options: ExportOptions): string {
     const sourceIsSimNode = edge.source.startsWith('sim-');
     const targetIsSimNode = edge.target.startsWith('sim-');
 
-    // Output each member link as a separate link in YAML
     const memberLinks = edge.data?.memberLinks || [];
-    for (const member of memberLinks) {
+    const lagGroups = edge.data?.lagGroups || [];
+
+    const indicesInLags = new Set<number>();
+    for (const lag of lagGroups) {
+      for (const idx of lag.memberLinkIndices) {
+        indicesInLags.add(idx);
+      }
+    }
+
+    const handleLabels: Record<string, string> = {};
+    if (edge.sourceHandle) {
+      handleLabels[LABEL_SRC_HANDLE] = edge.sourceHandle;
+    }
+    if (edge.targetHandle) {
+      handleLabels[LABEL_DST_HANDLE] = edge.targetHandle;
+    }
+
+    for (const lag of lagGroups) {
+      const lagMemberLinks = lag.memberLinkIndices
+        .filter(idx => idx >= 0 && idx < memberLinks.length)
+        .map(idx => memberLinks[idx]);
+
+      if (lagMemberLinks.length === 0) continue;
+
+      const lagLink: YamlLink = {
+        name: lag.name,
+        endpoints: lagMemberLinks.map(member => ({
+          local: {
+            node: sourceName,
+            interface: member.sourceInterface || 'ethernet-1-1',
+          },
+          remote: {
+            node: targetName,
+            interface: member.targetInterface || 'ethernet-1-1',
+          },
+        })),
+      };
+
+      if (lag.template) {
+        lagLink.template = lag.template;
+      }
+
+      if (Object.keys(handleLabels).length > 0) {
+        lagLink.labels = { ...handleLabels };
+      }
+
+      islLinks.push(lagLink);
+    }
+
+    for (let i = 0; i < memberLinks.length; i++) {
+      if (indicesInLags.has(i)) continue; // Skip links that are part of a LAG
+
+      const member = memberLinks[i];
+
       // If connecting to a sim node, create an edge link with sim: endpoint
       if (targetIsSimNode) {
         const simNodeName = simNodeIdToName.get(edge.target) || edge.target;
-        const labels: Record<string, string> = {};
-        if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
-        if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: Object.keys(labels).length > 0 ? labels : undefined,
+          labels: Object.keys(handleLabels).length > 0 ? { ...handleLabels } : undefined,
           endpoints: [{
             local: {
               node: sourceName,
@@ -140,13 +189,10 @@ export function exportToYaml(options: ExportOptions): string {
       } else if (sourceIsSimNode) {
         // Sim node is the source, topology node is target
         const simNodeName = simNodeIdToName.get(edge.source) || edge.source;
-        const labels: Record<string, string> = {};
-        if (edge.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
-        if (edge.targetHandle) labels[LABEL_DST_HANDLE] = edge.targetHandle;
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: Object.keys(labels).length > 0 ? labels : undefined,
+          labels: Object.keys(handleLabels).length > 0 ? { ...handleLabels } : undefined,
           endpoints: [{
             local: {
               node: targetName,
@@ -180,16 +226,8 @@ export function exportToYaml(options: ExportOptions): string {
           link.template = member.template;
         }
 
-        // Store handles as labels
-        const labels: Record<string, string> = {};
-        if (edge.sourceHandle) {
-          labels[LABEL_SRC_HANDLE] = edge.sourceHandle;
-        }
-        if (edge.targetHandle) {
-          labels[LABEL_DST_HANDLE] = edge.targetHandle;
-        }
-        if (Object.keys(labels).length > 0) {
-          link.labels = labels;
+        if (Object.keys(handleLabels).length > 0) {
+          link.labels = { ...handleLabels };
         }
 
         islLinks.push(link);

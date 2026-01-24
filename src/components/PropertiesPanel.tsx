@@ -142,6 +142,9 @@ export function SelectionPanel() {
     const isNewLink = sessionStorage.getItem('topology-is-new-link') === 'true';
     const isExpanded = expandedEdges.has(selectedEdge.id);
 
+    const nodeA = edgeData.targetNode;
+    const nodeB = edgeData.sourceNode;
+
     const indicesInLags = new Set<number>();
     for (const lag of lagGroups) {
       for (const idx of lag.memberLinkIndices) {
@@ -214,7 +217,7 @@ export function SelectionPanel() {
             }}
           >
             <Typography variant="subtitle2" fontWeight={600}>
-              {edgeData.sourceNode} ↔ {edgeData.targetNode}
+              {nodeA} ↔ {nodeB}
             </Typography>
             <Chip
               label="LAG"
@@ -290,20 +293,20 @@ export function SelectionPanel() {
                       }}
                     >
                       <TextField
-                        label={edgeData.sourceNode}
-                        size="small"
-                        value={link.sourceInterface}
-                        onChange={(e) =>
-                          handleUpdateLink(index, { sourceInterface: e.target.value })
-                        }
-                        fullWidth
-                      />
-                      <TextField
-                        label={edgeData.targetNode}
+                        label={nodeA}
                         size="small"
                         value={link.targetInterface}
                         onChange={(e) =>
                           handleUpdateLink(index, { targetInterface: e.target.value })
+                        }
+                        fullWidth
+                      />
+                      <TextField
+                        label={nodeB}
+                        size="small"
+                        value={link.sourceInterface}
+                        onChange={(e) =>
+                          handleUpdateLink(index, { sourceInterface: e.target.value })
                         }
                         fullWidth
                       />
@@ -335,7 +338,7 @@ export function SelectionPanel() {
           }}
         >
           <Typography variant="subtitle2" fontWeight={600}>
-            {edgeData.sourceNode} ↔ {edgeData.targetNode}
+            {nodeA} ↔ {nodeB}
           </Typography>
           {memberLinks.length > 1 && (
             <Typography variant="caption" color="text.secondary">
@@ -418,24 +421,24 @@ export function SelectionPanel() {
                   </FormControl>
 
                   <TextField
-                    label={`${edgeData.sourceNode} Interface`}
+                    label={`${nodeA} Interface`}
                     size="small"
-                    value={link.sourceInterface}
+                    value={link.targetInterface}
                     onChange={(e) =>
                       handleUpdateLink(index, {
-                        sourceInterface: e.target.value,
+                        targetInterface: e.target.value,
                       })
                     }
                     fullWidth
                   />
 
                   <TextField
-                    label={`${edgeData.targetNode} Interface`}
+                    label={`${nodeB} Interface`}
                     size="small"
-                    value={link.targetInterface}
+                    value={link.sourceInterface}
                     onChange={(e) =>
                       handleUpdateLink(index, {
-                        targetInterface: e.target.value,
+                        sourceInterface: e.target.value,
                       })
                     }
                     fullWidth

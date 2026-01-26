@@ -318,8 +318,17 @@ export const useTopologyStore = create<TopologyStore>()(
       addEdge: (connection: Connection) => {
         const nodes = get().nodes;
         const edges = get().edges;
-        const sourceNode = nodes.find(n => n.id === connection.source)?.data.name || connection.source!;
-        const targetNode = nodes.find(n => n.id === connection.target)?.data.name || connection.target!;
+        const simNodes = get().simulation.simNodes;
+        const linkTemplates = get().linkTemplates;
+        const sourceNode = nodes.find(n => n.id === connection.source)?.data.name ||
+          simNodes.find(n => n.id === connection.source)?.name || connection.source!;
+        const targetNode = nodes.find(n => n.id === connection.target)?.data.name ||
+          simNodes.find(n => n.id === connection.target)?.name || connection.target!;
+
+        const isSimNodeConnection = connection.source?.startsWith('sim-') || connection.target?.startsWith('sim-');
+        const defaultTemplate = isSimNodeConnection
+          ? linkTemplates.find(t => t.type === 'edge')?.name || 'edge'
+          : 'isl';
 
         const handlesMatch = (edge: Edge<TopologyEdgeData>, conn: Connection, reversed: boolean) => {
           if (!reversed) {
@@ -381,7 +390,7 @@ export const useTopologyStore = create<TopologyStore>()(
           const existingMemberLinks = existingEdge.data.memberLinks || [];
           const newMemberLink: MemberLink = {
             name: `${targetNode}-${sourceNode}-${existingMemberLinks.length + 1}`,
-            template: 'isl',
+            template: defaultTemplate,
             sourceInterface: `ethernet-1-${nextSourcePort}`,
             targetInterface: `ethernet-1-${nextTargetPort}`,
           };
@@ -425,7 +434,7 @@ export const useTopologyStore = create<TopologyStore>()(
             targetNode,
             memberLinks: [{
               name: `${targetNode}-${sourceNode}-1`,
-              template: 'isl',
+              template: defaultTemplate,
               sourceInterface: `ethernet-1-${nextSourcePort}`,
               targetInterface: `ethernet-1-${nextTargetPort}`,
             }],

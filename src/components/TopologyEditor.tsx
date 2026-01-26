@@ -502,11 +502,21 @@ function TopologyEditorInner() {
     }
   };
 
+  const handleChangeSimNodeTemplate = (templateName: string) => {
+    if (selectedSimNodeName) {
+      useTopologyStore.getState().updateSimNode(selectedSimNodeName, { template: templateName });
+      triggerYamlRefresh();
+    }
+  };
+
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
   const currentNodeTemplate = selectedNode?.data?.template;
 
+  const selectedSimNode = simulation.simNodes.find(n => n.name === selectedSimNodeName);
+  const currentSimNodeTemplate = selectedSimNode?.template;
+
   const handleAddSimNode = () => {
-    const newName = `sim-node-${(simulation.simNodes?.length || 0) + 1}`;
+    const newName = `testman-${(simulation.simNodes?.length || 0) + 1}`;
     addSimNode({
       name: newName,
       template: simulation.simNodeTemplates[0]?.name,
@@ -597,13 +607,16 @@ function TopologyEditorInner() {
         onDeleteEdge={handleDeleteEdge}
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
+        onChangeSimNodeTemplate={handleChangeSimNodeTemplate}
         onCreateLag={handleCreateLag}
         onCreateEsiLag={handleCreateEsiLag}
         currentNodeTemplate={currentNodeTemplate}
+        currentSimNodeTemplate={currentSimNodeTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
         hasContent={nodes.length > 0 || edges.length > 0 || simulation.simNodes.length > 0}
         nodeTemplates={nodeTemplates}
+        simNodeTemplates={simulation.simNodeTemplates}
         selectedMemberLinkCount={selectedMemberLinkIndices.length}
         canCreateEsiLag={canCreateEsiLag}
       />

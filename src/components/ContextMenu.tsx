@@ -19,7 +19,7 @@ import {
   CallMerge as MergeIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
-import type { NodeTemplate } from '../types/topology';
+import type { NodeTemplate, SimNodeTemplate } from '../types/topology';
 
 interface ContextMenuProps {
   open: boolean;
@@ -31,6 +31,7 @@ interface ContextMenuProps {
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
+  onChangeSimNodeTemplate?: (templateName: string) => void;
   onCreateLag?: () => void;
   onCreateEsiLag?: () => void;
   onClearAll: () => void;
@@ -38,6 +39,8 @@ interface ContextMenuProps {
   hasContent: boolean;
   nodeTemplates?: NodeTemplate[];
   currentNodeTemplate?: string;
+  simNodeTemplates?: SimNodeTemplate[];
+  currentSimNodeTemplate?: string;
   selectedMemberLinkCount?: number;
   canCreateEsiLag?: boolean;
 }
@@ -52,6 +55,7 @@ export default function ContextMenu({
   onDeleteEdge,
   onDeleteSimNode,
   onChangeNodeTemplate,
+  onChangeSimNodeTemplate,
   onCreateLag,
   onCreateEsiLag,
   onClearAll,
@@ -59,6 +63,8 @@ export default function ContextMenu({
   hasContent,
   nodeTemplates = [],
   currentNodeTemplate,
+  simNodeTemplates = [],
+  currentSimNodeTemplate,
   selectedMemberLinkCount = 0,
   canCreateEsiLag = false,
 }: ContextMenuProps) {
@@ -87,6 +93,7 @@ export default function ContextMenu({
   if (!open) return null;
 
   const hasTemplates = nodeTemplates.length > 0;
+  const hasSimTemplates = simNodeTemplates.length > 0;
 
   return (
     <ClickAwayListener onClickAway={onClose} mouseEvent="onMouseDown">
@@ -128,6 +135,35 @@ export default function ContextMenu({
                           disabled={template.name === currentNodeTemplate}
                           onClick={() => { onChangeNodeTemplate(template.name); onClose(); }}
                           sx={{ opacity: template.name === currentNodeTemplate ? 0.5 : 1 }}
+                        >
+                          <ListItemText>{template.name}</ListItemText>
+                        </MenuItem>
+                      ))}
+                    </Paper>
+                  )}
+                </Box>
+              )}
+
+              {hasSelection === 'simNode' && hasSimTemplates && onChangeSimNodeTemplate && (
+                <Box
+                  onMouseEnter={() => setShowSubmenu(true)}
+                  onMouseLeave={() => setShowSubmenu(false)}
+                  sx={{ position: 'relative' }}
+                >
+                  <MenuItem>
+                    <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Change Template</ListItemText>
+                    <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
+                  </MenuItem>
+
+                  {showSubmenu && (
+                    <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 140 }}>
+                      {simNodeTemplates.map(template => (
+                        <MenuItem
+                          key={template.name}
+                          disabled={template.name === currentSimNodeTemplate}
+                          onClick={() => { onChangeSimNodeTemplate(template.name); onClose(); }}
+                          sx={{ opacity: template.name === currentSimNodeTemplate ? 0.5 : 1 }}
                         >
                           <ListItemText>{template.name}</ListItemText>
                         </MenuItem>

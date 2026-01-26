@@ -361,11 +361,24 @@ function TopologyEditorInner() {
           }
         }
       }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selectedNodeIds = nodes.filter(n => n.selected).map(n => n.id);
+        selectedNodeIds.forEach(id => deleteNode(id));
+
+        const selectedEdgeIdsList = edges.filter(e => e.selected).map(e => e.id);
+        selectedEdgeIdsList.forEach(id => deleteEdge(id));
+
+        if (selectedSimNodes.size > 0) {
+          selectedSimNodes.forEach(name => deleteSimNode(name));
+          setSelectedSimNodes(new Set());
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, edges, simulation.simNodes, selectedSimNodes, showSimNodes, onNodesChange, onEdgesChange, pasteSelection, addSimNode, triggerYamlRefresh]);
+  }, [nodes, edges, simulation.simNodes, selectedSimNodes, showSimNodes, onNodesChange, onEdgesChange, pasteSelection, addSimNode, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh]);
 
   const handlePaneClick = useCallback(() => {
     selectNode(null);

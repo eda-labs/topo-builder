@@ -217,10 +217,10 @@ export const useTopologyStore = create<TopologyStore>()(
         const allNames = [...allNodeNames, ...allSimNodeNames];
 
         let counter = get().nodes.length + 1;
-        let name = `node${counter}`;
+        let name = `node-${counter}`;
         while (allNames.includes(name)) {
           counter++;
-          name = `node${counter}`;
+          name = `node-${counter}`;
         }
 
         // Use provided template name, or fall back to first template

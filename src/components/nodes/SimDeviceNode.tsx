@@ -14,8 +14,6 @@ function SimDeviceNode({ id, data, selected }: NodeProps) {
   const simNode = nodeData.simNode;
 
   const simulation = useTopologyStore((state) => state.simulation);
-  const updateSimNode = useTopologyStore((state) => state.updateSimNode);
-  const triggerYamlRefresh = useTopologyStore((state) => state.triggerYamlRefresh);
 
   const template = simulation.simNodeTemplates.find(t => t.name === simNode.template);
   const nodeType: SimNodeType = simNode.type || template?.type || 'Linux';
@@ -34,9 +32,6 @@ function SimDeviceNode({ id, data, selected }: NodeProps) {
       selected={selected ?? false}
       name={simNode.name}
       icon={icon}
-      isNew={simNode.isNew as boolean | undefined}
-      onNameChange={(newName) => updateSimNode(simNode.name, { name: newName, isNew: false })}
-      onNameBlur={triggerYamlRefresh}
       className="border-dashed"
     />
   );

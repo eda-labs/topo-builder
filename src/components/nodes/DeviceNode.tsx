@@ -16,8 +16,6 @@ const RoleIcons: Record<string, string> = {
 export default function DeviceNode({ id, data, selected }: NodeProps) {
   const nodeData = data as TopologyNodeData;
   const nodeTemplates = useTopologyStore((state) => state.nodeTemplates);
-  const updateNode = useTopologyStore((state) => state.updateNode);
-  const triggerYamlRefresh = useTopologyStore((state) => state.triggerYamlRefresh);
 
   const template = nodeData.template ? nodeTemplates.find(t => t.name === nodeData.template) : null;
   const role = nodeData.role
@@ -31,9 +29,6 @@ export default function DeviceNode({ id, data, selected }: NodeProps) {
       selected={selected ?? false}
       name={nodeData.name}
       icon={iconSvg ? <span dangerouslySetInnerHTML={{ __html: iconSvg }} /> : undefined}
-      isNew={nodeData.isNew as boolean | undefined}
-      onNameChange={(newName) => updateNode(id, { name: newName, isNew: false })}
-      onNameBlur={triggerYamlRefresh}
     />
   );
 }

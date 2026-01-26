@@ -142,9 +142,11 @@ export function exportToYaml(options: ExportOptions): string {
         });
 
         const link: YamlLink = {
-          encapType: null,
           endpoints,
         };
+        if (memberLinks[0]?.template) {
+          link.template = memberLinks[0].template;
+        }
         esiLagLinks.push(link);
       } else {
         const endpoints: Array<{ local: { node: string; interface: string } }> = [];

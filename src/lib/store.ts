@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
-import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
+import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import yaml from 'js-yaml';
 import baseTemplateYaml from '../static/base-template.yaml?raw';
 import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
@@ -466,7 +466,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const deselectedEdges = edges.map(e => ({ ...e, selected: false }));
         set({
           nodes: deselectedNodes,
-          edges: addEdge(newEdge, deselectedEdges),
+          edges: [...deselectedEdges, newEdge],
           selectedEdgeId: id,
           selectedNodeId: null,
           selectedSimNodeName: null,
@@ -551,12 +551,19 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => {
-        const nonSelectChanges = changes.filter(c => c.type !== 'select');
+        const edges = get().edges;
+        const esiLagEdgeIds = new Set(edges.filter(e => e.data?.isMultihomed).map(e => e.id));
+
+        const nonSelectChanges = changes.filter(c => {
+          if (c.type === 'select') return false;
+          if (c.type === 'remove' && esiLagEdgeIds.has(c.id)) return false;
+          return true;
+        });
+
         if (nonSelectChanges.length > 0) {
           set({
-            edges: applyEdgeChanges(nonSelectChanges, get().edges),
+            edges: applyEdgeChanges(nonSelectChanges, edges),
           });
-          // Trigger YAML refresh if any edges were removed
           if (nonSelectChanges.some(c => c.type === 'remove')) {
             get().triggerYamlRefresh();
           }
@@ -1176,7 +1183,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
         const allMemberLinks = leafConnections.flatMap(lc => lc.memberLinks);
 
-        const newEdgeId = `edge-${++edgeIdCounter}`;
+        const newEdgeId = generateEdgeId();
 
         const esiLeaves = leafConnections.map(lc => ({
           nodeId: lc.nodeId,

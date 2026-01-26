@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
   Box,
   Typography,
@@ -13,8 +13,74 @@ import {
   Autocomplete,
   useTheme,
   Chip,
+  Divider,
 } from "@mui/material";
 import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from "@mui/icons-material";
+
+function PanelHeader({
+  title,
+  chip,
+  actions,
+}: {
+  title: string;
+  chip?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          minHeight: 32,
+          mb: 1,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="h6" fontSize={16} fontWeight={600}>
+            {title}
+          </Typography>
+          {chip}
+        </Box>
+        {actions}
+      </Box>
+      <Divider />
+    </Box>
+  );
+}
+
+function PanelSection({
+  title,
+  count,
+  actions,
+  children,
+}: {
+  title: string;
+  count?: number;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+          minHeight: 32,
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600}>
+          {title}{count !== undefined ? ` (${count})` : ''}
+        </Typography>
+        {actions}
+      </Box>
+      {children}
+    </Box>
+  );
+}
 import { useTopologyStore } from "../lib/store";
 import {
   NODE_PROFILE_SUGGESTIONS,
@@ -138,78 +204,137 @@ export function SelectionPanel() {
     const allConnectedEdges = [...connectedEdges, ...simNodeEdges, ...esiLagEdges];
 
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600}>
-          Node: {nodeData.name}
-        </Typography>
+      <Box>
+        <PanelHeader title={nodeData.name} />
 
-        <TextField
-          label="Name"
-          size="small"
-          value={nodeData.name || ""}
-          onChange={(e) => handleUpdateNodeField({ name: e.target.value })}
-          fullWidth
-          inputRef={nodeNameInputRef}
-        />
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
+            label="Name"
+            size="small"
+            value={nodeData.name || ""}
+            onChange={(e) => handleUpdateNodeField({ name: e.target.value })}
+            fullWidth
+            inputRef={nodeNameInputRef}
+          />
 
-        <FormControl size="small" fullWidth>
-          <InputLabel>Template</InputLabel>
-          <Select
-            label="Template"
-            value={nodeData.template || ""}
-            onChange={(e) =>
-              handleUpdateNodeField({ template: e.target.value || undefined })
-            }
-          >
-            <MenuItem value="">None</MenuItem>
-            {nodeTemplates.map((t) => (
-              <MenuItem key={t.name} value={t.name}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Template</InputLabel>
+            <Select
+              label="Template"
+              value={nodeData.template || ""}
+              onChange={(e) =>
+                handleUpdateNodeField({ template: e.target.value || undefined })
+              }
+            >
+              <MenuItem value="">None</MenuItem>
+              {nodeTemplates.map((t) => (
+                <MenuItem key={t.name} value={t.name}>
+                  {t.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
         {allConnectedEdges.length > 0 && (
-          <Box>
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-              Connected Links ({allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)})
-            </Typography>
+          <PanelSection
+            title="Connected Links"
+            count={allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
+          >
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {allConnectedEdges.map((edge) => {
                 const edgeData = edge.data;
                 if (!edgeData) return null;
                 const memberLinks = edgeData.memberLinks || [];
+                const lagGroups = edgeData.lagGroups || [];
+                const isEsiLag = edgeData.isMultihomed;
                 const otherNode = edgeData.sourceNode === nodeData.name
                   ? edgeData.targetNode
                   : edgeData.sourceNode;
 
-                return memberLinks.map((link, idx) => (
+                if (isEsiLag && edgeData.esiLeaves) {
+                  const esiName = memberLinks[0]?.name || `${edgeData.sourceNode}-esi-lag`;
+                  return (
+                    <Paper
+                      key={edge.id}
+                      variant="outlined"
+                      sx={{ p: 1, cursor: "pointer" }}
+                      onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
+                    >
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {esiName}
+                        </Typography>
+                        <Chip label="ESI-LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {edgeData.esiLeaves.length} member links
+                      </Typography>
+                    </Paper>
+                  );
+                }
+
+                const indicesInLags = new Set<number>();
+                lagGroups.forEach(lag => lag.memberLinkIndices.forEach(i => indicesInLags.add(i)));
+
+                const lagElements = lagGroups.map(lag => (
                   <Paper
-                    key={`${edge.id}-${idx}`}
+                    key={lag.id}
                     variant="outlined"
                     sx={{ p: 1, cursor: "pointer" }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
-                      useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                      useTopologyStore.getState().selectLag(edge.id, lag.id);
                     }}
                   >
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <Typography variant="body2" fontWeight={500}>
-                        {link.name}
+                        {lag.name || `${nodeData.name} ↔ ${otherNode}`}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        → {otherNode}
-                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
+                        <Typography variant="caption" color="text.secondary">
+                          → {otherNode}
+                        </Typography>
+                      </Box>
                     </Box>
                     <Typography variant="caption" color="text.secondary">
-                      {link.sourceInterface} ↔ {link.targetInterface}
+                      {lag.memberLinkIndices.length} member links
                     </Typography>
                   </Paper>
                 ));
+
+                const standaloneLinks = memberLinks
+                  .map((link, idx) => ({ link, idx }))
+                  .filter(({ idx }) => !indicesInLags.has(idx))
+                  .map(({ link, idx }) => (
+                    <Paper
+                      key={`${edge.id}-${idx}`}
+                      variant="outlined"
+                      sx={{ p: 1, cursor: "pointer" }}
+                      onClick={() => {
+                        useTopologyStore.getState().selectEdge(edge.id);
+                        useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                      }}
+                    >
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {link.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          → {otherNode}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {link.sourceInterface} ↔ {link.targetInterface}
+                      </Typography>
+                    </Paper>
+                  ));
+
+                return [...lagElements, ...standaloneLinks];
               })}
             </Box>
-          </Box>
+          </PanelSection>
         )}
       </Box>
     );
@@ -283,33 +408,26 @@ export function SelectionPanel() {
 
       return (
         <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 1,
-            }}
-          >
-            <Typography variant="subtitle2" fontWeight={600}>
-              {nodeA} ↔ {nodeB}
-            </Typography>
-            <Chip
-              label="LAG"
-              size="small"
-              sx={{
-                height: '20px',
-                fontSize: '10px',
-                fontWeight: 600,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-              }}
-            />
-          </Box>
+          <PanelHeader
+            title={`${nodeA} ↔ ${nodeB}`}
+            actions={
+              <Chip
+                label="LAG"
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                }}
+              />
+            }
+          />
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <TextField
-              label="LAG Name"
+              label="Name"
               size="small"
               value={selectedLag.name || ""}
               onChange={(e) => handleUpdateLagGroup(selectedLag.id, { name: e.target.value })}
@@ -331,119 +449,122 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
-
-            <Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 1,
-                }}
-              >
-                <Typography variant="body2" fontWeight={600}>
-                  Endpoints ({lagMemberLinksWithIndices.length})
-                </Typography>
-                <Button
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => addLinkToLag(selectedEdge.id, selectedLag.id)}
-                >
-                  Add
-                </Button>
-              </Box>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                {lagMemberLinksWithIndices.map(({ link, index }, listIndex) => (
-                  <Paper
-                    key={index}
-                    variant="outlined"
-                    sx={{ p: 1 }}
-                  >
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr auto",
-                        gap: 1,
-                        alignItems: "center",
-                      }}
-                    >
-                      <TextField
-                        label={nodeA}
-                        size="small"
-                        value={link.targetInterface}
-                        onChange={(e) =>
-                          handleUpdateLink(index, { targetInterface: e.target.value })
-                        }
-                        inputProps={{ tabIndex: listIndex * 2 + 1 }}
-                        fullWidth
-                      />
-                      <TextField
-                        label={nodeB}
-                        size="small"
-                        value={link.sourceInterface}
-                        onChange={(e) =>
-                          handleUpdateLink(index, { sourceInterface: e.target.value })
-                        }
-                        inputProps={{ tabIndex: listIndex * 2 + 2 }}
-                        fullWidth
-                      />
-                      <IconButton
-                        size="small"
-                        onClick={() => removeLinkFromLag(selectedEdge.id, selectedLag.id, index)}
-                        title={lagMemberLinksWithIndices.length <= 2 ? "Remove LAG (min 2 links)" : "Remove from LAG"}
-                      >
-                        <DeleteIcon fontSize="small" color="error" />
-                      </IconButton>
-                    </Box>
-                  </Paper>
-                ))}
-              </Box>
-            </Box>
           </Box>
+
+          <PanelSection
+            title="Endpoints"
+            count={lagMemberLinksWithIndices.length}
+            actions={
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => addLinkToLag(selectedEdge.id, selectedLag.id)}
+              >
+                Add
+              </Button>
+            }
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {lagMemberLinksWithIndices.map(({ link, index }, listIndex) => (
+                <Paper
+                  key={index}
+                  variant="outlined"
+                  sx={{ p: 1 }}
+                >
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr auto",
+                      gap: 1,
+                      alignItems: "center",
+                    }}
+                  >
+                    <TextField
+                      label={nodeA}
+                      size="small"
+                      value={link.targetInterface}
+                      onChange={(e) =>
+                        handleUpdateLink(index, { targetInterface: e.target.value })
+                      }
+                      inputProps={{ tabIndex: listIndex * 2 + 1 }}
+                      fullWidth
+                    />
+                    <TextField
+                      label={nodeB}
+                      size="small"
+                      value={link.sourceInterface}
+                      onChange={(e) =>
+                        handleUpdateLink(index, { sourceInterface: e.target.value })
+                      }
+                      inputProps={{ tabIndex: listIndex * 2 + 2 }}
+                      fullWidth
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => removeLinkFromLag(selectedEdge.id, selectedLag.id, index)}
+                      title={lagMemberLinksWithIndices.length <= 2 ? "Remove LAG (min 2 links)" : "Remove from LAG"}
+                    >
+                      <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          </PanelSection>
         </Box>
       );
     }
 
     if (edgeData.isMultihomed && edgeData.esiLeaves) {
       const esiLeaves = edgeData.esiLeaves;
-      const addLinkToEsiLag = useTopologyStore.getState().addLinkToEsiLag;
       const removeLinkFromEsiLag = useTopologyStore.getState().removeLinkFromEsiLag;
 
       return (
         <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              mb: 1,
-            }}
-          >
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600}>{nodeB}</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5, pl: 2 }}>
-                {esiLeaves.map((leaf) => (
-                  <Box key={leaf.nodeId} sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
-                    <ArrowIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                    <Typography variant="body2">{leaf.nodeName}</Typography>
-                  </Box>
-                ))}
-              </Box>
+          <PanelHeader
+            title={nodeB}
+            actions={
+              <Chip
+                label="ESI-LAG"
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                }}
+              />
+            }
+          />
+
+          <Box sx={{ pl: 2, mb: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+              {esiLeaves.map((leaf) => (
+                <Box key={leaf.nodeId} sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
+                  <ArrowIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                  <Typography variant="body2">{leaf.nodeName}</Typography>
+                </Box>
+              ))}
             </Box>
-            <Chip
-              label="ESI"
-              size="small"
-              sx={{
-                height: '20px',
-                fontSize: '10px',
-                fontWeight: 600,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-              }}
-            />
           </Box>
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <TextField
+              label="Name"
+              size="small"
+              value={memberLinks[0]?.name || ""}
+              onChange={(e) => {
+                const newName = e.target.value;
+                const newLinks = memberLinks.map((link, i) =>
+                  i === 0 ? { ...link, name: newName } : link
+                );
+                updateEdge(selectedEdge.id, { memberLinks: newLinks });
+                triggerYamlRefresh();
+              }}
+              fullWidth
+            />
+
             <FormControl size="small" fullWidth>
               <InputLabel>Template</InputLabel>
               <Select
@@ -464,81 +585,63 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
-
-            <Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 1,
-                }}
-              >
-                <Typography variant="body2" fontWeight={600}>
-                  Endpoints ({esiLeaves.length})
-                </Typography>
-                {esiLeaves.length < 4 && (
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={() => addLinkToEsiLag(selectedEdge.id)}
-                  >
-                    Add
-                  </Button>
-                )}
-              </Box>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                {esiLeaves.map((leaf, index) => {
-                  const memberLink = memberLinks[index];
-                  return (
-                    <Paper
-                      key={index}
-                      variant="outlined"
-                      sx={{ p: 1 }}
-                    >
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr auto",
-                          gap: 1,
-                          alignItems: "center",
-                        }}
-                      >
-                        <TextField
-                          label={leaf.nodeName}
-                          size="small"
-                          value={memberLink?.targetInterface || ''}
-                          onChange={(e) =>
-                            handleUpdateLink(index, { targetInterface: e.target.value })
-                          }
-                          inputProps={{ tabIndex: index * 2 + 1 }}
-                          fullWidth
-                        />
-                        <TextField
-                          label={nodeB}
-                          size="small"
-                          value={memberLink?.sourceInterface || ''}
-                          onChange={(e) =>
-                            handleUpdateLink(index, { sourceInterface: e.target.value })
-                          }
-                          inputProps={{ tabIndex: index * 2 + 2 }}
-                          fullWidth
-                        />
-                        <IconButton
-                          size="small"
-                          onClick={() => removeLinkFromEsiLag(selectedEdge.id, index)}
-                          disabled={esiLeaves.length <= 2}
-                          title={esiLeaves.length <= 2 ? "Minimum 2 links required" : "Remove endpoint"}
-                        >
-                          <DeleteIcon fontSize="small" color={esiLeaves.length <= 2 ? "disabled" : "error"} />
-                        </IconButton>
-                      </Box>
-                    </Paper>
-                  );
-                })}
-              </Box>
-            </Box>
           </Box>
+
+          <PanelSection
+            title="Endpoints"
+            count={esiLeaves.length}
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {esiLeaves.map((leaf, index) => {
+                const memberLink = memberLinks[index];
+                return (
+                  <Paper
+                    key={index}
+                    variant="outlined"
+                    sx={{ p: 1 }}
+                  >
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr auto",
+                        gap: 1,
+                        alignItems: "center",
+                      }}
+                    >
+                      <TextField
+                        label={leaf.nodeName}
+                        size="small"
+                        value={memberLink?.targetInterface || ''}
+                        onChange={(e) =>
+                          handleUpdateLink(index, { targetInterface: e.target.value })
+                        }
+                        inputProps={{ tabIndex: index * 2 + 1 }}
+                        fullWidth
+                      />
+                      <TextField
+                        label={nodeB}
+                        size="small"
+                        value={memberLink?.sourceInterface || ''}
+                        onChange={(e) =>
+                          handleUpdateLink(index, { sourceInterface: e.target.value })
+                        }
+                        inputProps={{ tabIndex: index * 2 + 2 }}
+                        fullWidth
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => removeLinkFromEsiLag(selectedEdge.id, index)}
+                        disabled={esiLeaves.length <= 2}
+                        title={esiLeaves.length <= 2 ? "Minimum 2 links required" : "Remove endpoint"}
+                      >
+                        <DeleteIcon fontSize="small" color={esiLeaves.length <= 2 ? "disabled" : "error"} />
+                      </IconButton>
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Box>
+          </PanelSection>
         </Box>
       );
     }
@@ -565,60 +668,48 @@ export function SelectionPanel() {
       triggerYamlRefresh();
     };
 
-    return (
-      <Box>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 1,
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight={600}>
-            {nodeA} ↔ {nodeB}
-          </Typography>
-          {isShowingBundle && (
-            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-              Add
-            </Button>
-          )}
-        </Box>
-
-        {memberLinks.length === 0 ? (
+    if (memberLinks.length === 0) {
+      return (
+        <Box>
+          <PanelHeader title={`${nodeA} ↔ ${nodeB}`} />
           <Typography color="text.secondary" textAlign="center" py={2}>
             No member links
           </Typography>
-        ) : linksToShow.length === 0 ? (
+        </Box>
+      );
+    }
+
+    if (linksToShow.length === 0) {
+      return (
+        <Box>
+          <PanelHeader
+            title={`${nodeA} ↔ ${nodeB}`}
+            actions={
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                Add
+              </Button>
+            }
+          />
           <Typography color="text.secondary" textAlign="center" py={2}>
             Select a link to edit
           </Typography>
-        ) : (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {linksToShow.map(({ link, index }, listIndex) => (
-              <Paper
-                key={index}
-                variant="outlined"
-                sx={{ p: 1 }}
-              >
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: 1,
-                    alignItems: "center",
-                    mb: 1,
-                  }}
-                >
-                  <TextField
-                    label="Link Name"
-                    size="small"
-                    value={link.name}
-                    onChange={(e) =>
-                      handleUpdateLink(index, { name: e.target.value })
-                    }
-                    fullWidth
-                  />
+        </Box>
+      );
+    }
+
+    return (
+      <Box>
+        {linksToShow.map(({ link, index }, listIndex) => (
+          <Box key={index}>
+            <PanelHeader
+              title={`${nodeA} ↔ ${nodeB}`}
+              actions={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {isShowingBundle && (
+                    <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                      Add
+                    </Button>
+                  )}
                   <IconButton
                     size="small"
                     onClick={() => handleDeleteLink(index)}
@@ -626,17 +717,51 @@ export function SelectionPanel() {
                     <DeleteIcon fontSize="small" color="error" />
                   </IconButton>
                 </Box>
+              }
+            />
 
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <TextField
+                label="Name"
+                size="small"
+                value={link.name}
+                onChange={(e) =>
+                  handleUpdateLink(index, { name: e.target.value })
+                }
+                fullWidth
+              />
+
+              <FormControl size="small" fullWidth>
+                <InputLabel>Template</InputLabel>
+                <Select
+                  label="Template"
+                  value={link.template || ""}
+                  onChange={(e) =>
+                    handleUpdateLink(index, { template: e.target.value })
+                  }
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {linkTemplates.map((t) => (
+                    <MenuItem key={t.name} value={t.name}>
+                      {t.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            <PanelSection title="Endpoints">
+              <Paper variant="outlined" sx={{ p: 1 }}>
                 <Box
                   sx={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: 1,
-                    mb: 1,
+                    alignItems: "center",
                   }}
                 >
                   <TextField
-                    label={`${nodeA} Interface`}
+                    label={nodeA}
                     size="small"
                     value={link.targetInterface}
                     onChange={(e) =>
@@ -649,7 +774,7 @@ export function SelectionPanel() {
                     fullWidth
                   />
                   <TextField
-                    label={`${nodeB} Interface`}
+                    label={nodeB}
                     size="small"
                     value={link.sourceInterface}
                     onChange={(e) =>
@@ -662,28 +787,10 @@ export function SelectionPanel() {
                     fullWidth
                   />
                 </Box>
-
-                <FormControl size="small" fullWidth>
-                  <InputLabel>Template</InputLabel>
-                  <Select
-                    label="Template"
-                    value={link.template || ""}
-                    onChange={(e) =>
-                      handleUpdateLink(index, { template: e.target.value })
-                    }
-                  >
-                    <MenuItem value="">None</MenuItem>
-                    {linkTemplates.map((t) => (
-                      <MenuItem key={t.name} value={t.name}>
-                        {t.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
               </Paper>
-            ))}
+            </PanelSection>
           </Box>
-        )}
+        ))}
       </Box>
     );
   }
@@ -1006,21 +1113,14 @@ export function NodeTemplatesPanel() {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600}>
-          Node Templates
-        </Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
-          Add
-        </Button>
-      </Box>
+      <PanelHeader
+        title="Node Templates"
+        actions={
+          <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
+            Add
+          </Button>
+        }
+      />
 
       {nodeTemplates.length === 0 ? (
         <Typography color="text.secondary" textAlign="center" py={2}>
@@ -1189,21 +1289,14 @@ export function LinkTemplatesPanel() {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600}>
-          Link Templates
-        </Typography>
-        <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
-          Add
-        </Button>
-      </Box>
+      <PanelHeader
+        title="Link Templates"
+        actions={
+          <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
+            Add
+          </Button>
+        }
+      />
 
       {linkTemplates.length === 0 ? (
         <Typography color="text.secondary" textAlign="center" py={2}>
@@ -1250,102 +1343,135 @@ function SimNodeSelectionEditor({
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Typography variant="subtitle2" fontWeight={600}>
-        Sim Node: {simNode.name}
-      </Typography>
+    <Box>
+      <PanelHeader title={simNode.name} />
 
-      <TextField
-        label="Name"
-        size="small"
-        value={localName}
-        onChange={(e) => setLocalName(e.target.value)}
-        onBlur={handleNameBlur}
-        fullWidth
-      />
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TextField
+          label="Name"
+          size="small"
+          value={localName}
+          onChange={(e) => setLocalName(e.target.value)}
+          onBlur={handleNameBlur}
+          fullWidth
+        />
 
-      <FormControl size="small" fullWidth>
-        <InputLabel>Template</InputLabel>
-        <Select
-          label="Template"
-          value={simNode.template || ""}
-          onChange={(e) => onUpdate({ template: e.target.value || undefined })}
-        >
-          <MenuItem value="">None</MenuItem>
-          {simNodeTemplates.map((t) => (
-            <MenuItem key={t.name} value={t.name}>
-              {t.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Template</InputLabel>
+          <Select
+            label="Template"
+            value={simNode.template || ""}
+            onChange={(e) => onUpdate({ template: e.target.value || undefined })}
+          >
+            <MenuItem value="">None</MenuItem>
+            {simNodeTemplates.map((t) => (
+              <MenuItem key={t.name} value={t.name}>
+                {t.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
       {connectedEdges.length > 0 && (
-        <Box>
-          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-            Connected Links ({connectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)})
-            {connectedEdges.some(e => e.data?.isMultihomed) && " (incl. ESI LAG)"}
-          </Typography>
+        <PanelSection
+          title="Connected Links"
+          count={connectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
+        >
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {connectedEdges.map((edge) => {
               const edgeData = edge.data;
               if (!edgeData) return null;
               const memberLinks = edgeData.memberLinks || [];
+              const lagGroups = edgeData.lagGroups || [];
               const isEsiLag = edgeData.isMultihomed;
               const otherNode = edgeData.sourceNode === simNode.name
                 ? edgeData.targetNode
                 : edgeData.sourceNode;
 
               if (isEsiLag && edgeData.esiLeaves) {
-                const leaves = edgeData.esiLeaves.map(l => l.nodeName).join(", ");
+                const esiName = memberLinks[0]?.name || `${edgeData.sourceNode}-esi-lag`;
                 return (
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: 1, cursor: "pointer", borderColor: "primary.main" }}
-                    onClick={() => {
-                      useTopologyStore.getState().selectEdge(edge.id);
-                    }}
+                    sx={{ p: 1, cursor: "pointer" }}
+                    onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
                   >
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <Typography variant="body2" fontWeight={500}>
-                        ESI LAG
+                        {esiName}
                       </Typography>
-                      <Chip label="ESI" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
+                      <Chip label="ESI-LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
                     </Box>
                     <Typography variant="caption" color="text.secondary">
-                      → {leaves}
+                      {edgeData.esiLeaves.length} member links
                     </Typography>
                   </Paper>
                 );
               }
 
-              return memberLinks.map((link, idx) => (
+              const indicesInLags = new Set<number>();
+              lagGroups.forEach(lag => lag.memberLinkIndices.forEach(i => indicesInLags.add(i)));
+
+              const lagElements = lagGroups.map(lag => (
                 <Paper
-                  key={`${edge.id}-${idx}`}
+                  key={lag.id}
                   variant="outlined"
                   sx={{ p: 1, cursor: "pointer" }}
                   onClick={() => {
                     useTopologyStore.getState().selectEdge(edge.id);
-                    useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                    useTopologyStore.getState().selectLag(edge.id, lag.id);
                   }}
                 >
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Typography variant="body2" fontWeight={500}>
-                      {link.name}
+                      {lag.name || `${simNode.name} ↔ ${otherNode}`}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      → {otherNode}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
+                      <Typography variant="caption" color="text.secondary">
+                        → {otherNode}
+                      </Typography>
+                    </Box>
                   </Box>
                   <Typography variant="caption" color="text.secondary">
-                    {link.sourceInterface} ↔ {link.targetInterface}
+                    {lag.memberLinkIndices.length} member links
                   </Typography>
                 </Paper>
               ));
+
+              const standaloneLinks = memberLinks
+                .map((link, idx) => ({ link, idx }))
+                .filter(({ idx }) => !indicesInLags.has(idx))
+                .map(({ link, idx }) => (
+                  <Paper
+                    key={`${edge.id}-${idx}`}
+                    variant="outlined"
+                    sx={{ p: 1, cursor: "pointer" }}
+                    onClick={() => {
+                      useTopologyStore.getState().selectEdge(edge.id);
+                      useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                    }}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        {link.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        → {otherNode}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {link.sourceInterface} ↔ {link.targetInterface}
+                    </Typography>
+                  </Paper>
+                ));
+
+              return [...lagElements, ...standaloneLinks];
             })}
           </Box>
-        </Box>
+        </PanelSection>
       )}
     </Box>
   );
@@ -1496,35 +1622,28 @@ export function SimNodeTemplatesPanel() {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600}>
-          SimNode Templates
-        </Typography>
-        <Box>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={handleAddLinux}
-            sx={{ mr: 0.5 }}
-          >
-            Linux
-          </Button>
-          <Button
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={handleAddTestMan}
-          >
-            TestMan
-          </Button>
-        </Box>
-      </Box>
+      <PanelHeader
+        title="SimNode Templates"
+        actions={
+          <Box>
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={handleAddLinux}
+              sx={{ mr: 0.5 }}
+            >
+              Linux
+            </Button>
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={handleAddTestMan}
+            >
+              TestMan
+            </Button>
+          </Box>
+        }
+      />
 
       {simNodeTemplates.length === 0 ? (
         <Typography color="text.secondary" textAlign="center" py={2}>

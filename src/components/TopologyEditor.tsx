@@ -340,7 +340,11 @@ function TopologyEditorInner() {
         const currentSimNodes = currentState.simulation.simNodes;
         const currentShowSimNodes = currentState.showSimNodes;
 
-        const allEdgeIds = currentEdges.map(edge => edge.id);
+        // Filter out sim-related edges when SimNodes are hidden
+        const selectableEdges = currentShowSimNodes
+          ? currentEdges
+          : currentEdges.filter(e => !e.source.startsWith('sim-') && !e.target.startsWith('sim-'));
+        const allEdgeIds = selectableEdges.map(edge => edge.id);
 
         const simNodeNames = currentShowSimNodes && currentSimNodes.length > 0
           ? new Set(currentSimNodes.map(sn => sn.name))
@@ -348,7 +352,10 @@ function TopologyEditorInner() {
 
         useTopologyStore.setState({
           nodes: currentNodes.map(n => ({ ...n, selected: true })),
-          edges: currentEdges.map(edge => ({ ...edge, selected: true })),
+          edges: currentEdges.map(edge => ({
+            ...edge,
+            selected: allEdgeIds.includes(edge.id),
+          })),
           selectedEdgeIds: allEdgeIds,
           selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
           selectedNodeId: currentNodes.length > 0 ? currentNodes[currentNodes.length - 1].id : null,
@@ -538,6 +545,39 @@ function TopologyEditorInner() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [screenToFlowPosition]);
 
+  // Clear SimNode and sim-related edge selections when SimNodes are hidden
+  useEffect(() => {
+    if (!showSimNodes) {
+      // Clear SimNode selections
+      if (selectedSimNodeNames.size > 0) {
+        selectSimNodes(new Set());
+      }
+      if (selectedSimNodeName) {
+        selectSimNode(null);
+      }
+      // Deselect any edges connected to SimNodes
+      const simEdgeIds = edges
+        .filter(e => e.source.startsWith('sim-') || e.target.startsWith('sim-'))
+        .map(e => e.id);
+      if (simEdgeIds.length > 0 && selectedEdgeIds.some(id => simEdgeIds.includes(id))) {
+        const nonSimSelectedEdges = selectedEdgeIds.filter(id => !simEdgeIds.includes(id));
+        if (nonSimSelectedEdges.length === 0) {
+          selectEdge(null);
+        } else {
+          // Re-select only non-sim edges
+          useTopologyStore.setState({
+            selectedEdgeIds: nonSimSelectedEdges,
+            selectedEdgeId: nonSimSelectedEdges[nonSimSelectedEdges.length - 1],
+            edges: edges.map(e => ({
+              ...e,
+              selected: nonSimSelectedEdges.includes(e.id),
+            })),
+          });
+        }
+      }
+    }
+  }, [showSimNodes, selectedSimNodeNames, selectedSimNodeName, selectedEdgeIds, edges, selectSimNodes, selectSimNode, selectEdge]);
+
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (node.type === 'simDeviceNode') {
       const simName = (node.data as SimDeviceNodeData).simNode.name;
@@ -562,11 +602,15 @@ function TopologyEditorInner() {
   }, [selectNode, selectSimNode, selectSimNodes, activeTab]);
 
   const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
+    // Don't select edges connected to SimNodes when SimNodes are hidden
+    if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
+      return;
+    }
     selectEdge(edge.id, event.shiftKey);
     if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
-  }, [selectEdge, activeTab]);
+  }, [selectEdge, activeTab, showSimNodes]);
 
   const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     const linkCount = edge.data?.memberLinks?.length || 0;
@@ -603,6 +647,10 @@ function TopologyEditorInner() {
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     event.preventDefault();
+    // Don't show context menu for sim-related edges when SimNodes are hidden
+    if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
+      return;
+    }
     // If this edge is already in the selection, preserve multi-selection
     // Otherwise, select just this edge (unless shift is held)
     if (!selectedEdgeIds.includes(edge.id)) {
@@ -613,7 +661,7 @@ function TopologyEditorInner() {
       position: { x: event.clientX, y: event.clientY },
       flowPosition: { x: 0, y: 0 },
     });
-  }, [selectEdge, selectedEdgeIds]);
+  }, [selectEdge, selectedEdgeIds, showSimNodes]);
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, open: false }));
@@ -643,7 +691,7 @@ function TopologyEditorInner() {
     const regularEdges = selectedEdges.filter(e => !e.data?.isMultihomed);
 
     if (esiLagEdges.length > 1) {
-      return { valid: false, error: 'Cannot merge multiple ESI LAGs' };
+      return { valid: false, error: 'Cannot merge multiple ESI-LAGs' };
     }
 
     const esiLag = esiLagEdges[0];
@@ -651,11 +699,11 @@ function TopologyEditorInner() {
     const totalLeaves = esiLeafCount + regularEdges.length;
 
     if (esiLag && totalLeaves > 4) {
-      return { valid: false, error: 'ESI LAG cannot have more than 4 links' };
+      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
     }
 
     if (!esiLag && selectedEdges.length > 4) {
-      return { valid: false, error: 'ESI LAG cannot have more than 4 links' };
+      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
     }
 
     if (esiLag) {

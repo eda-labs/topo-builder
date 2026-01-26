@@ -200,7 +200,7 @@ export default function ContextMenu({
                 <>
                   <MenuItem onClick={() => { onCreateEsiLag(); onClose(); }}>
                     <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>{isMergeIntoEsiLag ? 'Merge into ESI LAG' : 'Create ESI LAG'}</ListItemText>
+                    <ListItemText>{isMergeIntoEsiLag ? 'Merge into ESI-LAG' : 'Create ESI-LAG'}</ListItemText>
                   </MenuItem>
                   <Divider />
                 </>

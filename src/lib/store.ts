@@ -280,7 +280,23 @@ export const useTopologyStore = create<TopologyStore>()(
           updatedEdges = updatedEdges.map(edge => {
             const needsSourceUpdate = edge.source === id;
             const needsTargetUpdate = edge.target === id;
-            if (!needsSourceUpdate && !needsTargetUpdate) return edge;
+            const isEsiLeaf = edge.data?.esiLeaves?.some(leaf => leaf.nodeId === id);
+
+            if (!needsSourceUpdate && !needsTargetUpdate && !isEsiLeaf) return edge;
+
+            const updatedMemberLinks = edge.data?.memberLinks?.map(link => ({
+              ...link,
+              name: link.name.replace(new RegExp(`(^|-)${oldName}(-|$)`, 'g'), `$1${newName}$2`),
+            }));
+
+            const updatedEsiLeaves = edge.data?.esiLeaves?.map(leaf =>
+              leaf.nodeId === id ? { ...leaf, nodeName: newName } : leaf
+            );
+
+            const updatedLagGroups = edge.data?.lagGroups?.map(lag => ({
+              ...lag,
+              name: lag.name.replace(new RegExp(`(^|-)${oldName}(-|$)`, 'g'), `$1${newName}$2`),
+            }));
 
             return {
               ...edge,
@@ -288,6 +304,9 @@ export const useTopologyStore = create<TopologyStore>()(
                 ...edge.data,
                 sourceNode: needsSourceUpdate ? newName : edge.data.sourceNode,
                 targetNode: needsTargetUpdate ? newName : edge.data.targetNode,
+                memberLinks: updatedMemberLinks,
+                esiLeaves: updatedEsiLeaves,
+                lagGroups: updatedLagGroups,
               } : edge.data,
             };
           });
@@ -354,7 +373,7 @@ export const useTopologyStore = create<TopologyStore>()(
         };
 
         const existingEdge = edges.find(e => {
-          if (e.data?.isMultihomed) return false; // Don't add member links to ESI LAG edges
+          if (e.data?.isMultihomed) return false; // Don't add member links to ESI-LAG edges
 
           const sameDirection = e.source === connection.source && e.target === connection.target;
           const reversedDirection = e.source === connection.target && e.target === connection.source;
@@ -734,7 +753,6 @@ export const useTopologyStore = create<TopologyStore>()(
           }
         }
 
-        // Update edge data when name changes (ID stays stable)
         let updatedEdges = get().edges;
         if (simNodeUpdate.name && simNodeUpdate.name !== name) {
           updatedEdges = updatedEdges.map(edge => {
@@ -742,12 +760,24 @@ export const useTopologyStore = create<TopologyStore>()(
             const needsTargetUpdate = edge.target === stableId;
             if (!needsSourceUpdate && !needsTargetUpdate) return edge;
 
+            const updatedMemberLinks = edge.data?.memberLinks?.map(link => ({
+              ...link,
+              name: link.name.replace(new RegExp(`(^|-)${name}(-|$)`, 'g'), `$1${newName}$2`),
+            }));
+
+            const updatedLagGroups = edge.data?.lagGroups?.map(lag => ({
+              ...lag,
+              name: lag.name.replace(new RegExp(`(^|-)${name}(-|$)`, 'g'), `$1${newName}$2`),
+            }));
+
             return {
               ...edge,
               data: edge.data ? {
                 ...edge.data,
                 sourceNode: needsSourceUpdate ? newName : edge.data.sourceNode,
                 targetNode: needsTargetUpdate ? newName : edge.data.targetNode,
+                memberLinks: updatedMemberLinks,
+                lagGroups: updatedLagGroups,
               } : edge.data,
             };
           });
@@ -1109,7 +1139,7 @@ export const useTopologyStore = create<TopologyStore>()(
           .filter((e): e is Edge<TopologyEdgeData> => e !== undefined && e.data !== undefined);
 
         if (selectedEdges.length < 2 || selectedEdges.length > 4) {
-          get().setError('ESI LAG requires 2-4 edges');
+          get().setError('ESI-LAG requires 2-4 edges');
           return;
         }
 
@@ -1321,7 +1351,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const currentMemberLinks = esiLagEdge.data.memberLinks || [];
 
         if (currentLeaves.length + edgesToMerge.length > 4) {
-          get().setError('ESI LAG cannot have more than 4 links');
+          get().setError('ESI-LAG cannot have more than 4 links');
           return;
         }
 

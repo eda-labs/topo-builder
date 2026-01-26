@@ -123,6 +123,79 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
   }
 }
 
+export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): void {
+  if (!editorInstance) return;
+
+  const content = editorInstance.getValue();
+  const lines = content.split('\n');
+
+  let foundEdgeId = false;
+  let foundMemberIndex = false;
+  let stanzaStart = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('- name:')) {
+      if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
+        break;
+      }
+      foundEdgeId = false;
+      foundMemberIndex = false;
+      stanzaStart = i;
+    }
+
+    if (trimmed.startsWith('pos/edgeId:')) {
+      let value = trimmed.slice(11).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (value === edgeId) foundEdgeId = true;
+    }
+
+    if (trimmed.startsWith('pos/memberIndex:')) {
+      let value = trimmed.slice(16).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (value === String(memberIndex)) foundMemberIndex = true;
+    }
+  }
+
+  if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
+    const listItemIndent = lines[stanzaStart].length - lines[stanzaStart].trimStart().length;
+    let endLine = stanzaStart;
+
+    for (let j = stanzaStart + 1; j < lines.length; j++) {
+      const nextLine = lines[j];
+      const nextTrimmed = nextLine.trimStart();
+      const nextIndent = nextLine.length - nextTrimmed.length;
+
+      if (nextTrimmed.length === 0) {
+        endLine = j;
+        continue;
+      }
+
+      if (nextIndent <= listItemIndent) {
+        break;
+      }
+
+      endLine = j;
+    }
+
+    editorInstance.revealLineInCenter(stanzaStart + 1);
+    editorInstance.setSelection({
+      startLineNumber: stanzaStart + 1,
+      startColumn: 1,
+      endLineNumber: endLine + 1,
+      endColumn: lines[endLine].length + 1,
+    });
+  }
+}
+
 export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,

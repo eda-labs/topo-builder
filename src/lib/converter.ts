@@ -9,7 +9,7 @@ import type {
   Operation,
   Simulation,
 } from '../types/topology';
-import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
+import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, LABEL_EDGE_ID, LABEL_MEMBER_INDEX } from './constants';
 
 interface ExportOptions {
   topologyName: string;
@@ -167,13 +167,12 @@ export function exportToYaml(options: ExportOptions): string {
       }
     }
 
-    const handleLabels: Record<string, string> = {};
-    if (edge.sourceHandle) {
-      handleLabels[LABEL_SRC_HANDLE] = edge.sourceHandle;
-    }
-    if (edge.targetHandle) {
-      handleLabels[LABEL_DST_HANDLE] = edge.targetHandle;
-    }
+    const createPosLabels = (memberIndex: number) => ({
+      [LABEL_EDGE_ID]: edge.id,
+      [LABEL_MEMBER_INDEX]: String(memberIndex),
+      ...(edge.sourceHandle && { [LABEL_SRC_HANDLE]: edge.sourceHandle }),
+      ...(edge.targetHandle && { [LABEL_DST_HANDLE]: edge.targetHandle }),
+    });
 
     for (const lag of lagGroups) {
       const lagMemberLinks = lag.memberLinkIndices
@@ -182,8 +181,11 @@ export function exportToYaml(options: ExportOptions): string {
 
       if (lagMemberLinks.length === 0) continue;
 
+      const firstMemberIndex = lag.memberLinkIndices[0];
+
       const lagLink: YamlLink = {
         name: lag.name,
+        labels: createPosLabels(firstMemberIndex),
         endpoints: lagMemberLinks.map(member => ({
           local: {
             node: sourceName,
@@ -200,10 +202,6 @@ export function exportToYaml(options: ExportOptions): string {
         lagLink.template = lag.template;
       }
 
-      if (Object.keys(handleLabels).length > 0) {
-        lagLink.labels = { ...handleLabels };
-      }
-
       islLinks.push(lagLink);
     }
 
@@ -218,7 +216,7 @@ export function exportToYaml(options: ExportOptions): string {
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: Object.keys(handleLabels).length > 0 ? { ...handleLabels } : undefined,
+          labels: createPosLabels(i),
           endpoints: [{
             local: {
               node: sourceName,
@@ -236,7 +234,7 @@ export function exportToYaml(options: ExportOptions): string {
         simLinks.push({
           name: member.name,
           template: member.template,
-          labels: Object.keys(handleLabels).length > 0 ? { ...handleLabels } : undefined,
+          labels: createPosLabels(i),
           endpoints: [{
             local: {
               node: targetName,
@@ -252,6 +250,7 @@ export function exportToYaml(options: ExportOptions): string {
         // Regular ISL link between two topology nodes
         const link: YamlLink = {
           name: member.name,
+          labels: createPosLabels(i),
           endpoints: [
             {
               local: {
@@ -268,10 +267,6 @@ export function exportToYaml(options: ExportOptions): string {
 
         if (member.template) {
           link.template = member.template;
-        }
-
-        if (Object.keys(handleLabels).length > 0) {
-          link.labels = { ...handleLabels };
         }
 
         islLinks.push(link);

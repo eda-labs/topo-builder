@@ -99,6 +99,19 @@ export function SelectionPanel() {
       triggerYamlRefresh();
     };
 
+    const connectedEdges = edges.filter(
+      (e) => e.source === selectedNode.id || e.target === selectedNode.id
+    );
+
+    const simNodeEdges = edges.filter((e) => {
+      if (e.source === selectedNode.id || e.target === selectedNode.id) return false;
+      return (
+        e.data?.sourceNode === nodeData.name || e.data?.targetNode === nodeData.name
+      );
+    });
+
+    const allConnectedEdges = [...connectedEdges, ...simNodeEdges];
+
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <Typography variant="subtitle2" fontWeight={600}>
@@ -131,6 +144,48 @@ export function SelectionPanel() {
             ))}
           </Select>
         </FormControl>
+
+        {allConnectedEdges.length > 0 && (
+          <Box>
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+              Connected Links ({allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)})
+            </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {allConnectedEdges.map((edge) => {
+                const edgeData = edge.data;
+                if (!edgeData) return null;
+                const memberLinks = edgeData.memberLinks || [];
+                const otherNode = edgeData.sourceNode === nodeData.name
+                  ? edgeData.targetNode
+                  : edgeData.sourceNode;
+
+                return memberLinks.map((link, idx) => (
+                  <Paper
+                    key={`${edge.id}-${idx}`}
+                    variant="outlined"
+                    sx={{ p: 1, cursor: "pointer" }}
+                    onClick={() => {
+                      useTopologyStore.getState().selectEdge(edge.id);
+                      useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                    }}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        {link.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        → {otherNode}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {link.sourceInterface} ↔ {link.targetInterface}
+                    </Typography>
+                  </Paper>
+                ));
+              })}
+            </Box>
+          </Box>
+        )}
       </Box>
     );
   }

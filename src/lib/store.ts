@@ -96,7 +96,7 @@ interface TopologyActions {
   deleteSimNode: (name: string) => void;
 
   // Selection actions
-  selectNode: (id: string | null) => void;
+  selectNode: (id: string | null, addToSelection?: boolean) => void;
   selectEdge: (id: string | null, addToSelection?: boolean) => void;
   selectSimNode: (name: string | null) => void;
   selectMemberLink: (edgeId: string, index: number | null, addToSelection?: boolean) => void;
@@ -386,10 +386,20 @@ export const useTopologyStore = create<TopologyStore>()(
         });
         const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
+        const sortedPair = [sourceNode, targetNode].sort().join('-');
+        const allLinksForPair = edges.flatMap(e => {
+          const edgePair = [e.data?.sourceNode, e.data?.targetNode].sort().join('-');
+          if (edgePair === sortedPair) {
+            return e.data?.memberLinks || [];
+          }
+          return [];
+        });
+        const nextLinkNumber = allLinksForPair.length + 1;
+
         if (existingEdge && existingEdge.data) {
           const existingMemberLinks = existingEdge.data.memberLinks || [];
           const newMemberLink: MemberLink = {
-            name: `${targetNode}-${sourceNode}-${existingMemberLinks.length + 1}`,
+            name: `${targetNode}-${sourceNode}-${nextLinkNumber}`,
             template: defaultTemplate,
             sourceInterface: `ethernet-1-${nextSourcePort}`,
             targetInterface: `ethernet-1-${nextTargetPort}`,
@@ -433,7 +443,7 @@ export const useTopologyStore = create<TopologyStore>()(
             sourceNode,
             targetNode,
             memberLinks: [{
-              name: `${targetNode}-${sourceNode}-1`,
+              name: `${targetNode}-${sourceNode}-${nextLinkNumber}`,
               template: defaultTemplate,
               sourceInterface: `ethernet-1-${nextSourcePort}`,
               targetInterface: `ethernet-1-${nextTargetPort}`,
@@ -751,8 +761,45 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       // Selection actions
-      selectNode: (id: string | null) => {
-        set({ selectedNodeId: id, selectedEdgeId: null, selectedSimNodeName: null });
+      selectNode: (id: string | null, addToSelection?: boolean) => {
+        if (id === null) {
+          set({
+            selectedNodeId: null,
+            selectedEdgeId: null,
+            selectedEdgeIds: [],
+            selectedSimNodeName: null,
+            selectedMemberLinkIndices: [],
+            nodes: get().nodes.map(n => ({ ...n, selected: false })),
+            edges: get().edges.map(e => ({ ...e, selected: false })),
+          });
+          return;
+        }
+
+        if (addToSelection) {
+          const currentNode = get().nodes.find(n => n.id === id);
+          const isCurrentlySelected = currentNode?.selected || false;
+          set({
+            selectedNodeId: isCurrentlySelected ? null : id,
+            selectedEdgeId: null,
+            selectedEdgeIds: [],
+            selectedSimNodeName: null,
+            selectedMemberLinkIndices: [],
+            nodes: get().nodes.map(n =>
+              n.id === id ? { ...n, selected: !isCurrentlySelected } : n
+            ),
+            edges: get().edges.map(e => ({ ...e, selected: false })),
+          });
+        } else {
+          set({
+            selectedNodeId: id,
+            selectedEdgeId: null,
+            selectedEdgeIds: [],
+            selectedSimNodeName: null,
+            selectedMemberLinkIndices: [],
+            nodes: get().nodes.map(n => ({ ...n, selected: n.id === id })),
+            edges: get().edges.map(e => ({ ...e, selected: false })),
+          });
+        }
       },
 
       selectEdge: (id: string | null, addToSelection?: boolean) => {
@@ -1126,7 +1173,15 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       selectSimNode: (name: string | null) => {
-        set({ selectedSimNodeName: name, selectedNodeId: null, selectedEdgeId: null });
+        set({
+          selectedSimNodeName: name,
+          selectedNodeId: null,
+          selectedEdgeId: null,
+          selectedEdgeIds: [],
+          selectedMemberLinkIndices: [],
+          nodes: get().nodes.map(n => ({ ...n, selected: false })),
+          edges: get().edges.map(e => ({ ...e, selected: false })),
+        });
       },
 
       // Clear all

@@ -7,6 +7,8 @@ export const LABEL_POS_X = 'pos/x';
 export const LABEL_POS_Y = 'pos/y';
 export const LABEL_SRC_HANDLE = 'pos/srcHandle';
 export const LABEL_DST_HANDLE = 'pos/dstHandle';
+export const LABEL_EDGE_ID = 'pos/edgeId';
+export const LABEL_MEMBER_INDEX = 'pos/memberIndex';
 
 export const PLATFORM_SUGGESTIONS = [
     "7220 IXR-D1",

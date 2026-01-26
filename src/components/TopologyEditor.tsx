@@ -31,7 +31,7 @@ import DeviceNode from './nodes/DeviceNode';
 import SimDeviceNode, { type SimDeviceNodeData } from './nodes/SimDeviceNode';
 import LinkEdge from './edges/LinkEdge';
 import AppLayout from './AppLayout';
-import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor } from './YamlEditor';
+import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
 import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
 import ContextMenu from './ContextMenu';
 
@@ -221,6 +221,33 @@ function TopologyEditorInner() {
     }
   }, [selectedNodeId, selectedEdgeId]);
 
+  useEffect(() => {
+    if (activeTab !== 0 || !selectedEdgeId || selectedMemberLinkIndices.length === 0) return;
+
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    const memberLinks = edge?.data?.memberLinks;
+    const lagGroups = edge?.data?.lagGroups;
+
+    if (!memberLinks || memberLinks.length <= 1 || !expandedEdges.has(selectedEdgeId)) return;
+
+    if (lagGroups && selectedMemberLinkIndices.length >= 2) {
+      const sortedSelected = [...selectedMemberLinkIndices].sort((a, b) => a - b);
+      for (const lag of lagGroups) {
+        const sortedLagIndices = [...lag.memberLinkIndices].sort((a, b) => a - b);
+        if (sortedSelected.length === sortedLagIndices.length &&
+            sortedSelected.every((idx, i) => idx === sortedLagIndices[i])) {
+          const firstMemberIndex = lag.memberLinkIndices[0];
+          jumpToMemberLinkInEditor(selectedEdgeId, firstMemberIndex);
+          return;
+        }
+      }
+    }
+
+    if (selectedMemberLinkIndices.length === 1) {
+      jumpToMemberLinkInEditor(selectedEdgeId, selectedMemberLinkIndices[0]);
+    }
+  }, [activeTab, selectedEdgeId, selectedMemberLinkIndices, edges, expandedEdges]);
+
   const simFlowNodes: Node<SimDeviceNodeData>[] = useMemo(() => {
     if (!showSimNodes) return [];
     return simulation.simNodes.map((simNode, index) => ({
@@ -403,20 +430,35 @@ function TopologyEditorInner() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [screenToFlowPosition]);
 
-  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     if (node.type === 'simDeviceNode') {
       const simName = (node.data as SimDeviceNodeData).simNode.name;
+      if (!event.shiftKey) {
+        setSelectedSimNodes(new Set([simName]));
+      } else {
+        setSelectedSimNodes(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(simName)) {
+            newSet.delete(simName);
+          } else {
+            newSet.add(simName);
+          }
+          return newSet;
+        });
+      }
       selectSimNode(simName);
       if (activeTab === 0) jumpToSimNodeInEditor(simName);
     } else {
-      selectNode(node.id);
+      selectNode(node.id, event.shiftKey);
       if (activeTab === 0) jumpToNodeInEditor((node.data as TopologyNodeData).name);
     }
   }, [selectNode, selectSimNode, activeTab]);
 
   const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     selectEdge(edge.id, event.shiftKey);
-    if (activeTab === 0 && edge.data) jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
+    if (activeTab === 0 && edge.data && (edge.data.memberLinks?.length || 0) === 1) {
+      jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
+    }
   }, [selectEdge, activeTab]);
 
   const handlePaneContextMenu = useCallback((event: MouseEvent | React.MouseEvent) => {

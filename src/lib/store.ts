@@ -28,13 +28,15 @@ interface ParsedYamlNode {
 }
 
 interface ParsedYamlLink {
-  name: string;
+  name?: string;
+  encapType?: string;
   template?: string;
   labels?: Record<string, string>;
   endpoints?: Array<{
     local?: { node: string; interface?: string };
     remote?: { node: string; interface?: string };
-    sim?: { simNode: string; simNodeInterface?: string };
+    sim?: { simNode?: string; simNodeInterface?: string; node?: string; interface?: string };
+    type?: string;
   }>;
 }
 
@@ -325,7 +327,9 @@ export const useTopologyStore = create<TopologyStore>()(
         const targetNode = nodes.find(n => n.id === connection.target)?.data.name ||
           simNodes.find(n => n.id === connection.target)?.name || connection.target!;
 
-        const isSimNodeConnection = connection.source?.startsWith('sim-') || connection.target?.startsWith('sim-');
+        const sourceIsSimNode = connection.source?.startsWith('sim-');
+        const targetIsSimNode = connection.target?.startsWith('sim-');
+        const isSimNodeConnection = sourceIsSimNode || targetIsSimNode;
         const defaultTemplate = isSimNodeConnection
           ? linkTemplates.find(t => t.type === 'edge')?.name || 'edge'
           : 'isl';
@@ -350,19 +354,21 @@ export const useTopologyStore = create<TopologyStore>()(
           return false;
         });
 
+        const extractPortNumber = (iface: string): number => {
+          const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+          if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+          const ethMatch = iface.match(/eth(\d+)/);
+          if (ethMatch) return parseInt(ethMatch[1], 10);
+          return 0;
+        };
+
         // Find highest port number used by source node
         const sourcePortNumbers = edges.flatMap(e => {
           if (e.source === connection.source) {
-            return e.data?.memberLinks?.map(ml => {
-              const match = ml.sourceInterface.match(/ethernet-1-(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            }) || [];
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
           }
           if (e.target === connection.source) {
-            return e.data?.memberLinks?.map(ml => {
-              const match = ml.targetInterface.match(/ethernet-1-(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            }) || [];
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
           }
           return [];
         });
@@ -371,20 +377,17 @@ export const useTopologyStore = create<TopologyStore>()(
         // Find highest port number used by target node
         const targetPortNumbers = edges.flatMap(e => {
           if (e.source === connection.target) {
-            return e.data?.memberLinks?.map(ml => {
-              const match = ml.sourceInterface.match(/ethernet-1-(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            }) || [];
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
           }
           if (e.target === connection.target) {
-            return e.data?.memberLinks?.map(ml => {
-              const match = ml.targetInterface.match(/ethernet-1-(\d+)/);
-              return match ? parseInt(match[1], 10) : 0;
-            }) || [];
+            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
           }
           return [];
         });
         const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+
+        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
 
         const sortedPair = [sourceNode, targetNode].sort().join('-');
         const allLinksForPair = edges.flatMap(e => {
@@ -401,8 +404,8 @@ export const useTopologyStore = create<TopologyStore>()(
           const newMemberLink: MemberLink = {
             name: `${targetNode}-${sourceNode}-${nextLinkNumber}`,
             template: defaultTemplate,
-            sourceInterface: `ethernet-1-${nextSourcePort}`,
-            targetInterface: `ethernet-1-${nextTargetPort}`,
+            sourceInterface,
+            targetInterface,
           };
           const updatedEdges = edges.map(e =>
             e.id === existingEdge.id
@@ -445,8 +448,8 @@ export const useTopologyStore = create<TopologyStore>()(
             memberLinks: [{
               name: `${targetNode}-${sourceNode}-${nextLinkNumber}`,
               template: defaultTemplate,
-              sourceInterface: `ethernet-1-${nextSourcePort}`,
-              targetInterface: `ethernet-1-${nextTargetPort}`,
+              sourceInterface,
+              targetInterface,
             }],
           },
         };
@@ -1434,6 +1437,64 @@ export const useTopologyStore = create<TopologyStore>()(
               for (const link of parsed.spec.links) {
                 const endpoints = link.endpoints || [];
                 if (endpoints.length === 0) continue;
+
+                const isSimEsiLag = endpoints.length >= 2 &&
+                  endpoints.every(ep => ep.local?.node && (ep.sim?.node || ep.sim?.simNode) && !ep.remote?.node);
+
+                if (isSimEsiLag) {
+                  const firstSimName = endpoints[0].sim?.node || endpoints[0].sim?.simNode;
+                  if (!firstSimName) continue;
+
+                  const simNodeId = nameToNewId.get(firstSimName);
+                  if (!simNodeId) continue;
+
+                  const leafInfoList: Array<{ name: string; localInterface: string; simInterface: string }> = [];
+                  for (const ep of endpoints) {
+                    if (ep.local?.node) {
+                      leafInfoList.push({
+                        name: ep.local.node,
+                        localInterface: ep.local.interface || 'ethernet-1-1',
+                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || 'eth1',
+                      });
+                    }
+                  }
+
+                  if (leafInfoList.length >= 2 && leafInfoList.every(l => nameToNewId.has(l.name))) {
+                    const edgeId = `edge-${edgeIdCounter++}`;
+                    const firstLeaf = leafInfoList[0];
+
+                    const esiLeaves = leafInfoList.map(leaf => ({
+                      nodeId: nameToNewId.get(leaf.name)!,
+                      nodeName: leaf.name,
+                      leafHandle: 'top-target',
+                      sourceHandle: 'bottom',
+                    }));
+
+                    const memberLinks = leafInfoList.map((leaf, i) => ({
+                      name: `${firstSimName}-${leaf.name}-${i + 1}`,
+                      sourceInterface: leaf.simInterface,
+                      targetInterface: leaf.localInterface,
+                    }));
+
+                    esiLagEdges.push({
+                      id: edgeId,
+                      type: 'linkEdge',
+                      source: simNodeId,
+                      target: nameToNewId.get(firstLeaf.name)!,
+                      sourceHandle: 'bottom',
+                      targetHandle: 'top-target',
+                      data: {
+                        id: edgeId,
+                        sourceNode: firstSimName,
+                        targetNode: firstLeaf.name,
+                        isMultihomed: true,
+                        esiLeaves,
+                        memberLinks,
+                      },
+                    });
+                  }
+                  continue;
+                }
 
                 const isEsiLag = endpoints.length >= 3 &&
                   endpoints.every(ep => ep.local?.node && !ep.remote?.node);

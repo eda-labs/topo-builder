@@ -23,13 +23,15 @@ interface ExportOptions {
 }
 
 interface YamlLink {
-  name: string;
+  name?: string;
+  encapType?: string;
   template?: string;
   labels?: Record<string, string>;
   endpoints: Array<{
     local?: { node: string; interface?: string };
     remote?: { node: string; interface?: string };
-    sim?: { simNode: string; simNodeInterface?: string };
+    sim?: { simNode?: string; simNodeInterface?: string; node?: string; interface?: string };
+    type?: string;
   }>;
 }
 
@@ -114,32 +116,62 @@ export function exportToYaml(options: ExportOptions): string {
       const sourceName = edge.data.sourceNode;
       const esiLeaves = edge.data.esiLeaves;
       const memberLinks = edge.data.memberLinks || [];
+      const sourceIsSimNode = edge.source.startsWith('sim-');
 
-      const endpoints: Array<{ local: { node: string; interface: string } }> = [];
+      if (sourceIsSimNode) {
+        const simNodeName = simNodeIdToName.get(edge.source) || sourceName;
 
-      endpoints.push({
-        local: {
-          node: sourceName,
-          interface: memberLinks[0]?.sourceInterface || 'ethernet-1-1',
-        },
-      });
+        const endpoints: Array<{
+          local: { node: string; interface: string };
+          sim: { node: string; interface: string };
+          type: string;
+        }> = [];
 
-      // Add leaf node endpoints
-      esiLeaves.forEach((leaf, i) => {
+        esiLeaves.forEach((leaf, i) => {
+          endpoints.push({
+            local: {
+              node: leaf.nodeName,
+              interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+            },
+            sim: {
+              node: simNodeName,
+              interface: memberLinks[i]?.sourceInterface || `eth${i + 1}`,
+            },
+            type: 'edge',
+          });
+        });
+
+        const link: YamlLink = {
+          encapType: 'dot1q',
+          endpoints,
+        };
+        esiLagLinks.push(link);
+      } else {
+        const endpoints: Array<{ local: { node: string; interface: string } }> = [];
+
         endpoints.push({
           local: {
-            node: leaf.nodeName,
-            interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+            node: sourceName,
+            interface: memberLinks[0]?.sourceInterface || 'ethernet-1-1',
           },
         });
-      });
 
-      const link: YamlLink = {
-        name: `${sourceName}-esi-lag-${esiLagCounter++}`,
-        template: 'isl',
-        endpoints,
-      };
-      esiLagLinks.push(link);
+        esiLeaves.forEach((leaf, i) => {
+          endpoints.push({
+            local: {
+              node: leaf.nodeName,
+              interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+            },
+          });
+        });
+
+        const link: YamlLink = {
+          name: `${sourceName}-esi-lag-${esiLagCounter++}`,
+          template: 'isl',
+          endpoints,
+        };
+        esiLagLinks.push(link);
+      }
 
       processedMultihomedEdgeIds.add(edge.id);
     }

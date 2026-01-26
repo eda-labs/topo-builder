@@ -20,10 +20,12 @@ import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
 } from "../lib/constants";
+import type { Edge } from "@xyflow/react";
 import type {
   MemberLink,
   LagGroup,
   TopologyNodeData,
+  TopologyEdgeData,
   NodeTemplate,
   LinkTemplate,
   LinkType,
@@ -110,7 +112,12 @@ export function SelectionPanel() {
       );
     });
 
-    const allConnectedEdges = [...connectedEdges, ...simNodeEdges];
+    const esiLagEdges = edges.filter((e) => {
+      if (connectedEdges.includes(e) || simNodeEdges.includes(e)) return false;
+      return e.data?.esiLeaves?.some(leaf => leaf.nodeId === selectedNode.id || leaf.nodeName === nodeData.name);
+    });
+
+    const allConnectedEdges = [...connectedEdges, ...simNodeEdges, ...esiLagEdges];
 
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -509,10 +516,22 @@ export function SelectionPanel() {
 
   // Handle sim node selection
   if (selectedSimNode) {
+    const simNodeId = selectedSimNode.id;
+    const connectedEdges = edges.filter(
+      (e) => e.source === simNodeId || e.target === simNodeId
+    );
+    const esiLagEdges = edges.filter((e) => {
+      if (connectedEdges.includes(e)) return false;
+      return e.data?.sourceNode === selectedSimNode.name ||
+        e.data?.esiLeaves?.some(leaf => leaf.nodeName === selectedSimNode.name);
+    });
+    const allConnectedEdges = [...connectedEdges, ...esiLagEdges];
+
     return (
       <SimNodeSelectionEditor
         simNode={selectedSimNode}
         simNodeTemplates={simulation.simNodeTemplates}
+        connectedEdges={allConnectedEdges}
         onUpdate={(update) => {
           updateSimNode(selectedSimNode.name, update);
           triggerYamlRefresh();
@@ -1036,10 +1055,12 @@ export function LinkTemplatesPanel() {
 function SimNodeSelectionEditor({
   simNode,
   simNodeTemplates,
+  connectedEdges,
   onUpdate,
 }: {
-  simNode: { name: string; template?: string };
+  simNode: { name: string; template?: string; id?: string };
   simNodeTemplates: SimNodeTemplate[];
+  connectedEdges: Edge<TopologyEdgeData>[];
   onUpdate: (update: Partial<{ name: string; template?: string }>) => void;
 }) {
   const [localName, setLocalName] = useState(simNode.name);
@@ -1084,6 +1105,74 @@ function SimNodeSelectionEditor({
           ))}
         </Select>
       </FormControl>
+
+      {connectedEdges.length > 0 && (
+        <Box>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+            Connected Links ({connectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)})
+            {connectedEdges.some(e => e.data?.isMultihomed) && " (incl. ESI LAG)"}
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {connectedEdges.map((edge) => {
+              const edgeData = edge.data;
+              if (!edgeData) return null;
+              const memberLinks = edgeData.memberLinks || [];
+              const isEsiLag = edgeData.isMultihomed;
+              const otherNode = edgeData.sourceNode === simNode.name
+                ? edgeData.targetNode
+                : edgeData.sourceNode;
+
+              if (isEsiLag && edgeData.esiLeaves) {
+                const leaves = edgeData.esiLeaves.map(l => l.nodeName).join(", ");
+                return (
+                  <Paper
+                    key={edge.id}
+                    variant="outlined"
+                    sx={{ p: 1, cursor: "pointer", borderColor: "primary.main" }}
+                    onClick={() => {
+                      useTopologyStore.getState().selectEdge(edge.id);
+                    }}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        ESI LAG
+                      </Typography>
+                      <Chip label="ESI" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      → {leaves}
+                    </Typography>
+                  </Paper>
+                );
+              }
+
+              return memberLinks.map((link, idx) => (
+                <Paper
+                  key={`${edge.id}-${idx}`}
+                  variant="outlined"
+                  sx={{ p: 1, cursor: "pointer" }}
+                  onClick={() => {
+                    useTopologyStore.getState().selectEdge(edge.id);
+                    useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {link.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      → {otherNode}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {link.sourceInterface} ↔ {link.targetInterface}
+                  </Typography>
+                </Paper>
+              ));
+            })}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

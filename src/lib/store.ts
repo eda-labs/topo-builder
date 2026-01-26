@@ -386,8 +386,6 @@ export const useTopologyStore = create<TopologyStore>()(
         const extractPortNumber = (iface: string): number => {
           const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
           if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-          const ethMatch = iface.match(/eth(\d+)/);
-          if (ethMatch) return parseInt(ethMatch[1], 10);
           return 0;
         };
 
@@ -415,8 +413,8 @@ export const useTopologyStore = create<TopologyStore>()(
         });
         const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
-        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+        const sourceInterface = sourceIsSimNode ? `ethernet-1-${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+        const targetInterface = targetIsSimNode ? `ethernet-1-${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
 
         const sortedPair = [sourceNode, targetNode].sort().join('-');
         const allLinksForPair = edges.flatMap(e => {
@@ -571,8 +569,8 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => {
-        const edges = get().edges;
-        const esiLagEdgeIds = new Set(edges.filter(e => e.data?.isMultihomed).map(e => e.id));
+        const currentEdges = get().edges;
+        const esiLagEdgeIds = new Set(currentEdges.filter(e => e.data?.isMultihomed).map(e => e.id));
 
         const nonSelectChanges = changes.filter(c => {
           if (c.type === 'select') return false;
@@ -582,7 +580,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
         if (nonSelectChanges.length > 0) {
           set({
-            edges: applyEdgeChanges(nonSelectChanges, edges),
+            edges: applyEdgeChanges(nonSelectChanges, get().edges),
           });
           if (nonSelectChanges.some(c => c.type === 'remove')) {
             get().triggerYamlRefresh();
@@ -1052,8 +1050,8 @@ export const useTopologyStore = create<TopologyStore>()(
         const newLink: MemberLink = {
           name: `${lag.name}-${lag.memberLinkIndices.length + 1}`,
           template: lag.template || lastLagLink?.template,
-          sourceInterface: incrementInterface(lastLagLink?.sourceInterface || 'ethernet-1/1'),
-          targetInterface: incrementInterface(lastLagLink?.targetInterface || 'ethernet-1/1'),
+          sourceInterface: incrementInterface(lastLagLink?.sourceInterface || 'ethernet-1-1'),
+          targetInterface: incrementInterface(lastLagLink?.targetInterface || 'ethernet-1-1'),
         };
 
         const newMemberLinkIndex = memberLinks.length;
@@ -1237,6 +1235,7 @@ export const useTopologyStore = create<TopologyStore>()(
             memberLinks: allMemberLinks,
             isMultihomed: true,
             esiLeaves,
+            esiLagName: `${commonNodeInfo.name}-esi-lag`,
           },
         };
 
@@ -1276,7 +1275,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
         const newMemberLink: MemberLink = {
           name: `${edge.data.sourceNode}-${lastLeaf.nodeName}-${memberLinks.length + 1}`,
-          sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || 'eth1'),
+          sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || 'ethernet-1-1'),
           targetInterface: incrementInterface(lastMemberLink?.targetInterface || 'ethernet-1-1'),
         };
 
@@ -1716,7 +1715,7 @@ export const useTopologyStore = create<TopologyStore>()(
                       leafInfoList.push({
                         name: ep.local.node,
                         localInterface: ep.local.interface || 'ethernet-1-1',
-                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || 'eth1',
+                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || 'ethernet-1-1',
                       });
                     }
                   }
@@ -1752,6 +1751,7 @@ export const useTopologyStore = create<TopologyStore>()(
                         isMultihomed: true,
                         esiLeaves,
                         memberLinks,
+                        esiLagName: link.name || `${firstSimName}-esi-lag`,
                       },
                     });
                   }
@@ -1806,6 +1806,7 @@ export const useTopologyStore = create<TopologyStore>()(
                         isMultihomed: true,
                         esiLeaves,
                         memberLinks,
+                        esiLagName: link.name || `${sourceNode.name}-esi-lag`,
                       },
                     });
                   }

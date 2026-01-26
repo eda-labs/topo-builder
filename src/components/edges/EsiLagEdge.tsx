@@ -84,6 +84,7 @@ export default function EsiLagEdge({
       {paths.map((path, i) => (
         <g key={`${id}-path${i}`}>
           <path
+            className="react-flow__edge-interaction"
             d={path}
             fill="none"
             stroke="transparent"

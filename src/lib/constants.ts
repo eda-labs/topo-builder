@@ -3,12 +3,12 @@ export const ERROR_DISPLAY_DURATION_MS = 10000;
 export const DRAWER_WIDTH = 500;
 export const DRAWER_TRANSITION_DURATION_MS = 225;
 
-export const LABEL_POS_X = 'pos/x';
-export const LABEL_POS_Y = 'pos/y';
-export const LABEL_SRC_HANDLE = 'pos/srcHandle';
-export const LABEL_DST_HANDLE = 'pos/dstHandle';
-export const LABEL_EDGE_ID = 'pos/edgeId';
-export const LABEL_MEMBER_INDEX = 'pos/memberIndex';
+export const LABEL_POS_X = 'topobuilder/x';
+export const LABEL_POS_Y = 'topobuilder/y';
+export const LABEL_SRC_HANDLE = 'topobuilder/srcHandle';
+export const LABEL_DST_HANDLE = 'topobuilder/dstHandle';
+export const LABEL_EDGE_ID = 'topobuilder/edgeId';
+export const LABEL_MEMBER_INDEX = 'topobuilder/memberIndex';
 
 export const PLATFORM_SUGGESTIONS = [
     "7220 IXR-D1",

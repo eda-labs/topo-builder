@@ -23,9 +23,11 @@ function getAjv(): Ajv {
 
   ajvInstance = new Ajv({
     allErrors: true,
-    strict: false,
+    strict: true,
     verbose: true,
   });
+
+  ajvInstance.addKeyword('x-kubernetes-preserve-unknown-fields');
 
   return ajvInstance;
 }
@@ -98,8 +100,8 @@ interface ParsedDoc {
       name: string;
       template?: string;
       endpoints?: Array<{
-        local?: { node: string };
-        remote?: { node: string };
+        local?: { node: string; interface?: string };
+        remote?: { node: string; interface?: string };
       }>;
     }>;
     nodeTemplates?: Array<{ name: string }>;
@@ -171,6 +173,49 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       });
     }
   });
+
+  const interfacesByNode = new Map<string, Map<string, { linkName: string; linkIndex: number; endpointIndex: number; side: string }[]>>();
+
+  (spec.links || []).forEach((link, linkIndex) => {
+    (link.endpoints || []).forEach((endpoint, endpointIndex) => {
+      if (endpoint.local?.node && endpoint.local?.interface) {
+        const node = endpoint.local.node;
+        const iface = endpoint.local.interface;
+        if (!interfacesByNode.has(node)) {
+          interfacesByNode.set(node, new Map());
+        }
+        const nodeInterfaces = interfacesByNode.get(node)!;
+        if (!nodeInterfaces.has(iface)) {
+          nodeInterfaces.set(iface, []);
+        }
+        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'local' });
+      }
+      if (endpoint.remote?.node && endpoint.remote?.interface) {
+        const node = endpoint.remote.node;
+        const iface = endpoint.remote.interface;
+        if (!interfacesByNode.has(node)) {
+          interfacesByNode.set(node, new Map());
+        }
+        const nodeInterfaces = interfacesByNode.get(node)!;
+        if (!nodeInterfaces.has(iface)) {
+          nodeInterfaces.set(iface, []);
+        }
+        nodeInterfaces.get(iface)!.push({ linkName: link.name, linkIndex, endpointIndex, side: 'remote' });
+      }
+    });
+  });
+
+  for (const [nodeName, interfaces] of interfacesByNode) {
+    for (const [ifaceName, usages] of interfaces) {
+      if (usages.length > 1) {
+        const linkNames = usages.map(u => u.linkName).join(', ');
+        errors.push({
+          path: `/spec/links`,
+          message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
+        });
+      }
+    }
+  }
 
   return errors;
 }

@@ -60,6 +60,7 @@ export interface TopologyEdgeData {
   lagGroups?: LagGroup[];
   isMultihomed?: boolean;
   esiLeaves?: EsiLeafConnection[];
+  esiLagName?: string;
 }
 
 export interface NodeTemplate {

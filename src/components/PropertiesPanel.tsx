@@ -11,7 +11,6 @@ import {
   FormControl,
   InputLabel,
   Autocomplete,
-  useTheme,
   Chip,
   Divider,
 } from "@mui/material";
@@ -27,17 +26,17 @@ function PanelHeader({
   actions?: ReactNode;
 }) {
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mb: '1rem' }}>
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           minHeight: 32,
-          mb: 1,
+          mb: '0.5rem',
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: '0.5rem' }}>
           <Typography variant="h6" fontSize={16} fontWeight={600}>
             {title}
           </Typography>
@@ -62,13 +61,13 @@ function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: '1rem' }}>
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 1,
+          mb: '0.5rem',
           minHeight: 32,
         }}
       >
@@ -81,6 +80,31 @@ function PanelSection({
     </Box>
   );
 }
+
+function PanelCard({
+  children,
+  highlighted,
+}: {
+  children: ReactNode;
+  highlighted?: boolean;
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: '0.5rem',
+        bgcolor: highlighted ? 'action.hover' : undefined,
+        borderColor: 'divider',
+        "&:hover": highlighted ? {
+          borderColor: 'action.disabled',
+        } : undefined,
+      }}
+    >
+      {children}
+    </Paper>
+  );
+}
+
 import { useTopologyStore } from "../lib/store";
 import {
   NODE_PROFILE_SUGGESTIONS,
@@ -134,7 +158,6 @@ export function SelectionPanel() {
   const nodeNameInputRef = useRef<HTMLInputElement>(null);
   const prevSelectedNodeIdRef = useRef<string | null>(null);
 
-  const linkNameInputRef = useRef<HTMLInputElement>(null);
   const sourceInterfaceRef = useRef<HTMLInputElement>(null);
   const targetInterfaceRef = useRef<HTMLInputElement>(null);
   const prevSelectedEdgeIdRef = useRef<string | null>(null);
@@ -207,7 +230,7 @@ export function SelectionPanel() {
       <Box>
         <PanelHeader title={nodeData.name} />
 
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
           <TextField
             label="Name"
             size="small"
@@ -241,7 +264,7 @@ export function SelectionPanel() {
             title="Connected Links"
             count={allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
           >
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
               {allConnectedEdges.map((edge) => {
                 const edgeData = edge.data;
                 if (!edgeData) return null;
@@ -258,7 +281,7 @@ export function SelectionPanel() {
                     <Paper
                       key={edge.id}
                       variant="outlined"
-                      sx={{ p: 1, cursor: "pointer" }}
+                      sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                       onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
                     >
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -281,7 +304,7 @@ export function SelectionPanel() {
                   <Paper
                     key={lag.id}
                     variant="outlined"
-                    sx={{ p: 1, cursor: "pointer" }}
+                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
                       useTopologyStore.getState().selectLag(edge.id, lag.id);
@@ -291,7 +314,7 @@ export function SelectionPanel() {
                       <Typography variant="body2" fontWeight={500}>
                         {lag.name || `${nodeData.name} ↔ ${otherNode}`}
                       </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: '0.25rem' }}>
                         <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
                         <Typography variant="caption" color="text.secondary">
                           → {otherNode}
@@ -311,7 +334,7 @@ export function SelectionPanel() {
                     <Paper
                       key={`${edge.id}-${idx}`}
                       variant="outlined"
-                      sx={{ p: 1, cursor: "pointer" }}
+                      sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                       onClick={() => {
                         useTopologyStore.getState().selectEdge(edge.id);
                         useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
@@ -425,7 +448,7 @@ export function SelectionPanel() {
             }
           />
 
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
             <TextField
               label="Name"
               size="small"
@@ -464,18 +487,18 @@ export function SelectionPanel() {
               </Button>
             }
           >
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
               {lagMemberLinksWithIndices.map(({ link, index }, listIndex) => (
                 <Paper
                   key={index}
                   variant="outlined"
-                  sx={{ p: 1 }}
+                  sx={{ p: '0.5rem', borderColor: 'divider' }}
                 >
                   <Box
                     sx={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr auto",
-                      gap: 1,
+                      gap: '0.5rem',
                       alignItems: "center",
                     }}
                   >
@@ -538,18 +561,18 @@ export function SelectionPanel() {
             }
           />
 
-          <Box sx={{ pl: 2, mb: 2 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+          <Box sx={{ pl: '1rem', mb: '1rem' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem' }}>
               {esiLeaves.map((leaf) => (
                 <Box key={leaf.nodeId} sx={{ display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
-                  <ArrowIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                  <ArrowIcon sx={{ fontSize: 16, mr: '0.25rem' }} />
                   <Typography variant="body2">{leaf.nodeName}</Typography>
                 </Box>
               ))}
             </Box>
           </Box>
 
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
             <TextField
               label="Name"
               size="small"
@@ -591,20 +614,20 @@ export function SelectionPanel() {
             title="Endpoints"
             count={esiLeaves.length}
           >
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
               {esiLeaves.map((leaf, index) => {
                 const memberLink = memberLinks[index];
                 return (
                   <Paper
                     key={index}
                     variant="outlined"
-                    sx={{ p: 1 }}
+                    sx={{ p: '0.5rem', borderColor: 'divider' }}
                   >
                     <Box
                       sx={{
                         display: "grid",
                         gridTemplateColumns: "1fr 1fr auto",
-                        gap: 1,
+                        gap: '0.5rem',
                         alignItems: "center",
                       }}
                     >
@@ -662,8 +685,8 @@ export function SelectionPanel() {
       addMemberLink(selectedEdge.id, {
         name: `${nodeB}-${nodeA}-${nextNum}`,
         template: lastLink?.template,
-        sourceInterface: incrementInterface(lastLink?.sourceInterface || 'ethernet-1/1'),
-        targetInterface: incrementInterface(lastLink?.targetInterface || 'ethernet-1/1'),
+        sourceInterface: incrementInterface(lastLink?.sourceInterface || 'ethernet-1-1'),
+        targetInterface: incrementInterface(lastLink?.targetInterface || 'ethernet-1-1'),
       });
       triggerYamlRefresh();
     };
@@ -672,7 +695,7 @@ export function SelectionPanel() {
       return (
         <Box>
           <PanelHeader title={`${nodeA} ↔ ${nodeB}`} />
-          <Typography color="text.secondary" textAlign="center" py={2}>
+          <Typography color="text.secondary" textAlign="center" py="1rem">
             No member links
           </Typography>
         </Box>
@@ -690,9 +713,111 @@ export function SelectionPanel() {
               </Button>
             }
           />
-          <Typography color="text.secondary" textAlign="center" py={2}>
+          <Typography color="text.secondary" textAlign="center" py="1rem">
             Select a link to edit
           </Typography>
+        </Box>
+      );
+    }
+
+    if (isShowingBundle && memberLinks.length > 1) {
+      return (
+        <Box>
+          <PanelHeader
+            title={`${nodeA} ↔ ${nodeB}`}
+            actions={
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                Add
+              </Button>
+            }
+          />
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
+            {linksToShow.map(({ link, index }, listIndex) => (
+              <Paper
+                key={index}
+                variant="outlined"
+                sx={{ p: '0.5rem', borderColor: 'divider' }}
+              >
+                <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      gap: '0.5rem',
+                      alignItems: "center",
+                    }}
+                  >
+                    <TextField
+                      label="Link Name"
+                      size="small"
+                      value={link.name}
+                      onChange={(e) =>
+                        handleUpdateLink(index, { name: e.target.value })
+                      }
+                      fullWidth
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteLink(index)}
+                    >
+                      <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <TextField
+                      label={`${nodeA} Interface`}
+                      size="small"
+                      value={link.targetInterface}
+                      onChange={(e) =>
+                        handleUpdateLink(index, {
+                          targetInterface: e.target.value,
+                        })
+                      }
+                      inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
+                      fullWidth
+                    />
+                    <TextField
+                      label={`${nodeB} Interface`}
+                      size="small"
+                      value={link.sourceInterface}
+                      onChange={(e) =>
+                        handleUpdateLink(index, {
+                          sourceInterface: e.target.value,
+                        })
+                      }
+                      fullWidth
+                    />
+                  </Box>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Template</InputLabel>
+                    <Select
+                      label="Template"
+                      value={link.template || ""}
+                      onChange={(e) =>
+                        handleUpdateLink(index, { template: e.target.value })
+                      }
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      {linkTemplates.map((t) => (
+                        <MenuItem key={t.name} value={t.name}>
+                          {t.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
         </Box>
       );
     }
@@ -704,23 +829,16 @@ export function SelectionPanel() {
             <PanelHeader
               title={`${nodeA} ↔ ${nodeB}`}
               actions={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {isShowingBundle && (
-                    <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-                      Add
-                    </Button>
-                  )}
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteLink(index)}
-                  >
-                    <DeleteIcon fontSize="small" color="error" />
-                  </IconButton>
-                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteLink(index)}
+                >
+                  <DeleteIcon fontSize="small" color="error" />
+                </IconButton>
               }
             />
 
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
               <TextField
                 label="Name"
                 size="small"
@@ -751,12 +869,12 @@ export function SelectionPanel() {
             </Box>
 
             <PanelSection title="Endpoints">
-              <Paper variant="outlined" sx={{ p: 1 }}>
+              <Paper variant="outlined" sx={{ p: '0.5rem', borderColor: 'divider' }}>
                 <Box
                   sx={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
-                    gap: 1,
+                    gap: '0.5rem',
                     alignItems: "center",
                   }}
                 >
@@ -822,7 +940,7 @@ export function SelectionPanel() {
   }
 
   return (
-    <Typography color="text.secondary" textAlign="center" py={2}>
+    <Typography color="text.secondary" textAlign="center" py="1rem">
       Select a node or link
     </Typography>
   );
@@ -842,8 +960,6 @@ function NodeTemplateEditor({
   existingNodeProfiles: string[];
   existingPlatforms: string[];
 }) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
   const [localName, setLocalName] = useState(template.name);
   const [localPlatform, setLocalPlatform] = useState(template.platform || "");
   const [localNodeProfile, setLocalNodeProfile] = useState(
@@ -896,73 +1012,64 @@ function NodeTemplateEditor({
   };
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        bgcolor: isDark ? "#262626" : "#f5f5f5",
-        borderColor: isDark ? "#3d3d3d" : "#e0e0e0",
-        "&:hover": {
-          borderColor: isDark ? "#525252" : "#bdbdbd",
-        },
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <TextField
-          label="Name"
-          size="small"
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onBlur={handleNameBlur}
-          sx={{ flex: 1, mr: 1 }}
-        />
-        <IconButton size="small" onClick={() => onDelete(template.name)}>
-          <DeleteIcon fontSize="small" color="error" />
-        </IconButton>
-      </Box>
-
-      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-        <Autocomplete
-          freeSolo
-          size="small"
-          options={existingPlatforms}
-          value={localPlatform}
-          onInputChange={(_, value) => setLocalPlatform(value)}
-          onBlur={() => onUpdate(template.name, { platform: localPlatform })}
-          renderInput={(params) => <TextField {...params} label="Platform" />}
-        />
-        <Autocomplete
-          freeSolo
-          size="small"
-          options={existingNodeProfiles}
-          value={localNodeProfile}
-          onInputChange={(_, value) => setLocalNodeProfile(value)}
-          onBlur={() =>
-            onUpdate(template.name, { nodeProfile: localNodeProfile })
-          }
-          renderInput={(params) => (
-            <TextField {...params} label="Node Profile" />
-          )}
-        />
-      </Box>
-
-      {/* Labels Section */}
-      <Box sx={{ mt: 1.5 }}>
+    <PanelCard highlighted>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
         <Box
           sx={{
-            display: "flex",
-            justifyContent: "space-between",
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: '0.5rem',
             alignItems: "center",
-            mb: 1,
           }}
         >
+          <TextField
+            label="Name"
+            size="small"
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={handleNameBlur}
+            fullWidth
+          />
+          <IconButton size="small" onClick={() => onDelete(template.name)}>
+            <DeleteIcon fontSize="small" color="error" />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: '0.5rem' }}>
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={existingPlatforms}
+            value={localPlatform}
+            onInputChange={(_, value) => setLocalPlatform(value)}
+            onBlur={() => onUpdate(template.name, { platform: localPlatform })}
+            renderInput={(params) => <TextField {...params} label="Platform" />}
+          />
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={existingNodeProfiles}
+            value={localNodeProfile}
+            onInputChange={(_, value) => setLocalNodeProfile(value)}
+            onBlur={() =>
+              onUpdate(template.name, { nodeProfile: localNodeProfile })
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Node Profile" />
+            )}
+          />
+        </Box>
+
+        {/* Labels Section */}
+        <Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: '0.5rem',
+            }}
+          >
           <Typography variant="body2" color="text.secondary" fontWeight={600}>
             Labels
           </Typography>
@@ -970,19 +1077,22 @@ function NodeTemplateEditor({
             Add
           </Button>
         </Box>
-        {Object.entries(template.labels || {}).map(([key, value]) => (
-          <LabelEditor
-            key={key}
-            labelKey={key}
-            labelValue={value}
-            onUpdate={(newKey, newValue) =>
-              handleUpdateLabel(key, newKey, newValue)
-            }
-            onDelete={() => handleDeleteLabel(key)}
-          />
-        ))}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
+          {Object.entries(template.labels || {}).map(([key, value]) => (
+            <LabelEditor
+              key={key}
+              labelKey={key}
+              labelValue={value}
+              onUpdate={(newKey, newValue) =>
+                handleUpdateLabel(key, newKey, newValue)
+              }
+              onDelete={() => handleDeleteLabel(key)}
+            />
+          ))}
+        </Box>
+        </Box>
       </Box>
-    </Paper>
+    </PanelCard>
   );
 }
 
@@ -1015,14 +1125,14 @@ function LabelEditor({
   const enumOptions = SPECIAL_LABELS[labelKey];
 
   return (
-    <Box sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}>
+    <Box sx={{ display: "grid", gridTemplateColumns: "65fr 35fr auto", gap: '0.5rem', alignItems: "center" }}>
       <TextField
         size="small"
         label="Key"
         value={localKey}
         onChange={(e) => setLocalKey(e.target.value)}
         onBlur={() => onUpdate(localKey, localValue)}
-        sx={{ flex: 65 }}
+        fullWidth
         disabled={isSpecialLabel}
       />
       {isSpecialLabel ? (
@@ -1033,7 +1143,7 @@ function LabelEditor({
           value={localValue}
           onInputChange={(_, value) => setLocalValue(value)}
           onBlur={() => onUpdate(localKey, localValue)}
-          sx={{ flex: 35 }}
+          fullWidth
           renderInput={(params) => <TextField {...params} label="Value" />}
         />
       ) : (
@@ -1043,7 +1153,7 @@ function LabelEditor({
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
           onBlur={() => onUpdate(localKey, localValue)}
-          sx={{ flex: 35 }}
+          fullWidth
         />
       )}
       <Box sx={{ width: 32, display: "flex", justifyContent: "center" }}>
@@ -1123,11 +1233,11 @@ export function NodeTemplatesPanel() {
       />
 
       {nodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py={2}>
+        <Typography color="text.secondary" textAlign="center" py="1rem">
           No templates
         </Typography>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
           {nodeTemplates.map((t) => (
             <NodeTemplateEditor
               key={t.name}
@@ -1154,8 +1264,6 @@ function LinkTemplateEditor({
   onUpdate: (name: string, update: Partial<LinkTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
   const [localName, setLocalName] = useState(template.name);
 
   // Sync local state when template changes from external source
@@ -1171,39 +1279,30 @@ function LinkTemplateEditor({
   };
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        bgcolor: isDark ? "#262626" : "#f5f5f5",
-        borderColor: isDark ? "#3d3d3d" : "#e0e0e0",
-        "&:hover": {
-          borderColor: isDark ? "#525252" : "#bdbdbd",
-        },
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <TextField
-          label="Name"
-          size="small"
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onBlur={handleNameBlur}
-          sx={{ flex: 1, mr: 1 }}
-        />
-        <IconButton size="small" onClick={() => onDelete(template.name)}>
-          <DeleteIcon fontSize="small" color="error" />
-        </IconButton>
-      </Box>
+    <PanelCard highlighted>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: '0.5rem',
+            alignItems: "center",
+          }}
+        >
+          <TextField
+            label="Name"
+            size="small"
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={handleNameBlur}
+            fullWidth
+          />
+          <IconButton size="small" onClick={() => onDelete(template.name)}>
+            <DeleteIcon fontSize="small" color="error" />
+          </IconButton>
+        </Box>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: '0.5rem' }}>
         <FormControl size="small" fullWidth>
           <InputLabel>Type</InputLabel>
           <Select
@@ -1249,8 +1348,9 @@ function LinkTemplateEditor({
             <MenuItem value="dot1q">dot1q</MenuItem>
           </Select>
         </FormControl>
+        </Box>
       </Box>
-    </Paper>
+    </PanelCard>
   );
 }
 
@@ -1299,11 +1399,11 @@ export function LinkTemplatesPanel() {
       />
 
       {linkTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py={2}>
+        <Typography color="text.secondary" textAlign="center" py="1rem">
           No templates
         </Typography>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
           {linkTemplates.map((t) => (
             <LinkTemplateEditor
               key={t.name}
@@ -1346,7 +1446,7 @@ function SimNodeSelectionEditor({
     <Box>
       <PanelHeader title={simNode.name} />
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
         <TextField
           label="Name"
           size="small"
@@ -1378,7 +1478,7 @@ function SimNodeSelectionEditor({
           title="Connected Links"
           count={connectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
         >
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
             {connectedEdges.map((edge) => {
               const edgeData = edge.data;
               if (!edgeData) return null;
@@ -1395,7 +1495,7 @@ function SimNodeSelectionEditor({
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: 1, cursor: "pointer" }}
+                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                     onClick={() => useTopologyStore.getState().selectEdge(edge.id)}
                   >
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1418,7 +1518,7 @@ function SimNodeSelectionEditor({
                 <Paper
                   key={lag.id}
                   variant="outlined"
-                  sx={{ p: 1, cursor: "pointer" }}
+                  sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                   onClick={() => {
                     useTopologyStore.getState().selectEdge(edge.id);
                     useTopologyStore.getState().selectLag(edge.id, lag.id);
@@ -1428,7 +1528,7 @@ function SimNodeSelectionEditor({
                     <Typography variant="body2" fontWeight={500}>
                       {lag.name || `${simNode.name} ↔ ${otherNode}`}
                     </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: '0.25rem' }}>
                       <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
                       <Typography variant="caption" color="text.secondary">
                         → {otherNode}
@@ -1448,7 +1548,7 @@ function SimNodeSelectionEditor({
                   <Paper
                     key={`${edge.id}-${idx}`}
                     variant="outlined"
-                    sx={{ p: 1, cursor: "pointer" }}
+                    sx={{ p: '0.5rem', cursor: "pointer", borderColor: 'divider' }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
                       useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
@@ -1487,8 +1587,6 @@ function SimNodeTemplateEditor({
   onUpdate: (name: string, update: Partial<SimNodeTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
   const [localName, setLocalName] = useState(template.name);
   const [localImage, setLocalImage] = useState(template.image || "");
   const [localImagePullSecret, setLocalImagePullSecret] = useState(
@@ -1509,79 +1607,70 @@ function SimNodeTemplateEditor({
   };
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        bgcolor: isDark ? "#262626" : "#f5f5f5",
-        borderColor: isDark ? "#3d3d3d" : "#e0e0e0",
-        "&:hover": {
-          borderColor: isDark ? "#525252" : "#bdbdbd",
-        },
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <TextField
-          label="Name"
-          size="small"
-          value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
-          onBlur={handleNameBlur}
-          sx={{ flex: 1, mr: 1 }}
-        />
-        <IconButton size="small" onClick={() => onDelete(template.name)}>
-          <DeleteIcon fontSize="small" color="error" />
-        </IconButton>
-      </Box>
+    <PanelCard highlighted>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: '0.5rem',
+            alignItems: "center",
+          }}
+        >
+          <TextField
+            label="Name"
+            size="small"
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onBlur={handleNameBlur}
+            fullWidth
+          />
+          <IconButton size="small" onClick={() => onDelete(template.name)}>
+            <DeleteIcon fontSize="small" color="error" />
+          </IconButton>
+        </Box>
 
-      <Box
-        sx={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 1, mb: 1 }}
-      >
-        <FormControl size="small" fullWidth>
-          <InputLabel>Type</InputLabel>
-          <Select
-            label="Type"
-            value={template.type}
-            onChange={(e) =>
-              onUpdate(template.name, { type: e.target.value as SimNodeType })
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: '0.5rem' }}>
+          <FormControl size="small" fullWidth>
+            <InputLabel>Type</InputLabel>
+            <Select
+              label="Type"
+              value={template.type}
+              onChange={(e) =>
+                onUpdate(template.name, { type: e.target.value as SimNodeType })
+              }
+            >
+              <MenuItem value="Linux">Linux</MenuItem>
+              <MenuItem value="TestMan">TestMan</MenuItem>
+              <MenuItem value="SrlTest">SrlTest</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            label="Image"
+            size="small"
+            value={localImage}
+            onChange={(e) => setLocalImage(e.target.value)}
+            onBlur={() =>
+              onUpdate(template.name, { image: localImage || undefined })
             }
-          >
-            <MenuItem value="Linux">Linux</MenuItem>
-            <MenuItem value="TestMan">TestMan</MenuItem>
-            <MenuItem value="SrlTest">SrlTest</MenuItem>
-          </Select>
-        </FormControl>
+            fullWidth
+          />
+        </Box>
+
         <TextField
-          label="Image"
+          label="Image Pull Secret"
           size="small"
-          value={localImage}
-          onChange={(e) => setLocalImage(e.target.value)}
+          value={localImagePullSecret}
+          onChange={(e) => setLocalImagePullSecret(e.target.value)}
           onBlur={() =>
-            onUpdate(template.name, { image: localImage || undefined })
+            onUpdate(template.name, {
+              imagePullSecret: localImagePullSecret || undefined,
+            })
           }
           fullWidth
         />
       </Box>
-      <TextField
-        label="Image Pull Secret"
-        size="small"
-        value={localImagePullSecret}
-        onChange={(e) => setLocalImagePullSecret(e.target.value)}
-        onBlur={() =>
-          onUpdate(template.name, {
-            imagePullSecret: localImagePullSecret || undefined,
-          })
-        }
-        fullWidth
-      />
-    </Paper>
+    </PanelCard>
   );
 }
 
@@ -1630,7 +1719,7 @@ export function SimNodeTemplatesPanel() {
               size="small"
               startIcon={<AddIcon />}
               onClick={handleAddLinux}
-              sx={{ mr: 0.5 }}
+              sx={{ mr: '0.25rem' }}
             >
               Linux
             </Button>
@@ -1646,11 +1735,11 @@ export function SimNodeTemplatesPanel() {
       />
 
       {simNodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py={2}>
+        <Typography color="text.secondary" textAlign="center" py="1rem">
           No sim templates
         </Typography>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '1rem' }}>
           {simNodeTemplates.map((t) => (
             <SimNodeTemplateEditor
               key={t.name}

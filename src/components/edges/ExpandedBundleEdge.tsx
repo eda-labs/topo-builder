@@ -89,6 +89,7 @@ export default function ExpandedBundleEdge({
               style={{ cursor: 'pointer' }}
             >
               <path
+                className="react-flow__edge-interaction"
                 d={curvePath}
                 fill="none"
                 stroke="transparent"
@@ -115,6 +116,7 @@ export default function ExpandedBundleEdge({
                 style={{ cursor: 'pointer' }}
               >
                 <path
+                  className="react-flow__edge-interaction"
                   d={curvePath}
                   fill="none"
                   stroke="transparent"

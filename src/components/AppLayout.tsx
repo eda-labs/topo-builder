@@ -36,7 +36,6 @@ import { getNodesBounds } from '@xyflow/react';
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, downloadYaml } from '../lib/converter';
 import { validateNetworkTopology, type ValidationResult } from '../lib/validate';
-import { getEditorContent } from './YamlEditor';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 
 interface AppLayoutProps {
@@ -106,12 +105,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleValidate = () => {
-    const yamlToValidate = getEditorContent();
-    if (!yamlToValidate) {
-      setValidationResult({ valid: false, errors: [{ path: '', message: 'Could not read editor content' }] });
-      setValidationDialogOpen(true);
-      return;
-    }
+    const yamlToValidate = getYaml();
     setValidationResult(validateNetworkTopology(yamlToValidate));
     setValidationDialogOpen(true);
   };

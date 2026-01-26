@@ -123,8 +123,7 @@ export function exportToYaml(options: ExportOptions): string {
 
         const endpoints: Array<{
           local: { node: string; interface: string };
-          sim: { node: string; interface: string };
-          type: string;
+          sim: { simNode: string; simNodeInterface: string };
         }> = [];
 
         esiLeaves.forEach((leaf, i) => {
@@ -134,14 +133,14 @@ export function exportToYaml(options: ExportOptions): string {
               interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
             },
             sim: {
-              node: simNodeName,
-              interface: memberLinks[i]?.sourceInterface || `eth${i + 1}`,
+              simNode: simNodeName,
+              simNodeInterface: memberLinks[i]?.sourceInterface || `ethernet-1-${i + 1}`,
             },
-            type: 'edge',
           });
         });
 
         const link: YamlLink = {
+          name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
           endpoints,
         };
         if (memberLinks[0]?.template) {
@@ -168,10 +167,12 @@ export function exportToYaml(options: ExportOptions): string {
         });
 
         const link: YamlLink = {
-          name: `${sourceName}-esi-lag-${esiLagCounter++}`,
-          template: 'isl',
+          name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
           endpoints,
         };
+        if (memberLinks[0]?.template) {
+          link.template = memberLinks[0].template;
+        }
         esiLagLinks.push(link);
       }
 
@@ -220,16 +221,20 @@ export function exportToYaml(options: ExportOptions): string {
       const lagLink: YamlLink = {
         name: lag.name,
         labels: createPosLabels(firstMemberIndex),
-        endpoints: lagMemberLinks.map(member => ({
-          local: {
-            node: sourceName,
-            interface: member.sourceInterface || 'ethernet-1-1',
-          },
-          remote: {
-            node: targetName,
-            interface: member.targetInterface || 'ethernet-1-1',
-          },
-        })),
+        endpoints: [
+          ...lagMemberLinks.map(member => ({
+            local: {
+              node: sourceName,
+              interface: member.sourceInterface || 'ethernet-1-1',
+            },
+          })),
+          ...lagMemberLinks.map(member => ({
+            local: {
+              node: targetName,
+              interface: member.targetInterface || 'ethernet-1-1',
+            },
+          })),
+        ],
       };
 
       if (lag.template) {

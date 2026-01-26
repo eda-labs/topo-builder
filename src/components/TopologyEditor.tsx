@@ -209,6 +209,12 @@ function TopologyEditorInner() {
       sessionStorage.removeItem('topology-new-link-id');
     }
   }, [selectedEdgeId]);
+  
+  useEffect(() => {
+    if (selectedNodeId || selectedEdgeId || selectedSimNodeName) {
+      setActiveTab(1);
+    }
+  }, [selectedNodeId, selectedEdgeId, selectedSimNodeName]);
 
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
@@ -408,8 +414,6 @@ function TopologyEditorInner() {
             const extractPortNumber = (iface: string): number => {
               const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
               if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-              const ethMatch = iface.match(/eth(\d+)/);
-              if (ethMatch) return parseInt(ethMatch[1], 10);
               return 0;
             };
 
@@ -435,8 +439,8 @@ function TopologyEditorInner() {
             });
             const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
-            const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-            const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+            const sourceInterface = sourceIsSimNode ? `ethernet-1-${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+            const targetInterface = targetIsSimNode ? `ethernet-1-${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
 
             const memberLinks = edge.data.memberLinks || [];
             const nextLinkNumber = memberLinks.length + 1;
@@ -604,6 +608,7 @@ function TopologyEditorInner() {
   const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
     // Don't select edges connected to SimNodes when SimNodes are hidden
     if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
+      event.stopPropagation();
       return;
     }
     selectEdge(edge.id, event.shiftKey);
@@ -708,6 +713,9 @@ function TopologyEditorInner() {
 
     if (esiLag) {
       const esiLagSourceId = esiLag.source;
+      if (!esiLagSourceId.startsWith('sim-')) {
+        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
+      }
       for (const edge of regularEdges) {
         if (edge.source !== esiLagSourceId && edge.target !== esiLagSourceId) {
           return { valid: false, error: 'Selected edges must share exactly one common node' };
@@ -725,12 +733,17 @@ function TopologyEditorInner() {
       if (commonNodes.length !== 1) {
         return { valid: false, error: 'Selected edges must share exactly one common node' };
       }
+
+      const commonNodeId = commonNodes[0][0];
+      if (!commonNodeId.startsWith('sim-')) {
+        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
+      }
     }
 
     return { valid: true, error: null, esiLag, regularEdges };
   })();
 
-  const canCreateEsiLag = selectedEdgeIds.length >= 2;
+  const canCreateEsiLag = esiLagValidation.valid;
   const isMergeIntoEsiLag = esiLagValidation.valid && !!(esiLagValidation as { esiLag?: typeof edges[0] }).esiLag;
 
   const handleCreateEsiLag = () => {

@@ -72,6 +72,7 @@ export default function StandardEdge({
         style={{ cursor: linkCount > 1 ? 'pointer' : 'default' }}
       >
         <path
+          className="react-flow__edge-interaction"
           d={edgePath}
           fill="none"
           stroke="transparent"

@@ -5,6 +5,12 @@ import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import yaml from 'js-yaml';
 import baseTemplateYaml from '../static/base-template.yaml?raw';
 import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
+import {
+  generateUniqueName,
+  generateCopyName,
+  getNameError,
+  validateName,
+} from './utils';
 import type {
   TopologyNodeData,
   TopologyEdgeData,
@@ -155,7 +161,8 @@ const generateNodeId = () => `node-${nodeIdCounter++}`;
 const generateEdgeId = () => `edge-${edgeIdCounter++}`;
 const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
 
-// Stable empty Set to avoid unnecessary re-renders
+export { generateUniqueName, generateCopyName } from './utils';
+
 const EMPTY_STRING_SET: Set<string> = new Set<string>();
 
 // Parse base template from YAML file
@@ -217,8 +224,22 @@ export const useTopologyStore = create<TopologyStore>()(
       setError: (error: string | null) => set({ error }),
 
       // Metadata actions
-      setTopologyName: (name: string) => set({ topologyName: name }),
-      setNamespace: (namespace: string) => set({ namespace }),
+      setTopologyName: (name: string) => {
+        const nameError = getNameError(name);
+        if (nameError) {
+          get().setError(`Invalid topology name: ${nameError}`);
+          return;
+        }
+        set({ topologyName: name });
+      },
+      setNamespace: (namespace: string) => {
+        const nameError = getNameError(namespace);
+        if (nameError) {
+          get().setError(`Invalid namespace: ${nameError}`);
+          return;
+        }
+        set({ namespace });
+      },
       setOperation: (operation: Operation) => set({ operation }),
 
       // Node actions
@@ -227,13 +248,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const allNodeNames = get().nodes.map(n => n.data.name);
         const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
         const allNames = [...allNodeNames, ...allSimNodeNames];
-
-        let counter = get().nodes.length + 1;
-        let name = `node-${counter}`;
-        while (allNames.includes(name)) {
-          counter++;
-          name = `node-${counter}`;
-        }
+        const name = generateUniqueName('node', allNames, get().nodes.length + 1);
 
         // Use provided template name, or fall back to first template
         const template = templateName || get().nodeTemplates[0]?.name;
@@ -269,8 +284,9 @@ export const useTopologyStore = create<TopologyStore>()(
         if (newName && newName !== oldName) {
           const allNodeNames = get().nodes.filter(n => n.id !== id).map(n => n.data.name);
           const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
-          if (allNodeNames.includes(newName) || allSimNodeNames.includes(newName)) {
-            get().setError(`Node name "${newName}" already exists`);
+          const nameError = validateName(newName, [...allNodeNames, ...allSimNodeNames], 'node');
+          if (nameError) {
+            get().setError(`Invalid node name: ${nameError}`);
             return;
           }
         }
@@ -562,6 +578,14 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       updateMemberLink: (edgeId: string, index: number, link: Partial<MemberLink>) => {
+        if (link.name !== undefined) {
+          const nameError = getNameError(link.name);
+          if (nameError) {
+            get().setError(`Invalid link name: ${nameError}`);
+            return;
+          }
+        }
+
         set({
           edges: get().edges.map((edge) =>
             edge.id === edgeId
@@ -580,36 +604,49 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       deleteMemberLink: (edgeId: string, index: number) => {
-        set({
-          edges: get().edges.map((edge) =>
-            edge.id === edgeId
-              ? {
-                ...edge,
-                data: {
-                  ...edge.data,
-                  memberLinks: edge.data?.memberLinks?.filter((_, i) => i !== index) || [],
-                } as TopologyEdgeData,
-              }
-              : edge
-          ),
-        });
+        const edge = get().edges.find(e => e.id === edgeId);
+        if (!edge) return;
+
+        const memberLinks = edge.data?.memberLinks || [];
+        const newMemberLinks = memberLinks.filter((_, i) => i !== index);
+
+        if (newMemberLinks.length === 0) {
+          set({
+            edges: get().edges.filter(e => e.id !== edgeId),
+            selectedEdgeId: null,
+            selectedMemberLinkIndices: [],
+          });
+        } else {
+          set({
+            edges: get().edges.map((e) =>
+              e.id === edgeId
+                ? {
+                  ...e,
+                  data: {
+                    ...e.data,
+                    memberLinks: newMemberLinks,
+                  } as TopologyEdgeData,
+                }
+                : e
+            ),
+          });
+        }
       },
 
       onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => {
         const currentEdges = get().edges;
         const esiLagEdgeIds = new Set(currentEdges.filter(e => e.data?.isMultihomed).map(e => e.id));
 
-        const nonSelectChanges = changes.filter(c => {
-          if (c.type === 'select') return false;
+        const allowedChanges = changes.filter(c => {
           if (c.type === 'remove' && esiLagEdgeIds.has(c.id)) return false;
           return true;
         });
 
-        if (nonSelectChanges.length > 0) {
+        if (allowedChanges.length > 0) {
           set({
-            edges: applyEdgeChanges(nonSelectChanges, get().edges),
+            edges: applyEdgeChanges(allowedChanges, get().edges),
           });
-          if (nonSelectChanges.some(c => c.type === 'remove')) {
+          if (allowedChanges.some(c => c.type === 'remove')) {
             get().triggerYamlRefresh();
           }
         }
@@ -622,8 +659,9 @@ export const useTopologyStore = create<TopologyStore>()(
       // Template actions
       addNodeTemplate: (template: NodeTemplate) => {
         const existingNames = get().nodeTemplates.map(t => t.name);
-        if (existingNames.includes(template.name)) {
-          get().setError(`Node template "${template.name}" already exists`);
+        const nameError = validateName(template.name, existingNames, 'template');
+        if (nameError) {
+          get().setError(`Invalid node template name: ${nameError}`);
           return false;
         }
         set({ nodeTemplates: [...get().nodeTemplates, template] });
@@ -633,8 +671,9 @@ export const useTopologyStore = create<TopologyStore>()(
       updateNodeTemplate: (name: string, template: Partial<NodeTemplate>) => {
         if (template.name && template.name !== name) {
           const existingNames = get().nodeTemplates.filter(t => t.name !== name).map(t => t.name);
-          if (existingNames.includes(template.name)) {
-            get().setError(`Node template "${template.name}" already exists`);
+          const nameError = validateName(template.name, existingNames, 'template');
+          if (nameError) {
+            get().setError(`Invalid node template name: ${nameError}`);
             return false;
           }
         }
@@ -657,8 +696,9 @@ export const useTopologyStore = create<TopologyStore>()(
 
       addLinkTemplate: (template: LinkTemplate) => {
         const existingNames = get().linkTemplates.map(t => t.name);
-        if (existingNames.includes(template.name)) {
-          get().setError(`Link template "${template.name}" already exists`);
+        const nameError = validateName(template.name, existingNames, 'template');
+        if (nameError) {
+          get().setError(`Invalid link template name: ${nameError}`);
           return false;
         }
         set({ linkTemplates: [...get().linkTemplates, template] });
@@ -668,8 +708,9 @@ export const useTopologyStore = create<TopologyStore>()(
       updateLinkTemplate: (name: string, template: Partial<LinkTemplate>) => {
         if (template.name && template.name !== name) {
           const existingNames = get().linkTemplates.filter(t => t.name !== name).map(t => t.name);
-          if (existingNames.includes(template.name)) {
-            get().setError(`Link template "${template.name}" already exists`);
+          const nameError = validateName(template.name, existingNames, 'template');
+          if (nameError) {
+            get().setError(`Invalid link template name: ${nameError}`);
             return false;
           }
         }
@@ -690,8 +731,9 @@ export const useTopologyStore = create<TopologyStore>()(
       // Simulation actions
       addSimNodeTemplate: (template: SimNodeTemplate) => {
         const existingNames = get().simulation.simNodeTemplates.map(t => t.name);
-        if (existingNames.includes(template.name)) {
-          get().setError(`Sim node template "${template.name}" already exists`);
+        const nameError = validateName(template.name, existingNames, 'template');
+        if (nameError) {
+          get().setError(`Invalid sim node template name: ${nameError}`);
           return false;
         }
         set({
@@ -707,8 +749,9 @@ export const useTopologyStore = create<TopologyStore>()(
       updateSimNodeTemplate: (name: string, template: Partial<SimNodeTemplate>) => {
         if (template.name && template.name !== name) {
           const existingNames = get().simulation.simNodeTemplates.filter(t => t.name !== name).map(t => t.name);
-          if (existingNames.includes(template.name)) {
-            get().setError(`Sim node template "${template.name}" already exists`);
+          const nameError = validateName(template.name, existingNames, 'template');
+          if (nameError) {
+            get().setError(`Invalid sim node template name: ${nameError}`);
             return false;
           }
         }
@@ -737,8 +780,9 @@ export const useTopologyStore = create<TopologyStore>()(
       addSimNode: (simNodeData: Omit<SimNode, 'id'>) => {
         const allNodeNames = get().nodes.map(n => n.data.name);
         const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
-        if (allNodeNames.includes(simNodeData.name) || allSimNodeNames.includes(simNodeData.name)) {
-          get().setError(`Node name "${simNodeData.name}" already exists`);
+        const nameError = validateName(simNodeData.name, [...allNodeNames, ...allSimNodeNames], 'simNode');
+        if (nameError) {
+          get().setError(`Invalid simNode name: ${nameError}`);
           return;
         }
         const simNode: SimNode = {
@@ -772,8 +816,9 @@ export const useTopologyStore = create<TopologyStore>()(
         if (simNodeUpdate.name && simNodeUpdate.name !== name) {
           const allNodeNames = get().nodes.map(n => n.data.name);
           const allSimNodeNames = get().simulation.simNodes.filter(n => n.name !== name).map(n => n.name);
-          if (allNodeNames.includes(simNodeUpdate.name) || allSimNodeNames.includes(simNodeUpdate.name)) {
-            get().setError(`Node name "${simNodeUpdate.name}" already exists`);
+          const nameError = validateName(simNodeUpdate.name, [...allNodeNames, ...allSimNodeNames], 'simNode');
+          if (nameError) {
+            get().setError(`Invalid simNode name: ${nameError}`);
             return;
           }
         }
@@ -1529,13 +1574,7 @@ export const useTopologyStore = create<TopologyStore>()(
           idMap.set(node.id, newId);
 
           // Generate unique name
-          const baseName = node.data.name.replace(/-copy(-\d+)?$/, '');
-          let newName = `${baseName}-copy`;
-          let counter = 1;
-          while (allNames.includes(newName)) {
-            newName = `${baseName}-copy-${counter}`;
-            counter++;
-          }
+          const newName = generateCopyName(node.data.name, allNames);
           allNames.push(newName);
           nameMap.set(node.data.name, newName);
 
@@ -1591,9 +1630,17 @@ export const useTopologyStore = create<TopologyStore>()(
         const deselectedNodes = existingNodes.map(n => ({ ...n, selected: false }));
         const deselectedEdges = existingEdges.map(e => ({ ...e, selected: false }));
 
+        const selectedNodeId = newNodes.length === 1 ? newNodes[0].id : null;
+        const selectedEdgeId = newNodes.length === 0 && newEdges.length === 1 ? newEdges[0].id : null;
+
         set({
           nodes: [...deselectedNodes, ...newNodes],
           edges: [...deselectedEdges, ...newEdges],
+          selectedNodeId,
+          selectedEdgeId,
+          selectedSimNodeName: null,
+          selectedMemberLinkIndices: [],
+          selectedLagId: null,
         });
         get().triggerYamlRefresh();
       },

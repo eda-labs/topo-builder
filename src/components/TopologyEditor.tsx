@@ -26,7 +26,8 @@ import {
 } from '@mui/icons-material';
 
 import { useTopologyStore } from '../lib/store';
-import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS } from '../lib/constants';
+import { generateUniqueName, generateCopyName } from '../lib/utils';
+import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { TopologyNodeData, TopologyEdgeData } from '../types/topology';
 import DeviceNode from './nodes/DeviceNode';
 import SimDeviceNode, { type SimDeviceNodeData } from './nodes/SimDeviceNode';
@@ -170,6 +171,8 @@ function TopologyEditorInner() {
     deleteNode,
     deleteEdge,
     addMemberLink,
+    deleteMemberLink,
+    clearMemberLinkSelection,
     addSimNode,
     deleteSimNode,
     simulation,
@@ -405,7 +408,12 @@ function TopologyEditorInner() {
 
         const selectedEdges = currentState.edges.filter(e => e.selected);
         if (selectedTopoNodes.length > 0 || selectedSimNodesList.length > 0) {
-          clipboardRef.current = { nodes: selectedTopoNodes, edges: selectedEdges, simNodes: selectedSimNodesList, copiedLink: undefined };
+          clipboardRef.current = {
+            nodes: selectedTopoNodes.map(n => ({ ...n, position: { ...n.position }, data: { ...n.data } })),
+            edges: selectedEdges.map(e => ({ ...e, data: e.data ? { ...e.data, memberLinks: e.data.memberLinks?.map(ml => ({ ...ml })) } : undefined })),
+            simNodes: selectedSimNodesList.map(sn => ({ ...sn, position: sn.position ? { ...sn.position } : undefined })),
+            copiedLink: undefined,
+          };
         }
       }
 
@@ -415,7 +423,8 @@ function TopologyEditorInner() {
         if (copiedLink) {
           e.preventDefault();
           const currentState = useTopologyStore.getState();
-          const edge = currentState.edges.find(e => e.id === copiedLink.edgeId);
+          const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
+          const edge = currentState.edges.find(e => e.id === targetEdgeId);
           if (edge && edge.data) {
             const sourceIsSimNode = edge.source.startsWith('sim-');
             const targetIsSimNode = edge.target.startsWith('sim-');
@@ -492,21 +501,19 @@ function TopologyEditorInner() {
 
           if (copiedSimNodes.length > 0) {
             const currentState = useTopologyStore.getState();
-            const existingSimNodeNames = currentState.simulation.simNodes.map(sn => sn.name);
+            const allNodeNames = currentState.nodes.map(n => n.data.name);
+            const allSimNodeNames = currentState.simulation.simNodes.map(sn => sn.name);
+            const existingNames = [...allNodeNames, ...allSimNodeNames];
             const newSimNodeNames: string[] = [];
 
             for (const simNode of copiedSimNodes) {
-              const baseName = simNode.name.replace(/-copy(-\d+)?$/, '');
-              let newName = `${baseName}-copy`;
-              let counter = 1;
-              while (existingSimNodeNames.includes(newName)) {
-                newName = `${baseName}-copy-${counter++}`;
-              }
-              existingSimNodeNames.push(newName);
+              const newName = generateCopyName(simNode.name, existingNames);
+              existingNames.push(newName);
               newSimNodeNames.push(newName);
 
+              const { id: _id, ...simNodeWithoutId } = simNode;
               addSimNode({
-                ...simNode,
+                ...simNodeWithoutId,
                 name: newName,
                 position: simNode.position ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y } : undefined,
               });
@@ -520,6 +527,20 @@ function TopologyEditorInner() {
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const currentState = useTopologyStore.getState();
+
+        if (currentState.selectedEdgeId && currentState.selectedMemberLinkIndices.length > 0) {
+          const edge = currentState.edges.find(e => e.id === currentState.selectedEdgeId);
+          const memberLinksCount = edge?.data?.memberLinks?.length || 0;
+
+          if (memberLinksCount > 1) {
+            const sortedIndices = [...currentState.selectedMemberLinkIndices].sort((a, b) => b - a);
+            sortedIndices.forEach(index => deleteMemberLink(currentState.selectedEdgeId!, index));
+            clearMemberLinkSelection();
+            triggerYamlRefresh();
+            return;
+          }
+        }
+
         const selectedNodeIds = currentState.nodes.filter(n => n.selected).map(n => n.id);
         selectedNodeIds.forEach(id => deleteNode(id));
 
@@ -535,7 +556,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pasteSelection, addSimNode, addMemberLink, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
+  }, [pasteSelection, addSimNode, addMemberLink, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
     if (justConnectedRef.current) {
@@ -620,9 +641,8 @@ function TopologyEditorInner() {
   }, [selectNode, selectSimNode, selectSimNodes, activeTab]);
 
   const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => {
-    // Don't select edges connected to SimNodes when SimNodes are hidden
+    event.stopPropagation();
     if (!showSimNodes && (edge.source.startsWith('sim-') || edge.target.startsWith('sim-'))) {
-      event.stopPropagation();
       return;
     }
     selectEdge(edge.id, event.shiftKey);
@@ -796,7 +816,8 @@ function TopologyEditorInner() {
   const currentSimNodeTemplate = selectedSimNode?.template;
 
   const handleAddSimNode = () => {
-    const newName = `testman-${(simulation.simNodes?.length || 0) + 1}`;
+    const existingNames = simulation.simNodes?.map(n => n.name) || [];
+    const newName = generateUniqueName('testman', existingNames, (simulation.simNodes?.length || 0) + 1);
     addSimNode({
       name: newName,
       template: simulation.simNodeTemplates[0]?.name,
@@ -844,8 +865,11 @@ function TopologyEditorInner() {
             fitView
             snapToGrid
             snapGrid={[15, 15]}
-            defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: 20 }}
+            defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
             colorMode={darkMode ? 'dark' : 'light'}
+            selectionKeyCode={null}
+            multiSelectionKeyCode="Shift"
+            selectionOnDrag={false}
           >
             <Controls position="top-right">
               {simulation.simNodes.length > 0 && (

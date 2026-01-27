@@ -2,6 +2,7 @@ export const TITLE = 'EDA Topology Builder';
 export const ERROR_DISPLAY_DURATION_MS = 10000;
 export const DRAWER_WIDTH = 500;
 export const DRAWER_TRANSITION_DURATION_MS = 225;
+export const EDGE_INTERACTION_WIDTH = 5;
 
 export const LABEL_POS_X = 'topobuilder/x';
 export const LABEL_POS_Y = 'topobuilder/y';

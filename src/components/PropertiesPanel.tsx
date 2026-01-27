@@ -106,6 +106,7 @@ function PanelCard({
 }
 
 import { useTopologyStore } from "../lib/store";
+import { formatName } from "../lib/utils";
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
@@ -149,6 +150,7 @@ export function SelectionPanel() {
   );
   const updateNode = useTopologyStore((state) => state.updateNode);
   const updateEdge = useTopologyStore((state) => state.updateEdge);
+  const deleteEdge = useTopologyStore((state) => state.deleteEdge);
   const updateSimNode = useTopologyStore((state) => state.updateSimNode);
   const triggerYamlRefresh = useTopologyStore(
     (state) => state.triggerYamlRefresh,
@@ -157,6 +159,12 @@ export function SelectionPanel() {
   // Ref for node name input to auto-focus and select
   const nodeNameInputRef = useRef<HTMLInputElement>(null);
   const prevSelectedNodeIdRef = useRef<string | null>(null);
+
+  const [localNodeName, setLocalNodeName] = useState(selectedNode?.data.name || '');
+
+  useEffect(() => {
+    setLocalNodeName(selectedNode?.data.name || '');
+  }, [selectedNode?.data.name, selectedNodeId]);
 
   const sourceInterfaceRef = useRef<HTMLInputElement>(null);
   const targetInterfaceRef = useRef<HTMLInputElement>(null);
@@ -206,6 +214,20 @@ export function SelectionPanel() {
       triggerYamlRefresh();
     };
 
+    const handleNodeNameBlur = () => {
+      if (localNodeName !== nodeData.name) {
+        updateNode(selectedNode.id, { name: localNodeName });
+        triggerYamlRefresh();
+        setTimeout(() => {
+          const freshNodes = useTopologyStore.getState().nodes;
+          const currentNode = freshNodes.find(n => n.id === selectedNode.id);
+          if (currentNode && currentNode.data.name !== localNodeName) {
+            setLocalNodeName(currentNode.data.name);
+          }
+        }, 50);
+      }
+    };
+
     const connectedEdges = edges.filter(
       (e) => e.source === selectedNode.id || e.target === selectedNode.id
     );
@@ -232,8 +254,9 @@ export function SelectionPanel() {
           <TextField
             label="Name"
             size="small"
-            value={nodeData.name || ""}
-            onChange={(e) => handleUpdateNodeField({ name: e.target.value })}
+            value={localNodeName}
+            onChange={(e) => setLocalNodeName(formatName(e.target.value))}
+            onBlur={handleNodeNameBlur}
             fullWidth
             inputRef={nodeNameInputRef}
           />
@@ -386,6 +409,14 @@ export function SelectionPanel() {
     };
 
     const handleDeleteLink = (index: number) => {
+      const newLinks = memberLinks.filter((_, i) => i !== index);
+
+      if (newLinks.length === 0) {
+        deleteEdge(selectedEdge.id);
+        triggerYamlRefresh();
+        return;
+      }
+
       const newLagGroups = lagGroups.map(lag => ({
         ...lag,
         memberLinkIndices: lag.memberLinkIndices
@@ -393,7 +424,6 @@ export function SelectionPanel() {
           .map(i => i > index ? i - 1 : i), // Adjust indices
       })).filter(lag => lag.memberLinkIndices.length > 0);
 
-      const newLinks = memberLinks.filter((_, i) => i !== index);
       updateEdge(selectedEdge.id, {
         memberLinks: newLinks,
         lagGroups: newLagGroups.length > 0 ? newLagGroups : undefined,
@@ -451,7 +481,7 @@ export function SelectionPanel() {
               label="Name"
               size="small"
               value={selectedLag.name || ""}
-              onChange={(e) => handleUpdateLagGroup(selectedLag.id, { name: e.target.value })}
+              onChange={(e) => handleUpdateLagGroup(selectedLag.id, { name: formatName(e.target.value) })}
               fullWidth
             />
 
@@ -576,7 +606,7 @@ export function SelectionPanel() {
               size="small"
               value={memberLinks[0]?.name || ""}
               onChange={(e) => {
-                const newName = e.target.value;
+                const newName = formatName(e.target.value);
                 const newLinks = memberLinks.map((link, i) =>
                   i === 0 ? { ...link, name: newName } : link
                 );
@@ -751,7 +781,7 @@ export function SelectionPanel() {
                       size="small"
                       value={link.name}
                       onChange={(e) =>
-                        handleUpdateLink(index, { name: e.target.value })
+                        handleUpdateLink(index, { name: formatName(e.target.value) })
                       }
                       fullWidth
                     />
@@ -842,7 +872,7 @@ export function SelectionPanel() {
                 size="small"
                 value={link.name}
                 onChange={(e) =>
-                  handleUpdateLink(index, { name: e.target.value })
+                  handleUpdateLink(index, { name: formatName(e.target.value) })
                 }
                 fullWidth
               />
@@ -1437,6 +1467,13 @@ function SimNodeSelectionEditor({
   const handleNameBlur = () => {
     if (localName !== simNode.name) {
       onUpdate({ name: localName });
+      setTimeout(() => {
+        const freshSimNodes = useTopologyStore.getState().simulation.simNodes;
+        const currentSimNode = freshSimNodes.find(n => n.id === simNode.id);
+        if (currentSimNode && currentSimNode.name !== localName) {
+          setLocalName(currentSimNode.name);
+        }
+      }, 50);
     }
   };
 
@@ -1449,7 +1486,7 @@ function SimNodeSelectionEditor({
           label="Name"
           size="small"
           value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
+          onChange={(e) => setLocalName(formatName(e.target.value))}
           onBlur={handleNameBlur}
           fullWidth
         />

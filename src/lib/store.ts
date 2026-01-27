@@ -351,13 +351,37 @@ export const useTopologyStore = create<TopologyStore>()(
         const edges = get().edges;
         const simNodes = get().simulation.simNodes;
         const linkTemplates = get().linkTemplates;
-        const sourceNode = nodes.find(n => n.id === connection.source)?.data.name ||
-          simNodes.find(n => n.id === connection.source)?.name || connection.source!;
-        const targetNode = nodes.find(n => n.id === connection.target)?.data.name ||
-          simNodes.find(n => n.id === connection.target)?.name || connection.target!;
 
-        const sourceIsSimNode = connection.source?.startsWith('sim-');
-        const targetIsSimNode = connection.target?.startsWith('sim-');
+        const origSourceIsSimNode = connection.source?.startsWith('sim-');
+        const origTargetIsSimNode = connection.target?.startsWith('sim-');
+        const needsSwap = origTargetIsSimNode && !origSourceIsSimNode;
+
+        const toSourceHandle = (handle: string | null | undefined): string | null => {
+          if (!handle) return null;
+          return handle.replace('-target', '');
+        };
+        const toTargetHandle = (handle: string | null | undefined): string | null => {
+          if (!handle) return null;
+          if (handle.endsWith('-target')) return handle;
+          return handle + '-target';
+        };
+
+        const normalizedConnection: Connection = needsSwap
+          ? {
+              source: connection.target,
+              target: connection.source,
+              sourceHandle: toSourceHandle(connection.targetHandle),
+              targetHandle: toTargetHandle(connection.sourceHandle),
+            }
+          : connection;
+
+        const sourceNode = nodes.find(n => n.id === normalizedConnection.source)?.data.name ||
+          simNodes.find(n => n.id === normalizedConnection.source)?.name || normalizedConnection.source!;
+        const targetNode = nodes.find(n => n.id === normalizedConnection.target)?.data.name ||
+          simNodes.find(n => n.id === normalizedConnection.target)?.name || normalizedConnection.target!;
+
+        const sourceIsSimNode = normalizedConnection.source?.startsWith('sim-');
+        const targetIsSimNode = normalizedConnection.target?.startsWith('sim-');
         const isSimNodeConnection = sourceIsSimNode || targetIsSimNode;
         const defaultTemplate = isSimNodeConnection
           ? linkTemplates.find(t => t.type === 'edge')?.name || 'edge'
@@ -375,11 +399,11 @@ export const useTopologyStore = create<TopologyStore>()(
         const existingEdge = edges.find(e => {
           if (e.data?.isMultihomed) return false; // Don't add member links to ESI-LAG edges
 
-          const sameDirection = e.source === connection.source && e.target === connection.target;
-          const reversedDirection = e.source === connection.target && e.target === connection.source;
+          const sameDirection = e.source === normalizedConnection.source && e.target === normalizedConnection.target;
+          const reversedDirection = e.source === normalizedConnection.target && e.target === normalizedConnection.source;
 
-          if (sameDirection) return handlesMatch(e, connection, false);
-          if (reversedDirection) return handlesMatch(e, connection, true);
+          if (sameDirection) return handlesMatch(e, normalizedConnection, false);
+          if (reversedDirection) return handlesMatch(e, normalizedConnection, true);
           return false;
         });
 
@@ -393,10 +417,10 @@ export const useTopologyStore = create<TopologyStore>()(
 
         // Find highest port number used by source node
         const sourcePortNumbers = edges.flatMap(e => {
-          if (e.source === connection.source) {
+          if (e.source === normalizedConnection.source) {
             return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
           }
-          if (e.target === connection.source) {
+          if (e.target === normalizedConnection.source) {
             return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
           }
           return [];
@@ -405,10 +429,10 @@ export const useTopologyStore = create<TopologyStore>()(
 
         // Find highest port number used by target node
         const targetPortNumbers = edges.flatMap(e => {
-          if (e.source === connection.target) {
+          if (e.source === normalizedConnection.target) {
             return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
           }
-          if (e.target === connection.target) {
+          if (e.target === normalizedConnection.target) {
             return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
           }
           return [];
@@ -457,6 +481,7 @@ export const useTopologyStore = create<TopologyStore>()(
             selectedSimNodeName: null,
             selectedMemberLinkIndices: [existingMemberLinks.length], // Select the newly added link
           });
+          sessionStorage.setItem('topology-new-link-id', existingEdge.id);
           get().triggerYamlRefresh();
           return;
         }
@@ -465,10 +490,10 @@ export const useTopologyStore = create<TopologyStore>()(
         const newEdge: Edge<TopologyEdgeData> = {
           id,
           type: 'linkEdge',
-          source: connection.source!,
-          target: connection.target!,
-          sourceHandle: connection.sourceHandle,
-          targetHandle: connection.targetHandle,
+          source: normalizedConnection.source!,
+          target: normalizedConnection.target!,
+          sourceHandle: normalizedConnection.sourceHandle,
+          targetHandle: normalizedConnection.targetHandle,
           selected: true,
           data: {
             id,

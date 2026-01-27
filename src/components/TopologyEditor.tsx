@@ -12,6 +12,7 @@ import {
   type Node,
   type Edge,
   type NodeChange,
+  type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Box, Tabs, Tab, useTheme, IconButton, Drawer } from '@mui/material';
@@ -206,7 +207,6 @@ function TopologyEditorInner() {
     const newLinkId = sessionStorage.getItem('topology-new-link-id');
     if (newLinkId && selectedEdgeId === newLinkId) {
       setActiveTab(1);
-      sessionStorage.removeItem('topology-new-link-id');
     }
   }, [selectedEdgeId]);
   
@@ -237,6 +237,15 @@ function TopologyEditorInner() {
   }>({ nodes: [], edges: [], simNodes: [] });
 
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const justConnectedRef = useRef(false);
+
+  const handleConnect = useCallback((connection: Connection) => {
+    justConnectedRef.current = true;
+    onConnect(connection);
+    setTimeout(() => {
+      justConnectedRef.current = false;
+    }, 100);
+  }, [onConnect]);
 
   useEffect(() => {
     if (activeTab !== 0 || !selectedEdgeId || selectedMemberLinkIndices.length === 0) return;
@@ -529,6 +538,9 @@ function TopologyEditorInner() {
   }, [pasteSelection, addSimNode, addMemberLink, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
+    if (justConnectedRef.current) {
+      return;
+    }
     selectNode(null);
     selectEdge(null);
     selectSimNode(null);
@@ -816,7 +828,7 @@ function TopologyEditorInner() {
             edges={edges}
             onNodesChange={handleNodesChange}
             onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
+            onConnect={handleConnect}
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}

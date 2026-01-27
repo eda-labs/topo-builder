@@ -187,7 +187,8 @@ export function SelectionPanel() {
       setTimeout(() => {
         if (sourceInterfaceRef.current) {
           sourceInterfaceRef.current.focus();
-          sourceInterfaceRef.current.select();
+          const len = sourceInterfaceRef.current.value.length;
+          sourceInterfaceRef.current.setSelectionRange(len, len);
         }
       }, 100);
       sessionStorage.removeItem('topology-new-link-id');

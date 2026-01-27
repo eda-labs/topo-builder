@@ -8,10 +8,11 @@ export async function waitForAppReady(page: Page): Promise<void> {
 
 export async function getYamlContent(page: Page): Promise<string> {
   await page.waitForSelector('.monaco-editor .view-lines');
-  return page.evaluate(() => {
+  const content = await page.evaluate(() => {
     const models = (window as any).monaco?.editor?.getModels();
     return models?.[0]?.getValue() || '';
   });
+  return content.trimEnd();
 }
 
 export async function getNodeCount(page: Page): Promise<number> {

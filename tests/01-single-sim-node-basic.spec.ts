@@ -15,7 +15,7 @@ test('Add a single SimNode (testman)', async ({ page }) => {
     const nodes = await getNodeCount(page);
     expect(nodes).toBe(1);
 
-    const yaml = (await getYamlContent(page)).trimEnd();
+    const yaml = await getYamlContent(page);
 
     expect(yaml).toBe(`apiVersion: topologies.eda.nokia.com/v1alpha1
 kind: NetworkTopology

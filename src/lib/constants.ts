@@ -4,12 +4,12 @@ export const DRAWER_WIDTH = 500;
 export const DRAWER_TRANSITION_DURATION_MS = 225;
 export const EDGE_INTERACTION_WIDTH = 5;
 
-export const LABEL_POS_X = 'topobuilder/x';
-export const LABEL_POS_Y = 'topobuilder/y';
-export const LABEL_SRC_HANDLE = 'topobuilder/srcHandle';
-export const LABEL_DST_HANDLE = 'topobuilder/dstHandle';
-export const LABEL_EDGE_ID = 'topobuilder/edgeId';
-export const LABEL_MEMBER_INDEX = 'topobuilder/memberIndex';
+export const LABEL_POS_X = 'topobuilder.eda.labs/x';
+export const LABEL_POS_Y = 'topobuilder.eda.labs/y';
+export const LABEL_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
+export const LABEL_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
+export const LABEL_EDGE_ID = 'topobuilder.eda.labs/edgeId';
+export const LABEL_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
 
 export const DEFAULT_INTERFACE = 'ethernet-1-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';

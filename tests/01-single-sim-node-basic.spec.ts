@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
   import {getNodeCount, getYamlContent } from './utils';                                    
 
-test('Add a single node', async ({ page }) => {
+test('Add a single SimNode (testman)', async ({ page }) => {
     await page.goto('http://localhost:4321/topo-builder');
     await page.waitForSelector('.react-flow__pane');          
     await page.locator('.react-flow__pane').click();
     await page.locator('.react-flow__pane').click({
         button: 'right'
     });
-    await page.getByRole('menuitem', { name: 'Add Node' }).click();
+    await page.getByRole('menuitem', { name: 'Add SimNode' }).click();
 
     await page.getByRole('tab', { name: 'YAML' }).click();
 
@@ -37,12 +37,7 @@ spec:
         eda.nokia.com/security-profile: managed
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D5
-  nodes:
-    - name: node1
-      template: leaf
-      labels:
-        topobuilder/x: "390"
-        topobuilder/y: "330"
+  nodes: []
   linkTemplates:
     - name: isl
       type: interSwitch
@@ -63,5 +58,7 @@ spec:
       - name: multitool
         type: Linux
         image: ghcr.io/srl-labs/network-multitool:latest
-    simNodes: []`);
+    simNodes:
+      - name: testman1
+        template: testman`);
 });

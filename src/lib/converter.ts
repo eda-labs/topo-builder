@@ -134,7 +134,7 @@ export function exportToYaml(options: ExportOptions): string {
             },
             sim: {
               simNode: simNodeName,
-              simNodeInterface: memberLinks[i]?.sourceInterface || `ethernet-1-${i + 1}`,
+              simNodeInterface: memberLinks[i]?.sourceInterface || `eth${i + 1}`,
             },
           });
         });

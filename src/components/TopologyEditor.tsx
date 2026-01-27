@@ -414,6 +414,8 @@ function TopologyEditorInner() {
             const extractPortNumber = (iface: string): number => {
               const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
               if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+              const ethMatch = iface.match(/eth(\d+)/);
+              if (ethMatch) return parseInt(ethMatch[1], 10);
               return 0;
             };
 
@@ -439,8 +441,8 @@ function TopologyEditorInner() {
             });
             const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
-            const sourceInterface = sourceIsSimNode ? `ethernet-1-${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-            const targetInterface = targetIsSimNode ? `ethernet-1-${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+            const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+            const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
 
             const memberLinks = edge.data.memberLinks || [];
             const nextLinkNumber = memberLinks.length + 1;

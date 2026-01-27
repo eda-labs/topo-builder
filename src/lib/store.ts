@@ -386,6 +386,8 @@ export const useTopologyStore = create<TopologyStore>()(
         const extractPortNumber = (iface: string): number => {
           const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
           if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+          const ethMatch = iface.match(/eth(\d+)/);
+          if (ethMatch) return parseInt(ethMatch[1], 10);
           return 0;
         };
 
@@ -413,8 +415,8 @@ export const useTopologyStore = create<TopologyStore>()(
         });
         const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
 
-        const sourceInterface = sourceIsSimNode ? `ethernet-1-${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-        const targetInterface = targetIsSimNode ? `ethernet-1-${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
 
         const sortedPair = [sourceNode, targetNode].sort().join('-');
         const allLinksForPair = edges.flatMap(e => {
@@ -1921,13 +1923,13 @@ export const useTopologyStore = create<TopologyStore>()(
               return { ...simNode, id, position };
             });
             updates.simulation = {
-              simNodeTemplates: baseTemplate.simulation?.simNodeTemplates || [],
+              simNodeTemplates: simDataFromYaml.simNodeTemplates || [],
               simNodes,
               topology: simDataFromYaml.topology,
             };
           } else {
             updates.simulation = {
-              simNodeTemplates: baseTemplate.simulation?.simNodeTemplates || [],
+              simNodeTemplates: get().simulation.simNodeTemplates,
               simNodes: [],
             };
           }

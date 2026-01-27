@@ -9,7 +9,7 @@ import type {
   Operation,
   Simulation,
 } from '../types/topology';
-import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, LABEL_EDGE_ID, LABEL_MEMBER_INDEX } from './constants';
+import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, LABEL_EDGE_ID, LABEL_MEMBER_INDEX, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE } from './constants';
 
 interface ExportOptions {
   topologyName: string;
@@ -130,7 +130,7 @@ export function exportToYaml(options: ExportOptions): string {
           endpoints.push({
             local: {
               node: leaf.nodeName,
-              interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+              interface: memberLinks[i]?.targetInterface || DEFAULT_INTERFACE,
             },
             sim: {
               simNode: simNodeName,
@@ -153,7 +153,7 @@ export function exportToYaml(options: ExportOptions): string {
         endpoints.push({
           local: {
             node: sourceName,
-            interface: memberLinks[0]?.sourceInterface || 'ethernet-1-1',
+            interface: memberLinks[0]?.sourceInterface || DEFAULT_INTERFACE,
           },
         });
 
@@ -161,7 +161,7 @@ export function exportToYaml(options: ExportOptions): string {
           endpoints.push({
             local: {
               node: leaf.nodeName,
-              interface: memberLinks[i]?.targetInterface || 'ethernet-1-1',
+              interface: memberLinks[i]?.targetInterface || DEFAULT_INTERFACE,
             },
           });
         });
@@ -218,24 +218,52 @@ export function exportToYaml(options: ExportOptions): string {
 
       const firstMemberIndex = lag.memberLinkIndices[0];
 
-      const lagLink: YamlLink = {
-        name: lag.name,
-        labels: createPosLabels(firstMemberIndex),
-        endpoints: [
-          ...lagMemberLinks.map(member => ({
+      let lagLink: YamlLink;
+
+      if (sourceIsSimNode || targetIsSimNode) {
+        const topoNodeName = sourceIsSimNode ? targetName : sourceName;
+        const simNodeName = sourceIsSimNode
+          ? (simNodeIdToName.get(edge.source) || sourceName)
+          : (simNodeIdToName.get(edge.target) || targetName);
+
+        lagLink = {
+          name: lag.name,
+          labels: createPosLabels(firstMemberIndex),
+          endpoints: lagMemberLinks.map(member => ({
             local: {
-              node: sourceName,
-              interface: member.sourceInterface || 'ethernet-1-1',
+              node: topoNodeName,
+              interface: sourceIsSimNode
+                ? (member.targetInterface || DEFAULT_INTERFACE)
+                : (member.sourceInterface || DEFAULT_INTERFACE),
+            },
+            sim: {
+              simNode: simNodeName,
+              simNodeInterface: sourceIsSimNode
+                ? (member.sourceInterface || DEFAULT_SIM_INTERFACE)
+                : (member.targetInterface || DEFAULT_SIM_INTERFACE),
             },
           })),
-          ...lagMemberLinks.map(member => ({
-            local: {
-              node: targetName,
-              interface: member.targetInterface || 'ethernet-1-1',
-            },
-          })),
-        ],
-      };
+        };
+      } else {
+        lagLink = {
+          name: lag.name,
+          labels: createPosLabels(firstMemberIndex),
+          endpoints: [
+            ...lagMemberLinks.map(member => ({
+              local: {
+                node: sourceName,
+                interface: member.sourceInterface || DEFAULT_INTERFACE,
+              },
+            })),
+            ...lagMemberLinks.map(member => ({
+              local: {
+                node: targetName,
+                interface: member.targetInterface || DEFAULT_INTERFACE,
+              },
+            })),
+          ],
+        };
+      }
 
       if (lag.template) {
         lagLink.template = lag.template;
@@ -259,7 +287,7 @@ export function exportToYaml(options: ExportOptions): string {
           endpoints: [{
             local: {
               node: sourceName,
-              interface: member.sourceInterface || 'ethernet-1-1',
+              interface: member.sourceInterface || DEFAULT_INTERFACE,
             },
             sim: {
               simNode: simNodeName,
@@ -277,7 +305,7 @@ export function exportToYaml(options: ExportOptions): string {
           endpoints: [{
             local: {
               node: targetName,
-              interface: member.targetInterface || 'ethernet-1-1',
+              interface: member.targetInterface || DEFAULT_INTERFACE,
             },
             sim: {
               simNode: simNodeName,
@@ -294,11 +322,11 @@ export function exportToYaml(options: ExportOptions): string {
             {
               local: {
                 node: sourceName,
-                interface: member.sourceInterface || 'ethernet-1-1',
+                interface: member.sourceInterface || DEFAULT_INTERFACE,
               },
               remote: {
                 node: targetName,
-                interface: member.targetInterface || 'ethernet-1-1',
+                interface: member.targetInterface || DEFAULT_INTERFACE,
               },
             },
           ],

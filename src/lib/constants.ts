@@ -11,6 +11,9 @@ export const LABEL_DST_HANDLE = 'topobuilder/dstHandle';
 export const LABEL_EDGE_ID = 'topobuilder/edgeId';
 export const LABEL_MEMBER_INDEX = 'topobuilder/memberIndex';
 
+export const DEFAULT_INTERFACE = 'ethernet-1-1';
+export const DEFAULT_SIM_INTERFACE = 'eth1';
+
 export const PLATFORM_SUGGESTIONS = [
     "7220 IXR-D1",
     "7220 IXR-D2",

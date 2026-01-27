@@ -110,6 +110,7 @@ import { formatName } from "../lib/utils";
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
+  DEFAULT_INTERFACE,
 } from "../lib/constants";
 import type { Edge } from "@xyflow/react";
 import type {
@@ -713,8 +714,8 @@ export function SelectionPanel() {
       addMemberLink(selectedEdge.id, {
         name: `${nodeB}-${nodeA}-${nextNum}`,
         template: lastLink?.template,
-        sourceInterface: incrementInterface(lastLink?.sourceInterface || 'ethernet-1-1'),
-        targetInterface: incrementInterface(lastLink?.targetInterface || 'ethernet-1-1'),
+        sourceInterface: incrementInterface(lastLink?.sourceInterface || DEFAULT_INTERFACE),
+        targetInterface: incrementInterface(lastLink?.targetInterface || DEFAULT_INTERFACE),
       });
       triggerYamlRefresh();
     };

@@ -4,7 +4,7 @@ import type { Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/rea
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import yaml from 'js-yaml';
 import baseTemplateYaml from '../static/base-template.yaml?raw';
-import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE } from './constants';
+import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE } from './constants';
 import {
   generateUniqueName,
   generateCopyName,
@@ -493,9 +493,10 @@ export const useTopologyStore = create<TopologyStore>()(
             nodes: deselectedNodes,
             edges: updatedEdges,
             selectedEdgeId: existingEdge.id,
+            selectedEdgeIds: [existingEdge.id],
             selectedNodeId: null,
             selectedSimNodeName: null,
-            selectedMemberLinkIndices: [existingMemberLinks.length], // Select the newly added link
+            selectedMemberLinkIndices: [existingMemberLinks.length],
           });
           sessionStorage.setItem('topology-new-link-id', existingEdge.id);
           get().triggerYamlRefresh();
@@ -529,6 +530,7 @@ export const useTopologyStore = create<TopologyStore>()(
           nodes: deselectedNodes,
           edges: [...deselectedEdges, newEdge],
           selectedEdgeId: id,
+          selectedEdgeIds: [id],
           selectedNodeId: null,
           selectedSimNodeName: null,
           selectedMemberLinkIndices: [],
@@ -1001,6 +1003,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
         set({
           selectedEdgeId: edgeId,
+          selectedEdgeIds: [edgeId],
           selectedNodeId: null,
           selectedSimNodeName: null,
           selectedSimNodeNames: EMPTY_STRING_SET,
@@ -1014,6 +1017,7 @@ export const useTopologyStore = create<TopologyStore>()(
       selectLag: (edgeId: string, lagId: string | null) => {
         set({
           selectedEdgeId: edgeId,
+          selectedEdgeIds: [edgeId],
           selectedNodeId: null,
           selectedSimNodeName: null,
           selectedSimNodeNames: EMPTY_STRING_SET,
@@ -1070,10 +1074,11 @@ export const useTopologyStore = create<TopologyStore>()(
         if (alreadyInLag) return;
 
         const lagGroupCount = existingLagGroups.length + 1;
+        const firstMemberLink = allMemberLinks[validIndices[0]];
         const newLagGroup = {
           id: `lag-${edgeId}-${lagGroupCount}`,
           name: `${sourceEdge.data.targetNode}-${sourceEdge.data.sourceNode}-lag-${lagGroupCount}`,
-          template: 'isl',
+          template: firstMemberLink?.template,
           memberLinkIndices: validIndices,
         };
 
@@ -1122,8 +1127,8 @@ export const useTopologyStore = create<TopologyStore>()(
         const newLink: MemberLink = {
           name: `${lag.name}-${lag.memberLinkIndices.length + 1}`,
           template: lag.template || lastLagLink?.template,
-          sourceInterface: incrementInterface(lastLagLink?.sourceInterface || 'ethernet-1-1'),
-          targetInterface: incrementInterface(lastLagLink?.targetInterface || 'ethernet-1-1'),
+          sourceInterface: incrementInterface(lastLagLink?.sourceInterface || DEFAULT_INTERFACE),
+          targetInterface: incrementInterface(lastLagLink?.targetInterface || DEFAULT_INTERFACE),
         };
 
         const newMemberLinkIndex = memberLinks.length;
@@ -1347,8 +1352,8 @@ export const useTopologyStore = create<TopologyStore>()(
 
         const newMemberLink: MemberLink = {
           name: `${edge.data.sourceNode}-${lastLeaf.nodeName}-${memberLinks.length + 1}`,
-          sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || 'ethernet-1-1'),
-          targetInterface: incrementInterface(lastMemberLink?.targetInterface || 'ethernet-1-1'),
+          sourceInterface: incrementInterface(lastMemberLink?.sourceInterface || DEFAULT_INTERFACE),
+          targetInterface: incrementInterface(lastMemberLink?.targetInterface || DEFAULT_INTERFACE),
         };
 
         const newLeaf = {
@@ -1788,8 +1793,8 @@ export const useTopologyStore = create<TopologyStore>()(
                     if (ep.local?.node) {
                       leafInfoList.push({
                         name: ep.local.node,
-                        localInterface: ep.local.interface || 'ethernet-1-1',
-                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || 'ethernet-1-1',
+                        localInterface: ep.local.interface || DEFAULT_INTERFACE,
+                        simInterface: ep.sim?.interface || ep.sim?.simNodeInterface || DEFAULT_INTERFACE,
                       });
                     }
                   }
@@ -1841,7 +1846,7 @@ export const useTopologyStore = create<TopologyStore>()(
                     if (ep.local?.node) {
                       nodeInfoList.push({
                         name: ep.local.node,
-                        interface: ep.local.interface || 'ethernet-1-1',
+                        interface: ep.local.interface || DEFAULT_INTERFACE,
                       });
                     }
                   }
@@ -1923,8 +1928,8 @@ export const useTopologyStore = create<TopologyStore>()(
                     edgeData.memberLinks.push({
                       name: `${link.name}-${idx + 1}`,
                       template: link.template,
-                      sourceInterface: ep.local!.interface || 'ethernet-1-1',
-                      targetInterface: ep.remote!.interface || 'ethernet-1-1',
+                      sourceInterface: ep.local!.interface || DEFAULT_INTERFACE,
+                      targetInterface: ep.remote!.interface || DEFAULT_INTERFACE,
                     });
                     lagMemberIndices.push(startIdx + idx);
                   });
@@ -1939,8 +1944,8 @@ export const useTopologyStore = create<TopologyStore>()(
                   edgeData.memberLinks.push({
                     name: link.name,
                     template: link.template,
-                    sourceInterface: firstEndpoint.local!.interface || 'ethernet-1-1',
-                    targetInterface: firstEndpoint.remote!.interface || 'ethernet-1-1',
+                    sourceInterface: firstEndpoint.local!.interface || DEFAULT_INTERFACE,
+                    targetInterface: firstEndpoint.remote!.interface || DEFAULT_INTERFACE,
                   });
                 }
               }

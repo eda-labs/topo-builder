@@ -19,6 +19,7 @@ export interface TopologyNodeData {
   template?: string;
   nodeProfile?: string;
   labels?: Record<string, string>;
+  isNew?: boolean;
 }
 
 export interface MemberLink {

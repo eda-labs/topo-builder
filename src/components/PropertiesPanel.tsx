@@ -186,11 +186,14 @@ export function SelectionPanel() {
 
   // Auto-focus and select node name when a new node is selected
   useEffect(() => {
-    if (selectedNodeId && selectedNodeId !== prevSelectedNodeIdRef.current) {
-      setTimeout(() => focusAtEnd(nodeNameInputRef.current), 50);
+    if (selectedNodeId && selectedNodeId !== prevSelectedNodeIdRef.current && selectedNode?.data.isNew) {
+      setTimeout(() => {
+        focusAtEnd(nodeNameInputRef.current);
+        updateNode(selectedNodeId, { isNew: false });
+      }, 50);
     }
     prevSelectedNodeIdRef.current = selectedNodeId;
-  }, [selectedNodeId]);
+  }, [selectedNodeId, selectedNode?.data.isNew, updateNode]);
 
   // Auto-focus source interface when a new link is created
   useEffect(() => {

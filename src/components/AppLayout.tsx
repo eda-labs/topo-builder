@@ -19,6 +19,7 @@ import {
   ThemeProvider,
   createTheme,
   Snackbar,
+  Link,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -30,6 +31,7 @@ import {
   LightMode as LightModeIcon,
   Terminal as TerminalIcon,
   PhotoCamera as PhotoCameraIcon,
+  HelpOutline as HelpIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 import { getNodesBounds } from '@xyflow/react';
@@ -55,6 +57,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         bg: darkMode ? '#262626' : '#f5f5f5',
         border: darkMode ? '#424242' : '#e0e0e0',
       },
+    },
+    typography: {
+      fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
     },
     components: {
       MuiPaper: {
@@ -83,6 +88,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [displayedError, setDisplayedError] = useState<string | null>(null);
+  const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -192,6 +198,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>
+              <Tooltip title="About">
+                <IconButton size="small" onClick={() => setAboutDialogOpen(true)} sx={{ color: 'white' }}>
+                  <HelpIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Toolbar>
         </AppBar>
@@ -228,6 +239,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setValidationDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>{TITLE}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1">
+              Topology Builder UI for the <Link href="https://eda.dev" target="_blank" rel="noopener">Nokia EDA</Link> platform allows users to create the input YAML for the topology workflow in a graphical way.
+            </Typography>
+            <br/>
+            <Typography variant="body1" color="error" fontWeight="bold">
+              This is not an official Nokia product.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAboutDialogOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
 

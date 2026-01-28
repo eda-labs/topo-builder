@@ -6,16 +6,27 @@ interface Props {
 }
 
 const { title } = Astro.props;
+const description = 'Make EDA NetworkTopolgy workflows with ease.';
+const siteUrl = Astro.url.origin;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content="" />
+    <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/eda.svg" />
     <title>{title}</title>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${siteUrl}/eda.svg`} />
+    <meta property="og:url" content={siteUrl} />
+
+    <!-- Discord embed color (EDA purple) -->
+    <meta name="theme-color" content="#7d33f2" />
   </head>
   <body class="antialiased">
     <slot />

@@ -1776,6 +1776,8 @@ export const useTopologyStore = create<TopologyStore>()(
                 lagGroups: { id: string; name: string; template?: string; memberLinkIndices: number[] }[];
                 sourceHandle: string;
                 targetHandle: string;
+                sourceName: string;
+                targetName: string;
               }
               const edgesByPair = new Map<string, EdgeData>();
 
@@ -1937,7 +1939,7 @@ export const useTopologyStore = create<TopologyStore>()(
                 const pairKey = [sourceName, targetName].sort().join('|') + `|${sourceHandle}|${targetHandle}`;
 
                 if (!edgesByPair.has(pairKey)) {
-                  edgesByPair.set(pairKey, { memberLinks: [], lagGroups: [], sourceHandle, targetHandle });
+                  edgesByPair.set(pairKey, { memberLinks: [], lagGroups: [], sourceHandle, targetHandle, sourceName, targetName });
                 }
                 const edgeData = edgesByPair.get(pairKey)!;
 
@@ -1984,10 +1986,9 @@ export const useTopologyStore = create<TopologyStore>()(
 
               // Create one edge per node pair + handle combination
               const newEdges: Edge<TopologyEdgeData>[] = [];
-              for (const [pairKey, { memberLinks, lagGroups, sourceHandle, targetHandle }] of edgesByPair) {
-                const [nodeName1, nodeName2] = pairKey.split('|');
-                const sourceId = nameToNewId.get(nodeName1)!;
-                const targetId = nameToNewId.get(nodeName2)!;
+              for (const [, { memberLinks, lagGroups, sourceHandle, targetHandle, sourceName, targetName }] of edgesByPair) {
+                const sourceId = nameToNewId.get(sourceName)!;
+                const targetId = nameToNewId.get(targetName)!;
 
                 // Check if edge already exists with same handles
                 const existingEdge = currentEdges.find(
@@ -2006,8 +2007,8 @@ export const useTopologyStore = create<TopologyStore>()(
                   targetHandle,
                   data: {
                     id,
-                    sourceNode: nodeName1,
-                    targetNode: nodeName2,
+                    sourceNode: sourceName,
+                    targetNode: targetName,
                     memberLinks,
                     lagGroups: lagGroups.length > 0 ? lagGroups : undefined,
                   },

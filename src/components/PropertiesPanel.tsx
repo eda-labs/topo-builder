@@ -1145,11 +1145,13 @@ function LabelEditor({
   labelValue,
   onUpdate,
   onDelete,
+  disableSuggestions = false,
 }: {
   labelKey: string;
   labelValue: string;
   onUpdate: (key: string, value: string) => void;
   onDelete: () => void;
+  disableSuggestions?: boolean;
 }) {
   const [localKey, setLocalKey] = useState(labelKey);
   const [localValue, setLocalValue] = useState(labelValue);
@@ -1159,7 +1161,7 @@ function LabelEditor({
     setLocalValue(labelValue);
   }, [labelKey, labelValue]);
 
-  const isSpecialLabel = labelKey in SPECIAL_LABELS;
+  const isSpecialLabel = !disableSuggestions && labelKey in SPECIAL_LABELS;
   const enumOptions = SPECIAL_LABELS[labelKey];
 
   return (
@@ -1316,6 +1318,36 @@ function LinkTemplateEditor({
     }
   };
 
+  const handleAddLabel = () => {
+    let counter = 1;
+    let newKey = `eda.nokia.com/label-${counter}`;
+    while (template.labels?.[newKey]) {
+      counter++;
+      newKey = `eda.nokia.com/label-${counter}`;
+    }
+    onUpdate(template.name, {
+      labels: {
+        ...template.labels,
+        [newKey]: "",
+      },
+    });
+  };
+
+  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
+    const newLabels = { ...template.labels };
+    if (oldKey !== newKey) {
+      delete newLabels[oldKey];
+    }
+    newLabels[newKey] = value;
+    onUpdate(template.name, { labels: newLabels });
+  };
+
+  const handleDeleteLabel = (key: string) => {
+    const newLabels = { ...template.labels };
+    delete newLabels[key];
+    onUpdate(template.name, { labels: newLabels });
+  };
+
   return (
     <PanelCard highlighted>
       <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
@@ -1386,6 +1418,38 @@ function LinkTemplateEditor({
             <MenuItem value="dot1q">dot1q</MenuItem>
           </Select>
         </FormControl>
+        </Box>
+
+        <Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: '0.5rem',
+            }}
+          >
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+            Labels
+          </Typography>
+          <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
+            Add
+          </Button>
+        </Box>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: '0.75rem' }}>
+          {Object.entries(template.labels || {}).map(([key, value]) => (
+            <LabelEditor
+              key={key}
+              labelKey={key}
+              labelValue={value}
+              onUpdate={(newKey, newValue) =>
+                handleUpdateLabel(key, newKey, newValue)
+              }
+              onDelete={() => handleDeleteLabel(key)}
+              disableSuggestions
+            />
+          ))}
+        </Box>
         </Box>
       </Box>
     </PanelCard>

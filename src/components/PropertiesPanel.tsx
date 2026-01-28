@@ -288,6 +288,7 @@ export function SelectionPanel() {
               ))}
             </Select>
           </FormControl>
+          <InheritedLabels labels={nodeTemplates.find(t => t.name === nodeData.template)?.labels} />
         </Box>
 
         {allConnectedEdges.length > 0 && (
@@ -510,6 +511,7 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
+            <InheritedLabels labels={linkTemplates.find(t => t.name === selectedLag.template)?.labels} />
           </Box>
 
           <PanelSection
@@ -646,6 +648,7 @@ export function SelectionPanel() {
                 ))}
               </Select>
             </FormControl>
+            <InheritedLabels labels={linkTemplates.find(t => t.name === memberLinks[0]?.template)?.labels} />
           </Box>
 
           <PanelSection
@@ -904,6 +907,7 @@ export function SelectionPanel() {
                   ))}
                 </Select>
               </FormControl>
+              <InheritedLabels labels={linkTemplates.find(t => t.name === link.template)?.labels} />
             </Box>
 
             <PanelSection title="Endpoints">
@@ -981,6 +985,27 @@ export function SelectionPanel() {
     <Typography color="text.secondary" textAlign="center" py="1rem">
       Select a node or link
     </Typography>
+  );
+}
+
+function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
+  if (!labels || Object.keys(labels).length === 0) return null;
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', mt: '0.5rem' }}>
+      <Typography variant="body2" color="text.primary" fontWeight={600}>
+        Inherited labels
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+        {Object.entries(labels).map(([key, value]) => (
+          <Chip
+            key={key}
+            label={`${key}=${value}`}
+            size="small"
+            variant="outlined"
+          />
+        ))}
+      </Box>
+    </Box>
   );
 }
 

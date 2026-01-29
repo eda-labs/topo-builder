@@ -4,7 +4,14 @@ import type { Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/rea
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import yaml from 'js-yaml';
 import baseTemplateYaml from '../static/base-template.yaml?raw';
-import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE } from './constants';
+import { 
+  LABEL_POS_X, 
+  LABEL_POS_Y, 
+  LABEL_SRC_HANDLE, 
+  LABEL_DST_HANDLE,
+  DEFAULT_INTERFACE, 
+  DEFAULT_SIM_INTERFACE, 
+  LABEL_NAME_PREFIX } from './constants';
 import {
   generateUniqueName,
   generateCopyName,
@@ -254,10 +261,12 @@ export const useTopologyStore = create<TopologyStore>()(
         const allNodeNames = get().nodes.map(n => n.data.name);
         const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
         const allNames = [...allNodeNames, ...allSimNodeNames];
-        const name = generateUniqueName('node', allNames, get().nodes.length + 1);
 
         // Use provided template name, or fall back to first template
         const template = templateName || get().nodeTemplates[0]?.name;
+        const templateObj = get().nodeTemplates.find(t => t.name === template);
+        const namePrefix = templateObj?.labels?.[LABEL_NAME_PREFIX] || 'node';
+        const name = generateUniqueName(namePrefix, allNames, get().nodes.length + 1);
         const newNode: Node<TopologyNodeData> = {
           id,
           type: 'deviceNode',
@@ -285,7 +294,18 @@ export const useTopologyStore = create<TopologyStore>()(
       updateNode: (id: string, data: Partial<TopologyNodeData>) => {
         const currentNode = get().nodes.find(n => n.id === id);
         const oldName = currentNode?.data.name;
-        const newName = data.name;
+        let newName = data.name;
+        // rename if we change the template
+        if (data.template && data.template !== currentNode?.data.template && !data.name) {
+          const newTemplateObj = get().nodeTemplates.find(t => t.name === data.template);
+          const namePrefix = newTemplateObj?.labels?.[LABEL_NAME_PREFIX];
+          if (namePrefix) {
+            const allNodeNames = get().nodes.filter(n => n.id !== id).map(n => n.data.name);
+            const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
+            newName = generateUniqueName(namePrefix, [...allNodeNames, ...allSimNodeNames], 1);
+            data = { ...data, name: newName };
+          }
+        }
 
         if (newName && newName !== oldName) {
           const allNodeNames = get().nodes.filter(n => n.id !== id).map(n => n.data.name);

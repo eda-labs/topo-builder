@@ -1,5 +1,6 @@
 import { Position } from '@xyflow/react';
 import { getHandleCoordinates, getControlPoint } from './edgeUtils';
+import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { EsiLeafConnection } from '../../types/topology';
 
 interface NodeInfo {
@@ -88,7 +89,7 @@ export default function EsiLagEdge({
             d={path}
             fill="none"
             stroke="transparent"
-            strokeWidth={20}
+            strokeWidth={EDGE_INTERACTION_WIDTH}
           />
           <path
             d={path}

@@ -2,6 +2,7 @@ import { getBezierPath, EdgeLabelRenderer, Position } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 import { Chip } from '@mui/material';
 import { getControlPoint } from './edgeUtils';
+import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 
 interface StandardEdgeProps {
   sourceX: number;
@@ -76,7 +77,7 @@ export default function StandardEdge({
           d={edgePath}
           fill="none"
           stroke="transparent"
-          strokeWidth={20}
+          strokeWidth={EDGE_INTERACTION_WIDTH}
         />
         <path
           d={edgePath}

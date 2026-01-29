@@ -1,6 +1,7 @@
 import { EdgeLabelRenderer, Position } from '@xyflow/react';
 import { Chip } from '@mui/material';
 import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
+import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { MemberLink, LagGroup } from '../../types/topology';
 
 interface ExpandedBundleEdgeProps {
@@ -89,11 +90,10 @@ export default function ExpandedBundleEdge({
               style={{ cursor: 'pointer' }}
             >
               <path
-                className="react-flow__edge-interaction"
                 d={curvePath}
                 fill="none"
                 stroke="transparent"
-                strokeWidth={20}
+                strokeWidth={EDGE_INTERACTION_WIDTH}
                 onClick={(e) => onMemberLinkClick(e, item.index)}
                 onContextMenu={(e) => onMemberLinkContextMenu(e, item.index)}
               />
@@ -116,11 +116,10 @@ export default function ExpandedBundleEdge({
                 style={{ cursor: 'pointer' }}
               >
                 <path
-                  className="react-flow__edge-interaction"
                   d={curvePath}
                   fill="none"
                   stroke="transparent"
-                  strokeWidth={20}
+                  strokeWidth={EDGE_INTERACTION_WIDTH}
                   onClick={(e) => onLagClick(e, item.lag.id)}
                   onContextMenu={() => onLagContextMenu(item.lag.id)}
                 />

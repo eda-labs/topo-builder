@@ -142,7 +142,7 @@ export default function ContextMenu({
                 >
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Change Template</ListItemText>
+                    <ListItemText>Template</ListItemText>
                     <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
                   </MenuItem>
 
@@ -171,7 +171,7 @@ export default function ContextMenu({
                 >
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Change Template</ListItemText>
+                    <ListItemText>Template</ListItemText>
                     <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
                   </MenuItem>
 
@@ -211,7 +211,7 @@ export default function ContextMenu({
                 >
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Change Template</ListItemText>
+                    <ListItemText>Template</ListItemText>
                     <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
                   </MenuItem>
 

@@ -867,6 +867,7 @@ function TopologyEditorInner() {
             snapGrid={[15, 15]}
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
             colorMode={darkMode ? 'dark' : 'light'}
+            deleteKeyCode={null}
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
             selectionOnDrag

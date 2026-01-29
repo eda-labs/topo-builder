@@ -138,6 +138,9 @@ export function SelectionPanel() {
   const selectedSimNodeName = useTopologyStore(
     (state) => state.selectedSimNodeName,
   );
+  const selectedSimNodeNames = useTopologyStore(
+    (state) => state.selectedSimNodeNames,
+  );
   const selectedMemberLinkIndices = useTopologyStore(
     (state) => state.selectedMemberLinkIndices,
   );
@@ -187,7 +190,15 @@ export function SelectionPanel() {
   // Count selected items
   const selectedNodesCount = nodes.filter((n) => n.selected).length;
   const selectedEdgesCount = edges.filter((e) => e.selected).length;
-  const totalSelected = selectedNodesCount + selectedEdgesCount;
+  const selectedSimNodesCount = selectedSimNodeNames.size;
+  const selectedMemberLinksCount = selectedMemberLinkIndices.length;
+
+  const hasMultipleSelected =
+    selectedNodesCount > 1 ||
+    selectedEdgesCount > 1 ||
+    selectedSimNodesCount > 1 ||
+    selectedMemberLinksCount > 1 ||
+    (selectedNodesCount + selectedEdgesCount + selectedSimNodesCount) > 1;
 
   // Auto-focus and select node name when a new node is selected
   useEffect(() => {
@@ -217,7 +228,7 @@ export function SelectionPanel() {
   }, []);
 
   // Don't show properties panel when multiple items are selected
-  if (totalSelected > 1) {
+  if (hasMultipleSelected) {
     return (
       <Typography color="text.secondary" textAlign="center" py="1rem">
         Select a node or link

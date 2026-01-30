@@ -36,7 +36,8 @@ import SimDeviceNode, { type SimDeviceNodeData } from './nodes/SimDeviceNode';
 import LinkEdge from './edges/LinkEdge';
 import AppLayout from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
-import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
+import { SelectionPanel } from './PropertiesPanel';
+import { NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesTemplatesPanel';
 import ContextMenu from './ContextMenu';
 
 const nodeTypes: NodeTypes = {

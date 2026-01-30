@@ -368,7 +368,7 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
   if (simulation && (
     (simulation.simNodeTemplates && simulation.simNodeTemplates.length > 0) ||
     (simulation.simNodes && simulation.simNodes.length > 0) ||
-    (simulation.topology && simulation.topology.length > 0)
+    (simulation.topology && Array.isArray(simulation.topology) && simulation.topology.length > 0)
   )) {
     // Convert position to labels for simNodes, strip internal id field
     const cleanSimulation = {

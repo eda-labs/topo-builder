@@ -4,10 +4,11 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "npm run generate-types && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
     "generate-types": "node scripts/generate-types.js",
     "test:e2e": "playwright test --config playwright.config.ts",

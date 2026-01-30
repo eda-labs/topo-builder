@@ -50,34 +50,31 @@ export interface NetworkTopologyCrd {
     nodes: NetworkNode[];
     linkTemplates: LinkTemplate[];
     links: YamlLink[];
-    simulation?: Simulation;
+    simulation?: SimulationCrd;
   };
 }
 
-export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
-  const {
-    topologyName,
-    namespace,
-    operation,
-    nodes,
-    edges,
-    nodeTemplates,
-    linkTemplates,
-    simulation,
-  } = options;
+type SimNodeCrd = Omit<Simulation['simNodes'][number], 'id' | 'position' | 'labels' | 'isNew'>;
+type SimulationCrd = Omit<Simulation, 'simNodes'> & { simNodes?: SimNodeCrd[] };
 
+function buildNodeIdToName(nodes: Node<TopologyNodeData>[]) {
   const nodeIdToName = new Map<string, string>();
   nodes.forEach((node) => {
     nodeIdToName.set(node.id, node.data.name);
   });
+  return nodeIdToName;
+}
 
-  // Map simNode IDs to names
+function buildSimNodeIdToName(simulation?: Simulation) {
   const simNodeIdToName = new Map<string, string>();
   simulation?.simNodes?.forEach((simNode) => {
     simNodeIdToName.set(simNode.id, simNode.name);
   });
+  return simNodeIdToName;
+}
 
-  const networkNodes: NetworkNode[] = nodes.map((node) => {
+function buildNetworkNodes(nodes: Node<TopologyNodeData>[]): NetworkNode[] {
+  return nodes.map((node) => {
     const networkNode: NetworkNode = {
       name: node.data.name,
     };
@@ -104,96 +101,303 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
     networkNode.labels = labels;
     return networkNode;
   });
+}
 
-  // Convert React Flow edges to ISL links (expand member links)
-  // Skip edges to sim nodes - those should be created as edge links with sim: endpoint
-  const islLinks: YamlLink[] = [];
-  const simLinks: YamlLink[] = [];
+function buildEsiLagName(sourceName: string, edge: Edge<TopologyEdgeData>, counter: number) {
+  return edge.data?.esiLagName || `${sourceName}-esi-lag-${counter}`;
+}
+
+function buildSimEsiLagEndpoints(
+  edge: Edge<TopologyEdgeData>,
+  sourceName: string,
+  memberLinks: TopologyEdgeData['memberLinks'],
+  esiLeaves: NonNullable<TopologyEdgeData['esiLeaves']>,
+  simNodeIdToName: Map<string, string>,
+) {
+  const simNodeName = simNodeIdToName.get(edge.source) || sourceName;
+  return esiLeaves.map((leaf, i) => ({
+    local: {
+      node: leaf.nodeName,
+      interface: memberLinks?.[i]?.targetInterface || DEFAULT_INTERFACE,
+    },
+    sim: {
+      simNode: simNodeName,
+      simNodeInterface: memberLinks?.[i]?.sourceInterface || `eth${i + 1}`,
+    },
+  }));
+}
+
+function buildTopoEsiLagEndpoints(
+  sourceName: string,
+  memberLinks: TopologyEdgeData['memberLinks'],
+  esiLeaves: NonNullable<TopologyEdgeData['esiLeaves']>,
+) {
+  const endpoints: Array<{ local: { node: string; interface: string } }> = [{
+    local: {
+      node: sourceName,
+      interface: memberLinks?.[0]?.sourceInterface || DEFAULT_INTERFACE,
+    },
+  }];
+
+  esiLeaves.forEach((leaf, i) => {
+    endpoints.push({
+      local: {
+        node: leaf.nodeName,
+        interface: memberLinks?.[i]?.targetInterface || DEFAULT_INTERFACE,
+      },
+    });
+  });
+
+  return endpoints;
+}
+
+function createEsiLagLink(
+  name: string,
+  memberLinks: TopologyEdgeData['memberLinks'],
+  endpoints: YamlLink['endpoints'],
+) {
+  const link: YamlLink = {
+    name,
+    labels: memberLinks?.[0]?.labels,
+    endpoints,
+  };
+  if (memberLinks?.[0]?.template) {
+    link.template = memberLinks[0].template;
+  }
+  return link;
+}
+
+function buildEsiLagLinks(edges: Edge<TopologyEdgeData>[], simNodeIdToName: Map<string, string>) {
   const esiLagLinks: YamlLink[] = [];
-
   const processedMultihomedEdgeIds = new Set<string>();
   let esiLagCounter = 1;
 
   for (const edge of edges) {
-    if (edge.data?.isMultihomed && edge.data.esiLeaves?.length) {
-      const sourceName = edge.data.sourceNode;
-      const esiLeaves = edge.data.esiLeaves;
-      const memberLinks = edge.data.memberLinks || [];
-      const sourceIsSimNode = edge.source.startsWith('sim-');
+    if (!edge.data?.isMultihomed || !edge.data.esiLeaves?.length) continue;
 
-      if (sourceIsSimNode) {
-        const simNodeName = simNodeIdToName.get(edge.source) || sourceName;
+    const sourceName = edge.data.sourceNode;
+    const esiLeaves = edge.data.esiLeaves;
+    const memberLinks = edge.data.memberLinks || [];
+    const sourceIsSimNode = edge.source.startsWith('sim-');
+    const name = buildEsiLagName(sourceName, edge, esiLagCounter++);
 
-        const endpoints: Array<{
-          local: { node: string; interface: string };
-          sim: { simNode: string; simNodeInterface: string };
-        }> = [];
+    const endpoints = sourceIsSimNode
+      ? buildSimEsiLagEndpoints(edge, sourceName, memberLinks, esiLeaves, simNodeIdToName)
+      : buildTopoEsiLagEndpoints(sourceName, memberLinks, esiLeaves);
 
-        esiLeaves.forEach((leaf, i) => {
-          endpoints.push({
+    esiLagLinks.push(createEsiLagLink(name, memberLinks, endpoints));
+    processedMultihomedEdgeIds.add(edge.id);
+  }
+
+  return { esiLagLinks, processedMultihomedEdgeIds };
+}
+
+function createPosLabels(edge: Edge<TopologyEdgeData>, memberIndex: number) {
+  return {
+    [LABEL_EDGE_ID]: edge.id,
+    [LABEL_MEMBER_INDEX]: String(memberIndex),
+    ...(edge.sourceHandle && { [LABEL_SRC_HANDLE]: edge.sourceHandle }),
+    ...(edge.targetHandle && { [LABEL_DST_HANDLE]: edge.targetHandle }),
+  };
+}
+
+function buildLagLinks(params: {
+  edge: Edge<TopologyEdgeData>;
+  lagGroups: TopologyEdgeData['lagGroups'];
+  memberLinks: TopologyEdgeData['memberLinks'];
+  sourceName: string;
+  targetName: string;
+  sourceIsSimNode: boolean;
+  targetIsSimNode: boolean;
+  simNodeIdToName: Map<string, string>;
+}) {
+  const {
+    edge,
+    lagGroups,
+    memberLinks,
+    sourceName,
+    targetName,
+    sourceIsSimNode,
+    targetIsSimNode,
+    simNodeIdToName,
+  } = params;
+
+  const islLinks: YamlLink[] = [];
+
+  for (const lag of lagGroups || []) {
+    const lagMemberLinks = lag.memberLinkIndices
+      .filter(idx => idx >= 0 && idx < (memberLinks?.length || 0))
+      .map(idx => memberLinks![idx]);
+
+    if (lagMemberLinks.length === 0) continue;
+
+    const firstMemberIndex = lag.memberLinkIndices[0];
+
+    let lagLink: YamlLink;
+
+    if (sourceIsSimNode || targetIsSimNode) {
+      const topoNodeName = sourceIsSimNode ? targetName : sourceName;
+      const simNodeName = sourceIsSimNode
+        ? (simNodeIdToName.get(edge.source) || sourceName)
+        : (simNodeIdToName.get(edge.target) || targetName);
+
+      lagLink = {
+        name: lag.name,
+        labels: { ...lag.labels, ...createPosLabels(edge, firstMemberIndex) },
+        endpoints: lagMemberLinks.map(member => ({
+          local: {
+            node: topoNodeName,
+            interface: sourceIsSimNode
+              ? (member.targetInterface || DEFAULT_INTERFACE)
+              : (member.sourceInterface || DEFAULT_INTERFACE),
+          },
+          sim: {
+            simNode: simNodeName,
+            simNodeInterface: sourceIsSimNode
+              ? (member.sourceInterface || DEFAULT_SIM_INTERFACE)
+              : (member.targetInterface || DEFAULT_SIM_INTERFACE),
+          },
+        })),
+      };
+    } else {
+      lagLink = {
+        name: lag.name,
+        labels: { ...lag.labels, ...createPosLabels(edge, firstMemberIndex) },
+        endpoints: [
+          ...lagMemberLinks.map(member => ({
             local: {
-              node: leaf.nodeName,
-              interface: memberLinks[i]?.targetInterface || DEFAULT_INTERFACE,
+              node: sourceName,
+              interface: member.sourceInterface || DEFAULT_INTERFACE,
             },
-            sim: {
-              simNode: simNodeName,
-              simNodeInterface: memberLinks[i]?.sourceInterface || `eth${i + 1}`,
+          })),
+          ...lagMemberLinks.map(member => ({
+            local: {
+              node: targetName,
+              interface: member.targetInterface || DEFAULT_INTERFACE,
             },
-          });
-        });
+          })),
+        ],
+      };
+    }
 
-        const link: YamlLink = {
-          name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
-          labels: memberLinks[0]?.labels,
-          endpoints,
-        };
-        if (memberLinks[0]?.template) {
-          link.template = memberLinks[0].template;
-        }
-        esiLagLinks.push(link);
-      } else {
-        const endpoints: Array<{ local: { node: string; interface: string } }> = [];
+    if (lag.template) {
+      lagLink.template = lag.template;
+    }
 
-        endpoints.push({
+    islLinks.push(lagLink);
+  }
+
+  return islLinks;
+}
+
+function buildMemberLinks(params: {
+  edge: Edge<TopologyEdgeData>;
+  memberLinks: TopologyEdgeData['memberLinks'];
+  indicesInLags: Set<number>;
+  sourceName: string;
+  targetName: string;
+  sourceIsSimNode: boolean;
+  targetIsSimNode: boolean;
+  simNodeIdToName: Map<string, string>;
+}) {
+  const {
+    edge,
+    memberLinks,
+    indicesInLags,
+    sourceName,
+    targetName,
+    sourceIsSimNode,
+    targetIsSimNode,
+    simNodeIdToName,
+  } = params;
+
+  const islLinks: YamlLink[] = [];
+  const simLinks: YamlLink[] = [];
+
+  for (let i = 0; i < (memberLinks?.length || 0); i++) {
+    if (indicesInLags.has(i)) continue;
+
+    const member = memberLinks![i];
+
+    if (targetIsSimNode) {
+      const simNodeName = simNodeIdToName.get(edge.target) || edge.target;
+      simLinks.push({
+        name: member.name,
+        template: member.template,
+        labels: { ...member.labels, ...createPosLabels(edge, i) },
+        endpoints: [{
           local: {
             node: sourceName,
-            interface: memberLinks[0]?.sourceInterface || DEFAULT_INTERFACE,
+            interface: member.sourceInterface || DEFAULT_INTERFACE,
           },
-        });
-
-        esiLeaves.forEach((leaf, i) => {
-          endpoints.push({
+          sim: {
+            simNode: simNodeName,
+            simNodeInterface: member.targetInterface,
+          },
+        }],
+      });
+    } else if (sourceIsSimNode) {
+      const simNodeName = simNodeIdToName.get(edge.source) || edge.source;
+      simLinks.push({
+        name: member.name,
+        template: member.template,
+        labels: { ...member.labels, ...createPosLabels(edge, i) },
+        endpoints: [{
+          local: {
+            node: targetName,
+            interface: member.targetInterface || DEFAULT_INTERFACE,
+          },
+          sim: {
+            simNode: simNodeName,
+            simNodeInterface: member.sourceInterface,
+          },
+        }],
+      });
+    } else {
+      const link: YamlLink = {
+        name: member.name,
+        labels: { ...member.labels, ...createPosLabels(edge, i) },
+        endpoints: [
+          {
             local: {
-              node: leaf.nodeName,
-              interface: memberLinks[i]?.targetInterface || DEFAULT_INTERFACE,
+              node: sourceName,
+              interface: member.sourceInterface || DEFAULT_INTERFACE,
             },
-          });
-        });
+            remote: {
+              node: targetName,
+              interface: member.targetInterface || DEFAULT_INTERFACE,
+            },
+          },
+        ],
+      };
 
-        const link: YamlLink = {
-          name: edge.data?.esiLagName || `${sourceName}-esi-lag-${esiLagCounter++}`,
-          labels: memberLinks[0]?.labels,
-          endpoints,
-        };
-        if (memberLinks[0]?.template) {
-          link.template = memberLinks[0].template;
-        }
-        esiLagLinks.push(link);
+      if (member.template) {
+        link.template = member.template;
       }
 
-      processedMultihomedEdgeIds.add(edge.id);
+      islLinks.push(link);
     }
   }
 
+  return { islLinks, simLinks };
+}
+
+function buildStandardLinks(params: {
+  edges: Edge<TopologyEdgeData>[];
+  processedMultihomedEdgeIds: Set<string>;
+  nodeIdToName: Map<string, string>;
+  simNodeIdToName: Map<string, string>;
+}) {
+  const { edges, processedMultihomedEdgeIds, nodeIdToName, simNodeIdToName } = params;
+  const islLinks: YamlLink[] = [];
+  const simLinks: YamlLink[] = [];
+
   for (const edge of edges) {
-    if (processedMultihomedEdgeIds.has(edge.id)) {
-      continue;
-    }
+    if (processedMultihomedEdgeIds.has(edge.id)) continue;
 
     const sourceName = edge.data?.sourceNode || nodeIdToName.get(edge.source) || edge.source;
     const targetName = edge.data?.targetNode || nodeIdToName.get(edge.target) || edge.target;
 
-    // Check if either endpoint is a sim node
     const sourceIsSimNode = edge.source.startsWith('sim-');
     const targetIsSimNode = edge.target.startsWith('sim-');
 
@@ -207,144 +411,74 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
       }
     }
 
-    const createPosLabels = (memberIndex: number) => ({
-      [LABEL_EDGE_ID]: edge.id,
-      [LABEL_MEMBER_INDEX]: String(memberIndex),
-      ...(edge.sourceHandle && { [LABEL_SRC_HANDLE]: edge.sourceHandle }),
-      ...(edge.targetHandle && { [LABEL_DST_HANDLE]: edge.targetHandle }),
+    const lagLinks = buildLagLinks({
+      edge,
+      lagGroups,
+      memberLinks,
+      sourceName,
+      targetName,
+      sourceIsSimNode,
+      targetIsSimNode,
+      simNodeIdToName,
     });
+    islLinks.push(...lagLinks);
 
-    for (const lag of lagGroups) {
-      const lagMemberLinks = lag.memberLinkIndices
-        .filter(idx => idx >= 0 && idx < memberLinks.length)
-        .map(idx => memberLinks[idx]);
-
-      if (lagMemberLinks.length === 0) continue;
-
-      const firstMemberIndex = lag.memberLinkIndices[0];
-
-      let lagLink: YamlLink;
-
-      if (sourceIsSimNode || targetIsSimNode) {
-        const topoNodeName = sourceIsSimNode ? targetName : sourceName;
-        const simNodeName = sourceIsSimNode
-          ? (simNodeIdToName.get(edge.source) || sourceName)
-          : (simNodeIdToName.get(edge.target) || targetName);
-
-        lagLink = {
-          name: lag.name,
-          labels: { ...lag.labels, ...createPosLabels(firstMemberIndex) },
-          endpoints: lagMemberLinks.map(member => ({
-            local: {
-              node: topoNodeName,
-              interface: sourceIsSimNode
-                ? (member.targetInterface || DEFAULT_INTERFACE)
-                : (member.sourceInterface || DEFAULT_INTERFACE),
-            },
-            sim: {
-              simNode: simNodeName,
-              simNodeInterface: sourceIsSimNode
-                ? (member.sourceInterface || DEFAULT_SIM_INTERFACE)
-                : (member.targetInterface || DEFAULT_SIM_INTERFACE),
-            },
-          })),
-        };
-      } else {
-        lagLink = {
-          name: lag.name,
-          labels: { ...lag.labels, ...createPosLabels(firstMemberIndex) },
-          endpoints: [
-            ...lagMemberLinks.map(member => ({
-              local: {
-                node: sourceName,
-                interface: member.sourceInterface || DEFAULT_INTERFACE,
-              },
-            })),
-            ...lagMemberLinks.map(member => ({
-              local: {
-                node: targetName,
-                interface: member.targetInterface || DEFAULT_INTERFACE,
-              },
-            })),
-          ],
-        };
-      }
-
-      if (lag.template) {
-        lagLink.template = lag.template;
-      }
-
-      islLinks.push(lagLink);
-    }
-
-    for (let i = 0; i < memberLinks.length; i++) {
-      if (indicesInLags.has(i)) continue; // Skip links that are part of a LAG
-
-      const member = memberLinks[i];
-
-      // If connecting to a sim node, create an edge link with sim: endpoint
-      if (targetIsSimNode) {
-        const simNodeName = simNodeIdToName.get(edge.target) || edge.target;
-        simLinks.push({
-          name: member.name,
-          template: member.template,
-          labels: { ...member.labels, ...createPosLabels(i) },
-          endpoints: [{
-            local: {
-              node: sourceName,
-              interface: member.sourceInterface || DEFAULT_INTERFACE,
-            },
-            sim: {
-              simNode: simNodeName,
-              simNodeInterface: member.targetInterface,
-            },
-          }],
-        });
-      } else if (sourceIsSimNode) {
-        // Sim node is the source, topology node is target
-        const simNodeName = simNodeIdToName.get(edge.source) || edge.source;
-        simLinks.push({
-          name: member.name,
-          template: member.template,
-          labels: { ...member.labels, ...createPosLabels(i) },
-          endpoints: [{
-            local: {
-              node: targetName,
-              interface: member.targetInterface || DEFAULT_INTERFACE,
-            },
-            sim: {
-              simNode: simNodeName,
-              simNodeInterface: member.sourceInterface,
-            },
-          }],
-        });
-      } else {
-        // Regular ISL link between two topology nodes
-        const link: YamlLink = {
-          name: member.name,
-          labels: { ...member.labels, ...createPosLabels(i) },
-          endpoints: [
-            {
-              local: {
-                node: sourceName,
-                interface: member.sourceInterface || DEFAULT_INTERFACE,
-              },
-              remote: {
-                node: targetName,
-                interface: member.targetInterface || DEFAULT_INTERFACE,
-              },
-            },
-          ],
-        };
-
-        if (member.template) {
-          link.template = member.template;
-        }
-
-        islLinks.push(link);
-      }
-    }
+    const memberLinkResults = buildMemberLinks({
+      edge,
+      memberLinks,
+      indicesInLags,
+      sourceName,
+      targetName,
+      sourceIsSimNode,
+      targetIsSimNode,
+      simNodeIdToName,
+    });
+    islLinks.push(...memberLinkResults.islLinks);
+    simLinks.push(...memberLinkResults.simLinks);
   }
+
+  return { islLinks, simLinks };
+}
+
+function shouldIncludeSimulation(simulation?: Simulation) {
+  if (!simulation) return false;
+  return (
+    (simulation.simNodeTemplates && simulation.simNodeTemplates.length > 0) ||
+    (simulation.simNodes && simulation.simNodes.length > 0) ||
+    (simulation.topology && Array.isArray(simulation.topology) && simulation.topology.length > 0)
+  );
+}
+
+function cleanSimulation(simulation: Simulation): SimulationCrd {
+  return {
+    ...simulation,
+    simNodes: simulation.simNodes?.map(({ position: _position, id: _id, labels: _labels, isNew: _isNew, ...rest }) => rest),
+  };
+}
+
+export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
+  const {
+    topologyName,
+    namespace,
+    operation,
+    nodes,
+    edges,
+    nodeTemplates,
+    linkTemplates,
+    simulation,
+  } = options;
+
+  const nodeIdToName = buildNodeIdToName(nodes);
+  const simNodeIdToName = buildSimNodeIdToName(simulation);
+  const networkNodes = buildNetworkNodes(nodes);
+
+  const { esiLagLinks, processedMultihomedEdgeIds } = buildEsiLagLinks(edges, simNodeIdToName);
+  const { islLinks, simLinks } = buildStandardLinks({
+    edges,
+    processedMultihomedEdgeIds,
+    nodeIdToName,
+    simNodeIdToName,
+  });
 
   // Combine ISL links and sim edge links
   const allLinks = [...islLinks, ...simLinks, ...esiLagLinks];
@@ -367,18 +501,8 @@ export function buildCrd(options: ExportOptions): NetworkTopologyCrd {
   };
 
   // Only include simulation if it has data
-  if (simulation && (
-    (simulation.simNodeTemplates && simulation.simNodeTemplates.length > 0) ||
-    (simulation.simNodes && simulation.simNodes.length > 0) ||
-    (simulation.topology && Array.isArray(simulation.topology) && simulation.topology.length > 0)
-  )) {
-    // Convert position to labels for simNodes, strip internal id field
-    const cleanSimulation = {
-      ...simulation,
-      simNodes: simulation.simNodes?.map(({ position: _position, id: _id, labels: _labels, isNew: _isNew, ...rest }) => rest),
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    crd.spec.simulation = cleanSimulation as any;
+  if (shouldIncludeSimulation(simulation)) {
+    crd.spec.simulation = cleanSimulation(simulation!);
   }
 
   return crd;

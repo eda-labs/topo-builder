@@ -114,20 +114,22 @@ interface ParsedDoc {
   };
 }
 
-function validateCrossReferences(doc: Record<string, unknown>): ValidationError[] {
-  const errors: ValidationError[] = [];
-  const parsed = doc as ParsedDoc;
-  const spec = parsed.spec;
+function collectNames(spec: ParsedDoc["spec"]) {
+  return {
+    nodeNames: new Set((spec?.nodes || []).map(n => n.name)),
+    nodeTemplateNames: new Set((spec?.nodeTemplates || []).map(t => t.name)),
+    linkTemplateNames: new Set((spec?.linkTemplates || []).map(t => t.name)),
+    simNodeNames: new Set((spec?.simulation?.simNodes || []).map(n => n.name)),
+    simNodeTemplateNames: new Set((spec?.simulation?.simNodeTemplates || []).map(t => t.name)),
+  };
+}
 
-  if (!spec) return errors;
-
-  const nodeNames = new Set((spec.nodes || []).map(n => n.name));
-  const nodeTemplateNames = new Set((spec.nodeTemplates || []).map(t => t.name));
-  const linkTemplateNames = new Set((spec.linkTemplates || []).map(t => t.name));
-  const simNodeNames = new Set((spec.simulation?.simNodes || []).map(n => n.name));
-  const simNodeTemplateNames = new Set((spec.simulation?.simNodeTemplates || []).map(t => t.name));
-
-  (spec.nodes || []).forEach((node, i) => {
+function validateNodeTemplates(
+  nodes: NonNullable<ParsedDoc["spec"]>["nodes"],
+  nodeTemplateNames: Set<string>,
+  errors: ValidationError[],
+) {
+  (nodes || []).forEach((node, i) => {
     if (node.template && !nodeTemplateNames.has(node.template)) {
       errors.push({
         path: `/spec/nodes/${i}/template`,
@@ -135,15 +137,30 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       });
     }
   });
+}
 
-  (spec.links || []).forEach((link, i) => {
+function validateLinkTemplates(
+  links: NonNullable<ParsedDoc["spec"]>["links"],
+  linkTemplateNames: Set<string>,
+  errors: ValidationError[],
+) {
+  (links || []).forEach((link, i) => {
     if (link.template && !linkTemplateNames.has(link.template)) {
       errors.push({
         path: `/spec/links/${i}/template`,
         message: `Link "${link.name}" references undefined template "${link.template}"`,
       });
     }
+  });
+}
 
+function validateLinkEndpoints(
+  links: NonNullable<ParsedDoc["spec"]>["links"],
+  nodeNames: Set<string>,
+  simNodeNames: Set<string>,
+  errors: ValidationError[],
+) {
+  (links || []).forEach((link, i) => {
     (link.endpoints || []).forEach((endpoint, j) => {
       if (endpoint.local?.node) {
         const localNode = endpoint.local.node;
@@ -165,8 +182,14 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       }
     });
   });
+}
 
-  (spec.simulation?.simNodes || []).forEach((simNode, i) => {
+function validateSimNodeTemplates(
+  simNodes: NonNullable<NonNullable<ParsedDoc["spec"]>["simulation"]>["simNodes"],
+  simNodeTemplateNames: Set<string>,
+  errors: ValidationError[],
+) {
+  (simNodes || []).forEach((simNode, i) => {
     if (simNode.template && !simNodeTemplateNames.has(simNode.template)) {
       errors.push({
         path: `/spec/simulation/simNodes/${i}/template`,
@@ -174,10 +197,12 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       });
     }
   });
+}
 
+function collectInterfaceUsages(links: NonNullable<ParsedDoc["spec"]>["links"]) {
   const interfacesByNode = new Map<string, Map<string, { linkName: string; linkIndex: number; endpointIndex: number; side: string }[]>>();
 
-  (spec.links || []).forEach((link, linkIndex) => {
+  (links || []).forEach((link, linkIndex) => {
     (link.endpoints || []).forEach((endpoint, endpointIndex) => {
       if (endpoint.local?.node && endpoint.local?.interface) {
         const node = endpoint.local.node;
@@ -206,6 +231,13 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     });
   });
 
+  return interfacesByNode;
+}
+
+function validateInterfaceDuplicates(
+  interfacesByNode: Map<string, Map<string, { linkName: string; linkIndex: number; endpointIndex: number; side: string }[]>>,
+  errors: ValidationError[],
+) {
   for (const [nodeName, interfaces] of interfacesByNode) {
     for (const [ifaceName, usages] of interfaces) {
       if (usages.length > 1) {
@@ -217,6 +249,30 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       }
     }
   }
+}
+
+function validateCrossReferences(doc: Record<string, unknown>): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const parsed = doc as ParsedDoc;
+  const spec = parsed.spec;
+
+  if (!spec) return errors;
+
+  const {
+    nodeNames,
+    nodeTemplateNames,
+    linkTemplateNames,
+    simNodeNames,
+    simNodeTemplateNames,
+  } = collectNames(spec);
+
+  validateNodeTemplates(spec.nodes, nodeTemplateNames, errors);
+  validateLinkTemplates(spec.links, linkTemplateNames, errors);
+  validateLinkEndpoints(spec.links, nodeNames, simNodeNames, errors);
+  validateSimNodeTemplates(spec.simulation?.simNodes, simNodeTemplateNames, errors);
+
+  const interfacesByNode = collectInterfaceUsages(spec.links);
+  validateInterfaceDuplicates(interfacesByNode, errors);
 
   return errors;
 }

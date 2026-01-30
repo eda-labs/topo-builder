@@ -12,6 +12,7 @@ import {
   type Node,
   type Edge,
   type NodeChange,
+  type EdgeChange,
   type Connection,
   type OnSelectionChangeParams,
 } from '@xyflow/react';
@@ -29,16 +30,36 @@ import {
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
 import { generateUniqueName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
-import type { TopologyNodeData, TopologyEdgeData } from '../types/topology';
+import type { TopologyNodeData, TopologyEdgeData, Simulation } from '../types/topology';
 
-import DeviceNode from './nodes/DeviceNode';
-import SimDeviceNode, { type SimDeviceNodeData } from './nodes/SimDeviceNode';
-import LinkEdge from './edges/LinkEdge';
-import AppLayout from './AppLayout';
-import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
-import { SelectionPanel } from './PropertiesPanel';
-import { NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesTemplatesPanel';
-import ContextMenu from './ContextMenu';
+import {
+  getYamlMemberLinkIndexForSelection,
+  splitNodeChanges,
+  applySimNodeChanges,
+  pasteCopiedLinkIfNeeded,
+  pasteCopiedSelectionIfNeeded,
+  handleGlobalKeyDown,
+  validateEsiLagSelection,
+  getSelectionType,
+} from './TopologyEditorHelpers';
+
+import {
+  DeviceNode,
+  SimDeviceNode,
+  LinkEdge,
+  AppLayout,
+  YamlEditor,
+  jumpToNodeInEditor,
+  jumpToLinkInEditor,
+  jumpToSimNodeInEditor,
+  jumpToMemberLinkInEditor,
+  SelectionPanel,
+  NodeTemplatesPanel,
+  LinkTemplatesPanel,
+  SimNodeTemplatesPanel,
+  ContextMenu,
+  type SimDeviceNodeData,
+} from '.';
 
 const nodeTypes: NodeTypes = {
   deviceNode: DeviceNode,
@@ -150,6 +171,128 @@ function SidePanel({
         </Box>
       </Drawer>
     </>
+  );
+}
+
+function TopologyCanvas({
+  layoutVersion,
+  allNodes,
+  edges,
+  nodes,
+  simulation,
+  showSimNodes,
+  setShowSimNodes,
+  expandedEdges,
+  toggleAllEdgesExpanded,
+  darkMode,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onPaneClick,
+  onNodeClick,
+  onEdgeClick,
+  onEdgeDoubleClick,
+  onPaneContextMenu,
+  onNodeContextMenu,
+  onEdgeContextMenu,
+  onMoveStart,
+  onNodeDragStart,
+  onSelectionChange,
+}: Readonly<{
+  layoutVersion: number;
+  allNodes: Node[];
+  edges: Edge<TopologyEdgeData>[];
+  nodes: Node[];
+  simulation: Simulation;
+  showSimNodes: boolean;
+  setShowSimNodes: (show: boolean) => void;
+  expandedEdges: Set<string>;
+  toggleAllEdgesExpanded: () => void;
+  darkMode: boolean;
+  onNodesChange: (changes: NodeChange[]) => void;
+  onEdgesChange: (changes: EdgeChange<Edge<TopologyEdgeData>>[]) => void;
+  onConnect: (connection: Connection) => void;
+  onPaneClick: () => void;
+  onNodeClick: (event: React.MouseEvent, node: Node) => void;
+  onEdgeClick: (event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => void;
+  onEdgeDoubleClick: (event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => void;
+  onPaneContextMenu: (event: React.MouseEvent | MouseEvent) => void;
+  onNodeContextMenu: (event: React.MouseEvent, node: Node) => void;
+  onEdgeContextMenu: (event: React.MouseEvent, edge: Edge<TopologyEdgeData>) => void;
+  onMoveStart: () => void;
+  onNodeDragStart: () => void;
+  onSelectionChange: (params: OnSelectionChangeParams) => void;
+}>) {
+  return (
+    <Box
+      onContextMenu={e => e.preventDefault()}
+      sx={{
+        flex: 1,
+        position: 'relative',
+        '& .react-flow__edges': { zIndex: '0 !important' },
+        '& .react-flow__edge-labels': { zIndex: '0 !important' },
+        '& .react-flow__nodes': { zIndex: '1 !important' },
+      }}
+    >
+      <ReactFlow
+        key={layoutVersion}
+        nodes={allNodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onPaneClick={onPaneClick}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onEdgeDoubleClick={onEdgeDoubleClick}
+        onPaneContextMenu={onPaneContextMenu}
+        onNodeContextMenu={onNodeContextMenu}
+        onEdgeContextMenu={onEdgeContextMenu}
+        onMoveStart={onMoveStart}
+        onNodeDragStart={onNodeDragStart}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        nodesDraggable
+        fitView
+        snapToGrid
+        snapGrid={[15, 15]}
+        defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
+        colorMode={darkMode ? 'dark' : 'light'}
+        deleteKeyCode={null}
+        selectionKeyCode="Shift"
+        multiSelectionKeyCode="Shift"
+        selectionOnDrag
+        onSelectionChange={onSelectionChange}
+      >
+        <Controls position="top-right">
+          {simulation.simNodes.length > 0 && (
+            <ControlButton
+              onClick={() => setShowSimNodes(!showSimNodes)}
+              title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}
+            >
+              {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
+            </ControlButton>
+          )}
+          {edges.some(e => (e.data?.memberLinks?.length || 0) > 1) && (
+            <ControlButton
+              onClick={toggleAllEdgesExpanded}
+              title={expandedEdges.size > 0 ? 'Collapse all links' : 'Expand all links'}
+            >
+              {expandedEdges.size > 0 ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+            </ControlButton>
+          )}
+        </Controls>
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+        <LayoutHandler layoutVersion={layoutVersion} />
+        {nodes.length === 0 && simulation.simNodes.length === 0 && (
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none',}}>
+            <Typography variant="h5" sx={{ color: 'text.disabled', userSelect: 'none'}}>
+              Right-click to add your first node
+            </Typography>
+          </Box>
+        )}
+      </ReactFlow>
+    </Box>
   );
 }
 
@@ -272,29 +415,15 @@ function TopologyEditorInner() {
   }, [onConnect]);
 
   useEffect(() => {
-    if (activeTab !== 0 || !selectedEdgeId || selectedMemberLinkIndices.length === 0) return;
-
-    const edge = edges.find(e => e.id === selectedEdgeId);
-    const memberLinks = edge?.data?.memberLinks;
-    const lagGroups = edge?.data?.lagGroups;
-
-    if (!memberLinks || memberLinks.length <= 1 || !expandedEdges.has(selectedEdgeId)) return;
-
-    if (lagGroups && selectedMemberLinkIndices.length >= 2) {
-      const sortedSelected = [...selectedMemberLinkIndices].sort((a, b) => a - b);
-      for (const lag of lagGroups) {
-        const sortedLagIndices = [...lag.memberLinkIndices].sort((a, b) => a - b);
-        if (sortedSelected.length === sortedLagIndices.length &&
-            sortedSelected.every((idx, i) => idx === sortedLagIndices[i])) {
-          const firstMemberIndex = lag.memberLinkIndices[0];
-          jumpToMemberLinkInEditor(selectedEdgeId, firstMemberIndex);
-          return;
-        }
-      }
-    }
-
-    if (selectedMemberLinkIndices.length === 1) {
-      jumpToMemberLinkInEditor(selectedEdgeId, selectedMemberLinkIndices[0]);
+    const targetIndex = getYamlMemberLinkIndexForSelection({
+      activeTab,
+      selectedEdgeId,
+      selectedMemberLinkIndices,
+      edges,
+      expandedEdges,
+    });
+    if (targetIndex !== null && selectedEdgeId) {
+      jumpToMemberLinkInEditor(selectedEdgeId, targetIndex);
     }
   }, [activeTab, selectedEdgeId, selectedMemberLinkIndices, edges, expandedEdges]);
 
@@ -312,49 +441,20 @@ function TopologyEditorInner() {
   const allNodes = useMemo(() => [...nodes, ...simFlowNodes], [nodes, simFlowNodes]);
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    const simChanges = changes.filter(c => 'id' in c && (c as { id?: string }).id?.startsWith('sim-'));
-    const topoChanges = changes.filter(c => !('id' in c) || !(c as { id?: string }).id?.startsWith('sim-'));
+    const { simChanges, topoChanges } = splitNodeChanges(changes);
 
     if (topoChanges.length > 0) {
       onNodesChange(topoChanges as NodeChange<Node<TopologyNodeData>>[]);
     }
 
     const currentState = useTopologyStore.getState();
-    const currentSimNodes = currentState.simulation.simNodes;
-    const currentSelectedSimNodeNames = currentState.selectedSimNodeNames;
-
-    let simDragEnded = false;
-    const newSelectedSimNodes = new Set(currentSelectedSimNodeNames);
-    let selectionChanged = false;
-
-    const getSimNodeNameById = (id: string) => currentSimNodes.find(sn => sn.id === id)?.name;
-
-    for (const change of simChanges) {
-      if (change.type === 'position' && change.position && change.id) {
-        const simName = getSimNodeNameById(change.id);
-        if (simName) updateSimNodePosition(simName, change.position);
-        if (change.dragging === false) simDragEnded = true;
-      }
-      if (change.type === 'select' && change.id) {
-        const simName = getSimNodeNameById(change.id);
-        if (simName) {
-          if (change.selected) {
-            newSelectedSimNodes.add(simName);
-          } else {
-            newSelectedSimNodes.delete(simName);
-          }
-          selectionChanged = true;
-        }
-      }
-      if (change.type === 'remove' && change.id) {
-        const simName = getSimNodeNameById(change.id);
-        if (simName) {
-          deleteSimNode(simName);
-          newSelectedSimNodes.delete(simName);
-          selectionChanged = true;
-        }
-      }
-    }
+    const { simDragEnded, newSelectedSimNodes, selectionChanged } = applySimNodeChanges({
+      simChanges,
+      currentSimNodes: currentState.simulation.simNodes,
+      currentSelectedSimNodeNames: currentState.selectedSimNodeNames,
+      updateSimNodePosition,
+      deleteSimNode,
+    });
 
     if (selectionChanged) {
       selectSimNodes(newSelectedSimNodes);
@@ -406,183 +506,34 @@ function TopologyEditorInner() {
   }, [setClipboard]);
 
   const handlePaste = useCallback(() => {
-    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboard;
-
-    if (copiedLink) {
-      const currentState = useTopologyStore.getState();
-      const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
-      const edge = currentState.edges.find(e => e.id === targetEdgeId);
-      if (edge && edge.data) {
-        const sourceIsSimNode = edge.source.startsWith('sim-');
-        const targetIsSimNode = edge.target.startsWith('sim-');
-
-        const extractPortNumber = (iface: string): number => {
-          const ethernetRegex = /ethernet-1-(\d+)/;
-          const ethernetMatch = ethernetRegex.exec(iface);
-          if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-          const ethRegex = /eth(\d+)/;
-          const ethMatch = ethRegex.exec(iface);
-          if (ethMatch) return parseInt(ethMatch[1], 10);
-          return 0;
-        };
-
-        const sourcePortNumbers = currentState.edges.flatMap(e => {
-          if (e.source === edge.source) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-          }
-          if (e.target === edge.source) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-          }
-          return [];
-        });
-        const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
-
-        const targetPortNumbers = currentState.edges.flatMap(e => {
-          if (e.source === edge.target) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-          }
-          if (e.target === edge.target) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-          }
-          return [];
-        });
-        const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
-
-        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
-
-        const memberLinks = edge.data.memberLinks || [];
-        const nextLinkNumber = memberLinks.length + 1;
-
-        addMemberLink(edge.id, {
-          name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
-          template: copiedLink.template,
-          sourceInterface,
-          targetInterface,
-        });
-        triggerYamlRefresh();
-      }
-      return;
-    }
-
-    if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
-      isPastingRef.current = true;
-
-      const allPositions = [
-        ...copiedNodes.map(n => n.position),
-        ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
-      ];
-      const centerX = allPositions.length > 0
-        ? allPositions.reduce((sum, p) => sum + p.x, 0) / allPositions.length
-        : 0;
-      const centerY = allPositions.length > 0
-        ? allPositions.reduce((sum, p) => sum + p.y, 0) / allPositions.length
-        : 0;
-
-      const cursorPos = contextMenu.open
-        ? contextMenu.flowPosition
-        : screenToFlowPosition(mouseScreenPositionRef.current);
-      const offset = {
-        x: cursorPos.x - centerX,
-        y: cursorPos.y - centerY,
-      };
-
-      pasteSelection(copiedNodes, copiedEdges, offset, copiedSimNodes, cursorPos);
-
-      setTimeout(() => {
-        isPastingRef.current = false;
-      }, 0);
-    }
-  }, [clipboard, contextMenu.open, contextMenu.flowPosition, addMemberLink, pasteSelection, triggerYamlRefresh, screenToFlowPosition]);
+    const handled = pasteCopiedLinkIfNeeded({ clipboard, addMemberLink, triggerYamlRefresh });
+    if (handled) return;
+    pasteCopiedSelectionIfNeeded({
+      clipboard,
+      contextMenu,
+      screenToFlowPosition,
+      mouseScreenPositionRef,
+      pasteSelection,
+      isPastingRef,
+    });
+  }, [clipboard, contextMenu, addMemberLink, pasteSelection, triggerYamlRefresh, screenToFlowPosition]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-
-      const isMac = navigator.userAgent.toUpperCase().includes('MAC');
-      const isCtrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
-
-      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-        return;
-      }
-
-      if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
-
-      if (isCtrlOrCmd && e.key === 'a') {
-        e.preventDefault();
-        const currentState = useTopologyStore.getState();
-        const currentNodes = currentState.nodes;
-        const currentEdges = currentState.edges;
-        const currentSimNodes = currentState.simulation.simNodes;
-        const currentShowSimNodes = currentState.showSimNodes;
-
-        // Filter out sim-related edges when SimNodes are hidden
-        const selectableEdges = currentShowSimNodes
-          ? currentEdges
-          : currentEdges.filter(e => !e.source.startsWith('sim-') && !e.target.startsWith('sim-'));
-        const allEdgeIds = selectableEdges.map(edge => edge.id);
-
-        const simNodeNames = currentShowSimNodes && currentSimNodes.length > 0
-          ? new Set(currentSimNodes.map(sn => sn.name))
-          : new Set<string>();
-
-        useTopologyStore.setState({
-          nodes: currentNodes.map(n => ({ ...n, selected: true })),
-          edges: currentEdges.map(edge => ({
-            ...edge,
-            selected: allEdgeIds.includes(edge.id),
-          })),
-          selectedEdgeIds: allEdgeIds,
-          selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
-          selectedNodeId: currentNodes.length > 0 ? currentNodes[currentNodes.length - 1].id : null,
-          selectedSimNodeNames: simNodeNames,
-          selectedSimNodeName: simNodeNames.size > 0 ? [...simNodeNames][simNodeNames.size - 1] : null,
-        });
-      }
-
-      if (isCtrlOrCmd && e.key === 'c') {
-        handleCopy();
-      }
-
-      if (isCtrlOrCmd && e.key === 'v') {
-        e.preventDefault();
-        handlePaste();
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const currentState = useTopologyStore.getState();
-
-        if (currentState.selectedEdgeId && currentState.selectedMemberLinkIndices.length > 0) {
-          const edge = currentState.edges.find(e => e.id === currentState.selectedEdgeId);
-          const memberLinksCount = edge?.data?.memberLinks?.length || 0;
-
-          if (memberLinksCount > 1) {
-            const sortedIndices = [...currentState.selectedMemberLinkIndices].sort((a, b) => b - a);
-            sortedIndices.forEach(index => deleteMemberLink(currentState.selectedEdgeId!, index));
-            clearMemberLinkSelection();
-            triggerYamlRefresh();
-            return;
-          }
-        }
-
-        const selectedNodeIds = currentState.nodes.filter(n => n.selected).map(n => n.id);
-        selectedNodeIds.forEach(id => deleteNode(id));
-
-        const selectedEdgeIdsList = currentState.edges.filter(e => e.selected).map(e => e.id);
-        selectedEdgeIdsList.forEach(id => deleteEdge(id));
-
-        if (currentState.selectedSimNodeNames.size > 0) {
-          currentState.selectedSimNodeNames.forEach(name => deleteSimNode(name));
-          selectSimNodes(new Set());
-        }
-      }
+      handleGlobalKeyDown({
+        event: e,
+        handleUndo,
+        handleRedo,
+        handleCopy,
+        handlePaste,
+        deleteMemberLink,
+        clearMemberLinkSelection,
+        deleteNode,
+        deleteEdge,
+        deleteSimNode,
+        selectSimNodes,
+        triggerYamlRefresh,
+      });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -790,65 +741,7 @@ function TopologyEditorInner() {
     !!clipboard.copiedLink;
 
   // ENSURE A COMMON NODE IS SELECTED
-  const esiLagValidation = (() => {
-    if (selectedEdgeIds.length < 2) return { valid: false, error: null };
-
-    const selectedEdges = selectedEdgeIds
-      .map(id => edges.find(e => e.id === id))
-      .filter((e): e is typeof edges[0] => e !== undefined);
-
-    if (selectedEdges.length !== selectedEdgeIds.length) return { valid: false, error: null };
-
-    const esiLagEdges = selectedEdges.filter(e => e.data?.isMultihomed);
-    const regularEdges = selectedEdges.filter(e => !e.data?.isMultihomed);
-
-    if (esiLagEdges.length > 1) {
-      return { valid: false, error: 'Cannot merge multiple ESI-LAGs' };
-    }
-
-    const esiLag = esiLagEdges[0];
-    const esiLeafCount = esiLag?.data?.esiLeaves?.length || 0;
-    const totalLeaves = esiLeafCount + regularEdges.length;
-
-    if (esiLag && totalLeaves > 4) {
-      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
-    }
-
-    if (!esiLag && selectedEdges.length > 4) {
-      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
-    }
-
-    if (esiLag) {
-      const esiLagSourceId = esiLag.source;
-      if (!esiLagSourceId.startsWith('sim-')) {
-        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
-      }
-      for (const edge of regularEdges) {
-        if (edge.source !== esiLagSourceId && edge.target !== esiLagSourceId) {
-          return { valid: false, error: 'Selected edges must share exactly one common node' };
-        }
-      }
-    } else {
-      const nodeCounts = new Map<string, number>();
-      for (const edge of regularEdges) {
-        nodeCounts.set(edge.source, (nodeCounts.get(edge.source) || 0) + 1);
-        nodeCounts.set(edge.target, (nodeCounts.get(edge.target) || 0) + 1);
-      }
-
-      const commonNodes = [...nodeCounts.entries()].filter(([_, count]) => count === regularEdges.length);
-
-      if (commonNodes.length !== 1) {
-        return { valid: false, error: 'Selected edges must share exactly one common node' };
-      }
-
-      const commonNodeId = commonNodes[0][0];
-      if (!commonNodeId.startsWith('sim-')) {
-        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
-      }
-    }
-
-    return { valid: true, error: null, esiLag, regularEdges };
-  })();
+  const esiLagValidation = validateEsiLagSelection(edges, selectedEdgeIds);
 
   const canCreateEsiLag = esiLagValidation.valid;
   const isMergeIntoEsiLag = esiLagValidation.valid && !!(esiLagValidation as { esiLag?: typeof edges[0] }).esiLag;
@@ -951,87 +844,41 @@ function TopologyEditorInner() {
 
   const handleDeleteSimNode = () => selectedSimNodeName && deleteSimNode(selectedSimNodeName);
 
-  const getSelectionType = (): 'node' | 'edge' | 'simNode' | 'multiEdge' | null => {
-    if (selectedNodeId) return 'node';
-    if (selectedEdgeIds.length > 1) return 'multiEdge';
-    if (selectedEdgeId) return 'edge';
-    if (selectedSimNodeName) return 'simNode';
-    return null;
-  };
-  const hasSelection = getSelectionType();
+  const hasSelection = getSelectionType({
+    selectedNodeId,
+    selectedEdgeId,
+    selectedEdgeIds,
+    selectedSimNodeName,
+  });
 
   return (
     <AppLayout>
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <Box
-          onContextMenu={e => e.preventDefault()}
-          sx={{
-            flex: 1,
-            position: 'relative',
-            '& .react-flow__edges': { zIndex: '0 !important' },
-            '& .react-flow__edge-labels': { zIndex: '0 !important' },
-            '& .react-flow__nodes': { zIndex: '1 !important' },
-          }}
-        >
-          <ReactFlow
-            key={layoutVersion}
-            nodes={allNodes}
-            edges={edges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={handleConnect}
-            onPaneClick={handlePaneClick}
-            onNodeClick={handleNodeClick}
-            onEdgeClick={handleEdgeClick}
-            onEdgeDoubleClick={handleEdgeDoubleClick}
-            onPaneContextMenu={handlePaneContextMenu}
-            onNodeContextMenu={handleNodeContextMenu}
-            onEdgeContextMenu={handleEdgeContextMenu}
-            onMoveStart={handleMoveStart}
-            onNodeDragStart={handleNodeDragStart}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            nodesDraggable
-            fitView
-            snapToGrid
-            snapGrid={[15, 15]}
-            defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
-            colorMode={darkMode ? 'dark' : 'light'}
-            deleteKeyCode={null}
-            selectionKeyCode="Shift"
-            multiSelectionKeyCode="Shift"
-            selectionOnDrag
-            onSelectionChange={handleSelectionChange}
-          >
-            <Controls position="top-right">
-              {simulation.simNodes.length > 0 && (
-                <ControlButton
-                  onClick={() => setShowSimNodes(!showSimNodes)}
-                  title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}
-                >
-                  {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                </ControlButton>
-              )}
-              {edges.some(e => (e.data?.memberLinks?.length || 0) > 1) && (
-                <ControlButton
-                  onClick={toggleAllEdgesExpanded}
-                  title={expandedEdges.size > 0 ? 'Collapse all links' : 'Expand all links'}
-                >
-                  {expandedEdges.size > 0 ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
-                </ControlButton>
-              )}
-            </Controls>
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-            <LayoutHandler layoutVersion={layoutVersion} />
-            {nodes.length === 0 && simulation.simNodes.length === 0 && (
-              <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none',}}>
-                <Typography variant="h5" sx={{ color: 'text.disabled', userSelect: 'none'}}>
-                  Right-click to add your first node
-                </Typography>
-              </Box>
-            )}
-          </ReactFlow>
-        </Box>
+        <TopologyCanvas
+          layoutVersion={layoutVersion}
+          allNodes={allNodes}
+          edges={edges}
+          nodes={nodes}
+          simulation={simulation}
+          showSimNodes={showSimNodes}
+          setShowSimNodes={setShowSimNodes}
+          expandedEdges={expandedEdges}
+          toggleAllEdgesExpanded={toggleAllEdgesExpanded}
+          darkMode={darkMode}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={handleConnect}
+          onPaneClick={handlePaneClick}
+          onNodeClick={handleNodeClick}
+          onEdgeClick={handleEdgeClick}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
+          onPaneContextMenu={handlePaneContextMenu}
+          onNodeContextMenu={handleNodeContextMenu}
+          onEdgeContextMenu={handleEdgeContextMenu}
+          onMoveStart={handleMoveStart}
+          onNodeDragStart={handleNodeDragStart}
+          onSelectionChange={handleSelectionChange}
+        />
 
         <SidePanel
           activeTab={activeTab}

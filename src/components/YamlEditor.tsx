@@ -60,53 +60,59 @@ export function jumpToSimNodeInEditor(simNodeName: string): void {
   }
 }
 
-export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void {
-  if (!editorInstance) return;
-
-  const content = editorInstance.getValue();
-  const lines = content.split('\n');
-
-  let linksStart = -1;
-  let linksIndent = 0;
-  const linksRegex = /^(\s*)links:\s*$/;
+function findSectionStart(lines: string[], sectionName: string) {
+  const sectionRegex = new RegExp(`^(\\s*)${sectionName}:\\s*$`);
   for (let i = 0; i < lines.length; i++) {
-    const match = linksRegex.exec(lines[i]);
+    const match = sectionRegex.exec(lines[i]);
     if (match) {
-      linksStart = i;
-      linksIndent = match[1].length;
-      break;
+      return { start: i, indent: match[1].length };
     }
   }
+  return null;
+}
 
-  if (linksStart === -1) return;
-
-  const listItemIndent = linksIndent + 2;
-  const linkStanzas: { start: number; end: number; content: string }[] = [];
+function collectListStanzas(lines: string[], startLine: number, baseIndent: number) {
+  const listItemIndent = baseIndent + 2;
+  const stanzas: { start: number; end: number; content: string }[] = [];
   let currentStart = -1;
 
-  for (let i = linksStart + 1; i < lines.length; i++) {
+  for (let i = startLine + 1; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trimStart();
     const indent = line.length - trimmed.length;
 
-    if (trimmed.length > 0 && indent <= linksIndent && !trimmed.startsWith('-')) {
+    if (trimmed.length > 0 && indent <= baseIndent && !trimmed.startsWith('-')) {
       if (currentStart !== -1) {
-        linkStanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
+        stanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
       }
       break;
     }
 
     if (trimmed.startsWith('- ') && indent === listItemIndent) {
       if (currentStart !== -1) {
-        linkStanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
+        stanzas.push({ start: currentStart, end: i - 1, content: lines.slice(currentStart, i).join('\n') });
       }
       currentStart = i;
     }
   }
 
   if (currentStart !== -1) {
-    linkStanzas.push({ start: currentStart, end: lines.length - 1, content: lines.slice(currentStart).join('\n') });
+    stanzas.push({ start: currentStart, end: lines.length - 1, content: lines.slice(currentStart).join('\n') });
   }
+
+  return stanzas;
+}
+
+export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void {
+  if (!editorInstance) return;
+
+  const content = editorInstance.getValue();
+  const lines = content.split('\n');
+
+  const linksSection = findSectionStart(lines, 'links');
+  if (!linksSection) return;
+
+  const linkStanzas = collectListStanzas(lines, linksSection.start, linksSection.indent);
 
   for (const stanza of linkStanzas) {
     const isRegularLink = stanza.content.includes(`node: ${sourceNode}`) && stanza.content.includes(`node: ${targetNode}`);
@@ -125,76 +131,92 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
   }
 }
 
+function unquoteValue(value: string) {
+  if ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+function findStanzaEnd(lines: string[], stanzaStart: number) {
+  const listItemIndent = lines[stanzaStart].length - lines[stanzaStart].trimStart().length;
+  let endLine = stanzaStart;
+
+  for (let j = stanzaStart + 1; j < lines.length; j++) {
+    const nextLine = lines[j];
+    const nextTrimmed = nextLine.trimStart();
+    const nextIndent = nextLine.length - nextTrimmed.length;
+
+    if (nextTrimmed.length === 0) {
+      endLine = j;
+      continue;
+    }
+
+    if (nextIndent <= listItemIndent) {
+      break;
+    }
+
+    endLine = j;
+  }
+
+  return endLine;
+}
+
+function collectNamedStanzas(lines: string[]) {
+  const stanzas: { start: number; end: number }[] = [];
+  let currentStart = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('- name:')) {
+      if (currentStart !== -1) {
+        stanzas.push({ start: currentStart, end: i - 1 });
+      }
+      currentStart = i;
+    }
+  }
+
+  if (currentStart !== -1) {
+    stanzas.push({ start: currentStart, end: findStanzaEnd(lines, currentStart) });
+  }
+
+  return stanzas;
+}
+
+function findStanzaValue(lines: string[], start: number, end: number, key: string) {
+  const prefix = `${key}:`;
+  for (let i = start; i <= end; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith(prefix)) {
+      return unquoteValue(trimmed.slice(prefix.length).trim());
+    }
+  }
+  return null;
+}
+
 export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): void {
   if (!editorInstance) return;
 
   const content = editorInstance.getValue();
   const lines = content.split('\n');
+  const stanzas = collectNamedStanzas(lines);
+  const memberIndexValue = String(memberIndex);
 
-  let foundEdgeId = false;
-  let foundMemberIndex = false;
-  let stanzaStart = -1;
+  for (const stanza of stanzas) {
+    const edgeValue = findStanzaValue(lines, stanza.start, stanza.end, 'pos/edgeId');
+    if (edgeValue !== edgeId) continue;
+    const memberValue = findStanzaValue(lines, stanza.start, stanza.end, 'pos/memberIndex');
+    if (memberValue !== memberIndexValue) continue;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith('- name:')) {
-      if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
-        break;
-      }
-      foundEdgeId = false;
-      foundMemberIndex = false;
-      stanzaStart = i;
-    }
-
-    if (trimmed.startsWith('pos/edgeId:')) {
-      let value = trimmed.slice(11).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (value === edgeId) foundEdgeId = true;
-    }
-
-    if (trimmed.startsWith('pos/memberIndex:')) {
-      let value = trimmed.slice(16).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-      if (value === String(memberIndex)) foundMemberIndex = true;
-    }
-  }
-
-  if (foundEdgeId && foundMemberIndex && stanzaStart !== -1) {
-    const listItemIndent = lines[stanzaStart].length - lines[stanzaStart].trimStart().length;
-    let endLine = stanzaStart;
-
-    for (let j = stanzaStart + 1; j < lines.length; j++) {
-      const nextLine = lines[j];
-      const nextTrimmed = nextLine.trimStart();
-      const nextIndent = nextLine.length - nextTrimmed.length;
-
-      if (nextTrimmed.length === 0) {
-        endLine = j;
-        continue;
-      }
-
-      if (nextIndent <= listItemIndent) {
-        break;
-      }
-
-      endLine = j;
-    }
-
-    editorInstance.revealLineInCenter(stanzaStart + 1);
+    editorInstance.revealLineInCenter(stanza.start + 1);
     editorInstance.setSelection({
-      startLineNumber: stanzaStart + 1,
+      startLineNumber: stanza.start + 1,
       startColumn: 1,
-      endLineNumber: endLine + 1,
-      endColumn: lines[endLine].length + 1,
+      endLineNumber: stanza.end + 1,
+      endColumn: lines[stanza.end].length + 1,
     });
+    return;
   }
 }
 

@@ -244,7 +244,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </Dialog>
 
         <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>{TITLE}</DialogTitle>
+          <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({__COMMIT_SHA__})</Typography></DialogTitle>
           <DialogContent sx={{ pb: 0 }}>
             <Container sx={{ textAlign: 'center' }}>
               <Typography variant="body1">

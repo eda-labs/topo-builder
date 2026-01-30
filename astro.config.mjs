@@ -1,8 +1,17 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { execSync } from 'child_process';
 
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
+
+const getGitCommitSha = () => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown';
+  }
+};
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +20,9 @@ export default defineConfig({
   integrations: [react()],
   output: 'static',
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    define: {
+      __COMMIT_SHA__: JSON.stringify(getGitCommitSha()),
+    },
   }
 });

@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
-import { generateUniqueName, generateCopyName } from '../lib/utils';
+import { generateUniqueName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { TopologyNodeData, TopologyEdgeData } from '../types/topology';
 import DeviceNode from './nodes/DeviceNode';
@@ -259,6 +259,7 @@ function TopologyEditorInner() {
 
   const mouseScreenPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const justConnectedRef = useRef(false);
+  const isPastingRef = useRef(false);
 
   const handleConnect = useCallback((connection: Connection) => {
     justConnectedRef.current = true;
@@ -461,6 +462,8 @@ function TopologyEditorInner() {
     }
 
     if (copiedNodes.length > 0 || copiedSimNodes.length > 0) {
+      isPastingRef.current = true;
+
       const allPositions = [
         ...copiedNodes.map(n => n.position),
         ...copiedSimNodes.map(sn => sn.position).filter((p): p is { x: number; y: number } => !!p),
@@ -472,7 +475,7 @@ function TopologyEditorInner() {
         ? allPositions.reduce((sum, p) => sum + p.y, 0) / allPositions.length
         : 0;
 
-      const cursorPos = contextMenu.flowPosition.x !== 0 || contextMenu.flowPosition.y !== 0
+      const cursorPos = contextMenu.open
         ? contextMenu.flowPosition
         : screenToFlowPosition(mouseScreenPositionRef.current);
       const offset = {
@@ -480,34 +483,13 @@ function TopologyEditorInner() {
         y: cursorPos.y - centerY,
       };
 
-      if (copiedSimNodes.length === 0) selectSimNodes(new Set());
-      if (copiedNodes.length > 0) pasteSelection(copiedNodes, copiedEdges, offset);
+      pasteSelection(copiedNodes, copiedEdges, offset, copiedSimNodes, cursorPos);
 
-      if (copiedSimNodes.length > 0) {
-        const currentState = useTopologyStore.getState();
-        const allNodeNames = currentState.nodes.map(n => n.data.name);
-        const allSimNodeNames = currentState.simulation.simNodes.map(sn => sn.name);
-        const existingNames = [...allNodeNames, ...allSimNodeNames];
-        const newSimNodeNames: string[] = [];
-
-        for (const simNode of copiedSimNodes) {
-          const newName = generateCopyName(simNode.name, existingNames);
-          existingNames.push(newName);
-          newSimNodeNames.push(newName);
-
-          const simNodeWithoutId = (({ id: _id, ...rest }) => rest)(simNode);
-          addSimNode({
-            ...simNodeWithoutId,
-            name: newName,
-            position: simNode.position ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y } : undefined,
-          });
-        }
-
-        selectSimNodes(new Set(newSimNodeNames));
-        triggerYamlRefresh();
-      }
+      setTimeout(() => {
+        isPastingRef.current = false;
+      }, 0);
     }
-  }, [clipboard, contextMenu.flowPosition, addMemberLink, addSimNode, pasteSelection, selectSimNodes, triggerYamlRefresh, screenToFlowPosition]);
+  }, [clipboard, contextMenu.open, contextMenu.flowPosition, addMemberLink, pasteSelection, triggerYamlRefresh, screenToFlowPosition]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -622,11 +604,18 @@ function TopologyEditorInner() {
   }, []);
 
   const handleSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+    if (isPastingRef.current) return;
+
     const regularNodeIds = selectedNodes
       .filter(n => n.type !== 'simDeviceNode')
       .map(n => n.id);
+
+    const simNodeNames = selectedNodes
+      .filter(n => n.type === 'simDeviceNode')
+      .map(n => (n.data as SimDeviceNodeData).simNode.name);
+
     const edgeIds = selectedEdges.map(e => e.id);
-    syncSelectionFromReactFlow(regularNodeIds, edgeIds);
+    syncSelectionFromReactFlow(regularNodeIds, edgeIds, simNodeNames);
   }, [syncSelectionFromReactFlow]);
 
   useEffect(() => {

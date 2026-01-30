@@ -122,7 +122,7 @@ interface TopologyActions {
   selectLag: (edgeId: string, lagId: string | null) => void;
   clearMemberLinkSelection: () => void;
   clearEdgeSelection: () => void;
-  syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => void;
+  syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[], simNodeNames?: string[]) => void;
 
   createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => void;
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
@@ -153,11 +153,12 @@ interface TopologyActions {
   // Update sim node position
   updateSimNodePosition: (name: string, position: { x: number; y: number }) => void;
 
-  // Paste selection
   pasteSelection: (
     copiedNodes: Node<TopologyNodeData>[],
     copiedEdges: Edge<TopologyEdgeData>[],
-    offset: { x: number; y: number }
+    offset: { x: number; y: number },
+    copiedSimNodes?: SimNode[],
+    cursorPos?: { x: number; y: number }
   ) => void;
 
   setClipboard: (clipboard: Clipboard) => void;
@@ -1127,16 +1128,18 @@ export const useTopologyStore = create<TopologyStore>()(
         });
       },
 
-      syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => {
+      syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[], simNodeNames?: string[]) => {
         const lastNodeId = nodeIds.length > 0 ? nodeIds[nodeIds.length - 1] : null;
         const lastEdgeId = edgeIds.length > 0 ? edgeIds[edgeIds.length - 1] : null;
+        const simNames = simNodeNames || [];
+        const lastSimName = simNames.length > 0 ? simNames[simNames.length - 1] : null;
 
         set({
           selectedNodeId: lastNodeId,
           selectedEdgeId: lastEdgeId,
           selectedEdgeIds: edgeIds,
-          selectedSimNodeName: null,
-          selectedSimNodeNames: EMPTY_STRING_SET,
+          selectedSimNodeName: lastSimName,
+          selectedSimNodeNames: new Set(simNames),
           selectedMemberLinkIndices: [],
           selectedLagId: null,
           nodes: get().nodes.map(n => ({ ...n, selected: nodeIds.includes(n.id) })),
@@ -1720,27 +1723,27 @@ export const useTopologyStore = create<TopologyStore>()(
       pasteSelection: (
         copiedNodes: Node<TopologyNodeData>[],
         copiedEdges: Edge<TopologyEdgeData>[],
-        offset: { x: number; y: number }
+        offset: { x: number; y: number },
+        copiedSimNodes?: SimNode[],
+        cursorPos?: { x: number; y: number }
       ) => {
-        if (copiedNodes.length === 0) return;
+        if (copiedNodes.length === 0 && (!copiedSimNodes || copiedSimNodes.length === 0)) return;
         saveToUndoHistory();
 
         const existingNodes = get().nodes;
         const existingEdges = get().edges;
+        const existingSimNodes = get().simulation.simNodes;
         const allNodeNames = existingNodes.map(n => n.data.name);
-        const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
+        const allSimNodeNames = existingSimNodes.map(n => n.name);
         const allNames = [...allNodeNames, ...allSimNodeNames];
 
-        // Map old node IDs to new node IDs and names
         const idMap = new Map<string, string>();
         const nameMap = new Map<string, string>();
 
-        // Create new nodes with new IDs and names
         const newNodes: Node<TopologyNodeData>[] = copiedNodes.map((node) => {
           const newId = generateNodeId();
           idMap.set(node.id, newId);
 
-          // Generate unique name
           const newName = generateCopyName(node.data.name, allNames);
           allNames.push(newName);
           nameMap.set(node.data.name, newName);
@@ -1761,7 +1764,6 @@ export const useTopologyStore = create<TopologyStore>()(
           };
         });
 
-        // Create new edges that connect the copied nodes
         const newEdges: Edge<TopologyEdgeData>[] = copiedEdges
           .filter((edge) => idMap.has(edge.source) && idMap.has(edge.target))
           .map((edge) => {
@@ -1771,7 +1773,6 @@ export const useTopologyStore = create<TopologyStore>()(
             const newSourceName = nameMap.get(edge.data?.sourceNode || '') || edge.data?.sourceNode;
             const newTargetName = nameMap.get(edge.data?.targetNode || '') || edge.data?.targetNode;
 
-            // Update member link names
             const memberLinks = edge.data?.memberLinks?.map((link) => ({
               ...link,
               name: `${newTargetName}-${newSourceName}-${link.name.split('-').pop() || '1'}`,
@@ -1809,19 +1810,44 @@ export const useTopologyStore = create<TopologyStore>()(
             };
           });
 
-        // Deselect existing nodes and edges
+        const newSimNodes: SimNode[] = [];
+        const newSimNodeNames: string[] = [];
+        if (copiedSimNodes && copiedSimNodes.length > 0) {
+          for (const simNode of copiedSimNodes) {
+            const newName = generateCopyName(simNode.name, allNames);
+            allNames.push(newName);
+            newSimNodeNames.push(newName);
+
+            const position = simNode.position
+              ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y }
+              : cursorPos || { x: 0, y: 0 };
+            newSimNodes.push({
+              ...simNode,
+              id: generateSimNodeId(),
+              name: newName,
+              position,
+            });
+          }
+        }
+
         const deselectedNodes = existingNodes.map(n => ({ ...n, selected: false }));
         const deselectedEdges = existingEdges.map(e => ({ ...e, selected: false }));
 
-        const selectedNodeId = newNodes.length === 1 ? newNodes[0].id : null;
-        const selectedEdgeId = newNodes.length === 0 && newEdges.length === 1 ? newEdges[0].id : null;
+        const selectedNodeId = newNodes.length > 0 ? newNodes[newNodes.length - 1].id : null;
+        const selectedEdgeId = newNodes.length === 0 && newEdges.length > 0 ? newEdges[newEdges.length - 1].id : null;
+        const selectedSimNodeName = newSimNodeNames.length > 0 ? newSimNodeNames[newSimNodeNames.length - 1] : null;
 
         set({
           nodes: [...deselectedNodes, ...newNodes],
           edges: [...deselectedEdges, ...newEdges],
+          simulation: newSimNodes.length > 0 ? {
+            ...get().simulation,
+            simNodes: [...existingSimNodes, ...newSimNodes],
+          } : get().simulation,
           selectedNodeId,
           selectedEdgeId,
-          selectedSimNodeName: null,
+          selectedSimNodeName,
+          selectedSimNodeNames: new Set(newSimNodeNames),
           selectedMemberLinkIndices: [],
           selectedLagId: null,
         });

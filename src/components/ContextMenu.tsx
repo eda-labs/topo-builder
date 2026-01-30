@@ -19,6 +19,8 @@ import {
   CallMerge as MergeIcon,
   ContentCopy as CopyIcon,
   ContentPaste as PasteIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/topology';
@@ -39,6 +41,10 @@ interface ContextMenuProps {
   onCreateEsiLag?: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   onClearAll: () => void;
   hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | null;
   hasContent: boolean;
@@ -71,6 +77,10 @@ export default function ContextMenu({
   onCreateEsiLag,
   onCopy,
   onPaste,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   onClearAll,
   hasSelection,
   hasContent,
@@ -298,6 +308,22 @@ export default function ContextMenu({
                 <MenuItem onClick={() => { onPaste(); onClose(); }}>
                   <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Paste</ListItemText>
+                </MenuItem>
+              )}
+
+              {(canUndo || canRedo) && <Divider />}
+
+              {onUndo && (
+                <MenuItem disabled={!canUndo} onClick={() => { onUndo(); onClose(); }}>
+                  <ListItemIcon><UndoIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Undo</ListItemText>
+                </MenuItem>
+              )}
+
+              {onRedo && (
+                <MenuItem disabled={!canRedo} onClick={() => { onRedo(); onClose(); }}>
+                  <ListItemIcon><RedoIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Redo</ListItemText>
                 </MenuItem>
               )}
 

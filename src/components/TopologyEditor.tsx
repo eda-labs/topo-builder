@@ -25,7 +25,7 @@ import {
   CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
-import { useTopologyStore } from '../lib/store';
+import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
 import { generateUniqueName, generateCopyName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { TopologyNodeData, TopologyEdgeData } from '../types/topology';
@@ -201,6 +201,26 @@ function TopologyEditorInner() {
   } = useTopologyStore();
 
   const { screenToFlowPosition } = useReactFlow();
+
+  const [undoRedoTrigger, setUndoRedoTrigger] = useState(0);
+  const canUndoNow = undoRedoTrigger >= 0 && canUndo();
+  const canRedoNow = undoRedoTrigger >= 0 && canRedo();
+
+  const handleUndo = useCallback(() => {
+    undo();
+    setUndoRedoTrigger(n => n + 1);
+    triggerYamlRefresh();
+  }, [triggerYamlRefresh]);
+
+  const handleRedo = useCallback(() => {
+    redo();
+    setUndoRedoTrigger(n => n + 1);
+    triggerYamlRefresh();
+  }, [triggerYamlRefresh]);
+
+  useEffect(() => {
+    clearUndoHistory();
+  }, []);
 
   const [activeTab, setActiveTab] = useState(() => {
     const saved = sessionStorage.getItem('topology-active-tab');
@@ -488,6 +508,18 @@ function TopologyEditorInner() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const isCtrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
 
+      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
       if (isCtrlOrCmd && e.key === 'a') {
         e.preventDefault();
         const currentState = useTopologyStore.getState();
@@ -560,7 +592,7 @@ function TopologyEditorInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCopy, handlePaste, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
+  }, [handleCopy, handlePaste, handleUndo, handleRedo, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
     if (justConnectedRef.current) {
@@ -1003,6 +1035,10 @@ function TopologyEditorInner() {
         onCreateEsiLag={handleCreateEsiLag}
         onCopy={handleCopy}
         onPaste={handlePaste}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndoNow}
+        canRedo={canRedoNow}
         currentNodeTemplate={currentNodeTemplate}
         currentSimNodeTemplate={currentSimNodeTemplate}
         linkTemplates={linkTemplates}

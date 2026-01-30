@@ -229,6 +229,93 @@ const initialState: TopologyState = {
   clipboard: { nodes: [], edges: [], simNodes: [] },
 };
 
+interface UndoState {
+  nodes: Node<TopologyNodeData>[];
+  edges: Edge<TopologyEdgeData>[];
+  simulation: Simulation;
+  nodeTemplates: NodeTemplate[];
+  linkTemplates: LinkTemplate[];
+  topologyName: string;
+  namespace: string;
+}
+
+const undoHistory: UndoState[] = [];
+const redoHistory: UndoState[] = [];
+const UNDO_LIMIT = 50;
+
+const captureState = (state: TopologyState): UndoState => ({
+  nodes: JSON.parse(JSON.stringify(state.nodes)),
+  edges: JSON.parse(JSON.stringify(state.edges)),
+  simulation: JSON.parse(JSON.stringify(state.simulation)),
+  nodeTemplates: JSON.parse(JSON.stringify(state.nodeTemplates)),
+  linkTemplates: JSON.parse(JSON.stringify(state.linkTemplates)),
+  topologyName: state.topologyName,
+  namespace: state.namespace,
+});
+
+export const saveToUndoHistory = () => {
+  const state = useTopologyStore.getState();
+  undoHistory.push(captureState(state));
+  if (undoHistory.length > UNDO_LIMIT) {
+    undoHistory.shift();
+  }
+  redoHistory.length = 0;
+};
+
+export const undo = () => {
+  if (undoHistory.length === 0) return;
+
+  const state = useTopologyStore.getState();
+  redoHistory.push(captureState(state));
+  const previousState = undoHistory.pop()!;
+  useTopologyStore.setState({
+    nodes: previousState.nodes,
+    edges: previousState.edges,
+    simulation: previousState.simulation,
+    nodeTemplates: previousState.nodeTemplates,
+    linkTemplates: previousState.linkTemplates,
+    topologyName: previousState.topologyName,
+    namespace: previousState.namespace,
+    selectedNodeId: null,
+    selectedEdgeId: null,
+    selectedEdgeIds: [],
+    selectedSimNodeName: null,
+    selectedMemberLinkIndices: [],
+    selectedLagId: null,
+  });
+};
+
+export const redo = () => {
+  if (redoHistory.length === 0) return;
+
+  const state = useTopologyStore.getState();
+  undoHistory.push(captureState(state));
+  const nextState = redoHistory.pop()!;
+  useTopologyStore.setState({
+    nodes: nextState.nodes,
+    edges: nextState.edges,
+    simulation: nextState.simulation,
+    nodeTemplates: nextState.nodeTemplates,
+    linkTemplates: nextState.linkTemplates,
+    topologyName: nextState.topologyName,
+    namespace: nextState.namespace,
+    selectedNodeId: null,
+    selectedEdgeId: null,
+    selectedEdgeIds: [],
+    selectedSimNodeName: null,
+    selectedMemberLinkIndices: [],
+    selectedLagId: null,
+  });
+};
+
+export const canUndo = () => undoHistory.length > 0;
+export const canRedo = () => redoHistory.length > 0;
+
+export const clearUndoHistory = () => {
+  undoHistory.length = 0;
+  redoHistory.length = 0;
+};
+
 export const useTopologyStore = create<TopologyStore>()(
   persist(
     (set, get) => ({
@@ -257,6 +344,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
       // Node actions
       addNode: (position: { x: number; y: number }, templateName?: string) => {
+        saveToUndoHistory();
         const id = generateNodeId();
         const allNodeNames = get().nodes.map(n => n.data.name);
         const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
@@ -365,6 +453,7 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       deleteNode: (id: string) => {
+        saveToUndoHistory();
         set({
           nodes: get().nodes.filter((node) => node.id !== id),
           edges: get().edges.filter(
@@ -389,6 +478,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
       // Edge actions
       addEdge: (connection: Connection) => {
+        saveToUndoHistory();
         const nodes = get().nodes;
         const edges = get().edges;
         const simNodes = get().simulation.simNodes;
@@ -577,6 +667,7 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       deleteEdge: (id: string) => {
+        saveToUndoHistory();
         const newExpandedEdges = new Set(get().expandedEdges);
         newExpandedEdges.delete(id);
         set({
@@ -821,6 +912,7 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       addSimNode: (simNodeData: Omit<SimNode, 'id'>) => {
+        saveToUndoHistory();
         const allNodeNames = get().nodes.map(n => n.data.name);
         const allSimNodeNames = get().simulation.simNodes.map(n => n.name);
         const nameError = validateName(simNodeData.name, [...allNodeNames, ...allSimNodeNames], 'simNode');
@@ -909,6 +1001,7 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       deleteSimNode: (name: string) => {
+        saveToUndoHistory();
         const simNode = get().simulation.simNodes.find(n => n.name === name);
         if (!simNode) return;
 
@@ -1568,6 +1661,7 @@ export const useTopologyStore = create<TopologyStore>()(
 
       // Clear all
       clearAll: () => {
+        saveToUndoHistory();
         nodeIdCounter = 1;
         edgeIdCounter = 1;
         const { darkMode, showSimNodes, yamlRefreshCounter } = get();
@@ -1603,6 +1697,7 @@ export const useTopologyStore = create<TopologyStore>()(
         offset: { x: number; y: number }
       ) => {
         if (copiedNodes.length === 0) return;
+        saveToUndoHistory();
 
         const existingNodes = get().nodes;
         const existingEdges = get().edges;

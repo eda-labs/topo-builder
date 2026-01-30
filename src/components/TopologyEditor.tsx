@@ -495,7 +495,7 @@ function TopologyEditorInner() {
           existingNames.push(newName);
           newSimNodeNames.push(newName);
 
-          const { id: _id, ...simNodeWithoutId } = simNode;
+          const simNodeWithoutId = (({ id: _id, ...rest }) => rest)(simNode);
           addSimNode({
             ...simNodeWithoutId,
             name: newName,

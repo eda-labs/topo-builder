@@ -354,7 +354,7 @@ export const useTopologyStore = create<TopologyStore>()(
         const template = templateName || get().nodeTemplates[0]?.name;
         const templateObj = get().nodeTemplates.find(t => t.name === template);
         const namePrefix = templateObj?.labels?.[LABEL_NAME_PREFIX] || 'node';
-        const name = generateUniqueName(namePrefix, allNames, get().nodes.length + 1);
+        const name = generateUniqueName(namePrefix, allNames, 1);
         const newNode: Node<TopologyNodeData> = {
           id,
           type: 'deviceNode',

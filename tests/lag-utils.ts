@@ -61,11 +61,12 @@ export const clickEdgeNearNode = async (
 
 export const selectEdgesByNames = async (page: Page, pairs: Array<[string, string]>) => {
   await page.evaluate(async (edgePairs) => {
+    // @ts-expect-error - Vite serves source files at this path in dev mode
     const mod = await import('/src/lib/store.ts');
     const state = mod.useTopologyStore.getState();
     const edgeIds: string[] = [];
     for (const [a, b] of edgePairs as Array<[string, string]>) {
-      const edge = state.edges.find((e) => {
+      const edge = state.edges.find((e: { data?: { sourceNode?: string; targetNode?: string } }) => {
         const src = e.data?.sourceNode;
         const dst = e.data?.targetNode;
         return (src === a && dst === b) || (src === b && dst === a);

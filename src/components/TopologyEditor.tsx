@@ -255,7 +255,7 @@ function TopologyEditorInner() {
     flowPosition: { x: 0, y: 0 },
   });
 
-  const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const mouseScreenPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const justConnectedRef = useRef(false);
 
   const handleConnect = useCallback((connection: Connection) => {
@@ -465,7 +465,7 @@ function TopologyEditorInner() {
 
       const cursorPos = contextMenu.flowPosition.x !== 0 || contextMenu.flowPosition.y !== 0
         ? contextMenu.flowPosition
-        : mousePositionRef.current;
+        : screenToFlowPosition(mouseScreenPositionRef.current);
       const offset = {
         x: cursorPos.x - centerX,
         y: cursorPos.y - centerY,
@@ -498,7 +498,7 @@ function TopologyEditorInner() {
         triggerYamlRefresh();
       }
     }
-  }, [clipboard, contextMenu.flowPosition, addMemberLink, addSimNode, pasteSelection, selectSimNodes, triggerYamlRefresh]);
+  }, [clipboard, contextMenu.flowPosition, addMemberLink, addSimNode, pasteSelection, selectSimNodes, triggerYamlRefresh, screenToFlowPosition]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -614,11 +614,11 @@ function TopologyEditorInner() {
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      mousePositionRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      mouseScreenPositionRef.current = { x: event.clientX, y: event.clientY };
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [screenToFlowPosition]);
+  }, []);
 
   // Clear SimNode and sim-related edge selections when SimNodes are hidden
   useEffect(() => {

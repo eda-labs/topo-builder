@@ -147,7 +147,7 @@
               "type": "boolean"
             },
             "prompt": {
-              "description": "Prompts can be configured to request user confirmation before creating, replacing, or deleting topology resources, regardless if Dry Run is enabled or not.\nThis can be configured per operation type (BeforeCreate, BeforeReplace, BeforeDelete).",
+              "description": "Prompts can be configured to request user confirmation before creating, replacing, or deleting topology resources, buardless if Dry Run is enabled or not.\nThis can be configured per operation type (BeforeCreate, BeforeReplace, BeforeDelete).",
               "items": {
                 "enum": [
                   "BeforeCreate",

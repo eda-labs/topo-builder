@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
+
 import { useTopologyStore } from '../../lib/store';
 
 export interface BaseNodeProps {
@@ -16,7 +17,7 @@ export default function BaseNode({
   name,
   icon,
   className = '',
-}: BaseNodeProps) {
+}: Readonly<BaseNodeProps>) {
   const darkMode = useTopologyStore((state) => state.darkMode);
   const edges = useTopologyStore((state) => state.edges);
 

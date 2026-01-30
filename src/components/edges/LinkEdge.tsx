@@ -1,6 +1,8 @@
 import { type EdgeProps } from '@xyflow/react';
+
 import { useTopologyStore } from '../../lib/store';
 import type { TopologyEdgeData } from '../../types/topology';
+
 import StandardEdge from './StandardEdge';
 import ExpandedBundleEdge from './ExpandedBundleEdge';
 import EsiLagEdge from './EsiLagEdge';

@@ -1,8 +1,11 @@
-import { getBezierPath, EdgeLabelRenderer, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { getBezierPath, EdgeLabelRenderer } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 import { Chip } from '@mui/material';
-import { getControlPoint } from './edgeUtils';
+
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
+
+import { getControlPoint } from './edgeUtils';
 
 interface StandardEdgeProps {
   sourceX: number;
@@ -28,7 +31,7 @@ export default function StandardEdge({
   isSimNodeEdge,
   linkCount,
   onDoubleClick,
-}: StandardEdgeProps) {
+}: Readonly<StandardEdgeProps>) {
   let edgePath: string;
   let edgeMidpoint: { x: number; y: number };
 

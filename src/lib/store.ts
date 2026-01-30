@@ -3,23 +3,8 @@ import { persist } from 'zustand/middleware';
 import type { Node, Edge, Connection, NodeChange, EdgeChange } from '@xyflow/react';
 import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import yaml from 'js-yaml';
+
 import baseTemplateYaml from '../static/base-template.yaml?raw';
-import { 
-  LABEL_POS_X, 
-  LABEL_POS_Y, 
-  LABEL_SRC_HANDLE, 
-  LABEL_DST_HANDLE,
-  DEFAULT_INTERFACE, 
-  DEFAULT_SIM_INTERFACE, 
-  LABEL_NAME_PREFIX } from './constants';
-import {
-  generateUniqueName,
-  generateCopyName,
-  getNameError,
-  validateName,
-  parseYamlEndpoint,
-  filterUserLabels,
-} from './utils';
 import type {
   TopologyNodeData,
   TopologyEdgeData,
@@ -33,6 +18,23 @@ import type {
   Simulation,
   Clipboard,
 } from '../types/topology';
+
+import {
+  LABEL_POS_X,
+  LABEL_POS_Y,
+  LABEL_SRC_HANDLE,
+  LABEL_DST_HANDLE,
+  DEFAULT_INTERFACE,
+  DEFAULT_SIM_INTERFACE,
+  LABEL_NAME_PREFIX } from './constants';
+import {
+  generateUniqueName,
+  generateCopyName,
+  getNameError,
+  validateName,
+  parseYamlEndpoint,
+  filterUserLabels,
+} from './utils';
 
 // Types for YAML parsing
 interface ParsedYamlNode {
@@ -175,8 +177,6 @@ const generateNodeId = () => `node-${nodeIdCounter++}`;
 const generateEdgeId = () => `edge-${edgeIdCounter++}`;
 const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
 
-export { generateUniqueName, generateCopyName } from './utils';
-
 const EMPTY_STRING_SET: Set<string> = new Set<string>();
 
 // Parse base template from YAML file
@@ -201,6 +201,30 @@ function parseBaseTemplate(): Partial<TopologyState> {
 }
 
 const baseTemplate = parseBaseTemplate();
+
+// Helper functions for ESI-LAG operations
+function findNodeByIdHelper(
+  id: string,
+  nodes: Node<TopologyNodeData>[],
+  simNodes: SimNode[]
+): { id: string; name: string; isSimNode: boolean } | null {
+  const topoNode = nodes.find(n => n.id === id);
+  if (topoNode) return { id, name: topoNode.data.name, isSimNode: false };
+  const simNode = simNodes.find(s => s.id === id);
+  if (simNode) return { id, name: simNode.name, isSimNode: true };
+  return null;
+}
+
+function toSourceHandle(handle: string | null | undefined): string {
+  if (!handle) return 'bottom';
+  return handle.replace('-target', '');
+}
+
+function toTargetHandle(handle: string | null | undefined): string {
+  if (!handle) return 'bottom-target';
+  if (handle.endsWith('-target')) return handle;
+  return handle + '-target';
+}
 
 // Default initial state
 const initialState: TopologyState = {
@@ -542,9 +566,11 @@ export const useTopologyStore = create<TopologyStore>()(
         });
 
         const extractPortNumber = (iface: string): number => {
-          const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+          const ethernetRegex = /ethernet-1-(\d+)/;
+          const ethernetMatch = ethernetRegex.exec(iface);
           if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-          const ethMatch = iface.match(/eth(\d+)/);
+          const ethRegex = /eth(\d+)/;
+          const ethMatch = ethRegex.exec(iface);
           if (ethMatch) return parseInt(ethMatch[1], 10);
           return 0;
         };
@@ -1093,9 +1119,15 @@ export const useTopologyStore = create<TopologyStore>()(
           newIds = [id];
         }
 
+        const getSelectedEdgeId = (ids: string[]): string | null => {
+          if (ids.length === 1) return ids[0];
+          if (ids.length > 0) return ids[ids.length - 1];
+          return null;
+        };
+
         if (addToSelection) {
           set({
-            selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
+            selectedEdgeId: getSelectedEdgeId(newIds),
             selectedEdgeIds: newIds,
             selectedSimNodeName: null,
             selectedSimNodeNames: EMPTY_STRING_SET,
@@ -1105,7 +1137,7 @@ export const useTopologyStore = create<TopologyStore>()(
           });
         } else {
           set({
-            selectedEdgeId: newIds.length === 1 ? newIds[0] : (newIds.length > 0 ? newIds[newIds.length - 1] : null),
+            selectedEdgeId: getSelectedEdgeId(newIds),
             selectedEdgeIds: newIds,
             selectedNodeId: null,
             selectedSimNodeName: null,
@@ -1280,7 +1312,8 @@ export const useTopologyStore = create<TopologyStore>()(
         const lastLagLink = lagMemberLinks[lagMemberLinks.length - 1];
 
         const incrementInterface = (iface: string) => {
-          const match = iface.match(/^(.+?)(\d+)$/);
+          const interfaceRegex = /^(.*\D)(\d+)$/;
+          const match = interfaceRegex.exec(iface);
           if (match) {
             return `${match[1]}${parseInt(match[2], 10) + 1}`;
           }
@@ -1331,35 +1364,20 @@ export const useTopologyStore = create<TopologyStore>()(
         if (!lag) return;
 
         if (lag.memberLinkIndices.length <= 2) {
+          const filteredLagGroups = lagGroups.filter(l => l.id !== lagId);
           const updatedEdges = edges.map(e => {
-            if (e.id === edgeId) {
-              return {
-                ...e,
-                data: {
-                  ...e.data!,
-                  lagGroups: lagGroups.filter(l => l.id !== lagId),
-                },
-              };
-            }
-            return e;
+            if (e.id !== edgeId) return e;
+            return { ...e, data: { ...e.data!, lagGroups: filteredLagGroups } };
           });
           set({ edges: updatedEdges, selectedLagId: null });
         } else {
+          const filteredIndices = lag.memberLinkIndices.filter(i => i !== memberLinkIndex);
+          const updatedLagGroups = lagGroups.map(l =>
+            l.id === lagId ? { ...l, memberLinkIndices: filteredIndices } : l
+          );
           const updatedEdges = edges.map(e => {
-            if (e.id === edgeId) {
-              return {
-                ...e,
-                data: {
-                  ...e.data!,
-                  lagGroups: lagGroups.map(l =>
-                    l.id === lagId
-                      ? { ...l, memberLinkIndices: l.memberLinkIndices.filter(i => i !== memberLinkIndex) }
-                      : l
-                  ),
-                },
-              };
-            }
-            return e;
+            if (e.id !== edgeId) return e;
+            return { ...e, data: { ...e.data!, lagGroups: updatedLagGroups } };
           });
           set({ edges: updatedEdges, selectedLagId: lagId });
         }
@@ -1381,14 +1399,6 @@ export const useTopologyStore = create<TopologyStore>()(
           return;
         }
 
-        const findNodeById = (id: string) => {
-          const topoNode = nodes.find(n => n.id === id);
-          if (topoNode) return { id, name: topoNode.data.name, isSimNode: false };
-          const simNode = simNodes.find(s => s.id === id);
-          if (simNode) return { id, name: simNode.name, isSimNode: true };
-          return null;
-        };
-
         const allNodes = selectedEdges.flatMap(e => [e.source, e.target]);
         const nodeCounts = new Map<string, number>();
         allNodes.forEach(n => nodeCounts.set(n, (nodeCounts.get(n) || 0) + 1));
@@ -1400,21 +1410,11 @@ export const useTopologyStore = create<TopologyStore>()(
         }
 
         const commonNodeId = commonNodeEntries[0][0];
-        const commonNodeInfo = findNodeById(commonNodeId);
+        const commonNodeInfo = findNodeByIdHelper(commonNodeId, nodes, simNodes);
         if (!commonNodeInfo) {
           get().setError('Could not find common node');
           return;
         }
-
-        const toSourceHandle = (handle: string | null | undefined): string => {
-          if (!handle) return 'bottom';
-          return handle.replace('-target', '');
-        };
-        const toTargetHandle = (handle: string | null | undefined): string => {
-          if (!handle) return 'bottom-target';
-          if (handle.endsWith('-target')) return handle;
-          return handle + '-target';
-        };
 
         const leafConnections: Array<{
           nodeId: string;
@@ -1426,13 +1426,13 @@ export const useTopologyStore = create<TopologyStore>()(
 
         for (const edge of selectedEdges) {
           const leafId = edge.source === commonNodeId ? edge.target : edge.source;
-          const leafInfo = findNodeById(leafId);
+          const leafInfo = findNodeByIdHelper(leafId, nodes, simNodes);
           if (!leafInfo) {
             get().setError('Could not find all leaf nodes');
             return;
           }
 
-          const sourceHandle = edge.source === commonNodeId
+          const srcHandle = edge.source === commonNodeId
             ? (edge.sourceHandle || 'bottom')
             : toSourceHandle(edge.targetHandle);
           const leafHandle = edge.source === commonNodeId
@@ -1443,7 +1443,7 @@ export const useTopologyStore = create<TopologyStore>()(
             nodeId: leafId,
             nodeName: leafInfo.name,
             leafHandle,
-            sourceHandle,
+            sourceHandle: srcHandle,
             memberLinks: edge.data?.memberLinks || [],
           });
         }
@@ -1506,7 +1506,8 @@ export const useTopologyStore = create<TopologyStore>()(
         const lastMemberLink = memberLinks[memberLinks.length - 1];
 
         const incrementInterface = (iface: string) => {
-          const match = iface.match(/^(.+?)(\d+)$/);
+          const interfaceRegex = /^(.*\D)(\d+)$/;
+          const match = interfaceRegex.exec(iface);
           if (match) {
             return `${match[1]}${parseInt(match[2], 10) + 1}`;
           }
@@ -1596,33 +1597,15 @@ export const useTopologyStore = create<TopologyStore>()(
 
         const commonNodeId = esiLagEdge.source;
 
-        const findNodeById = (id: string) => {
-          const topoNode = nodes.find(n => n.id === id);
-          if (topoNode) return { id, name: topoNode.data.name, isSimNode: false };
-          const simNode = simNodes.find(s => s.id === id);
-          if (simNode) return { id, name: simNode.name, isSimNode: true };
-          return null;
-        };
-
-        const toSourceHandle = (handle: string | null | undefined): string => {
-          if (!handle) return 'bottom';
-          return handle.replace('-target', '');
-        };
-        const toTargetHandle = (handle: string | null | undefined): string => {
-          if (!handle) return 'bottom-target';
-          if (handle.endsWith('-target')) return handle;
-          return handle + '-target';
-        };
-
         const newLeaves = [...currentLeaves];
         const newMemberLinks = [...currentMemberLinks];
 
         for (const edge of edgesToMerge) {
           const leafId = edge.source === commonNodeId ? edge.target : edge.source;
-          const leafInfo = findNodeById(leafId);
+          const leafInfo = findNodeByIdHelper(leafId, nodes, simNodes);
           if (!leafInfo) continue;
 
-          const sourceHandle = edge.source === commonNodeId
+          const srcHandle = edge.source === commonNodeId
             ? (edge.sourceHandle || 'bottom')
             : toSourceHandle(edge.targetHandle);
           const leafHandle = edge.source === commonNodeId
@@ -1633,7 +1616,7 @@ export const useTopologyStore = create<TopologyStore>()(
             nodeId: leafId,
             nodeName: leafInfo.name,
             leafHandle,
-            sourceHandle,
+            sourceHandle: srcHandle,
           });
 
           const edgeMemberLinks = edge.data?.memberLinks || [];
@@ -1682,9 +1665,14 @@ export const useTopologyStore = create<TopologyStore>()(
       },
 
       selectSimNodes: (names: Set<string>) => {
+        const getSelectedSimNodeName = (): string | null => {
+          if (names.size === 1) return [...names][0];
+          if (names.size > 0) return [...names][names.size - 1];
+          return null;
+        };
         set({
           selectedSimNodeNames: names,
-          selectedSimNodeName: names.size === 1 ? [...names][0] : (names.size > 0 ? [...names][names.size - 1] : null),
+          selectedSimNodeName: getSelectedSimNodeName(),
         });
       },
 

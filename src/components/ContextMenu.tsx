@@ -23,6 +23,7 @@ import {
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
+
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/topology';
 
 interface ContextMenuProps {
@@ -95,7 +96,7 @@ export default function ContextMenu({
   selectedMemberLinkCount = 0,
   canCreateEsiLag = false,
   isMergeIntoEsiLag = false,
-}: ContextMenuProps) {
+}: Readonly<ContextMenuProps>) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const paperRef = useRef<HTMLDivElement | null>(null);
   const [showSubmenu, setShowSubmenu] = useState(false);

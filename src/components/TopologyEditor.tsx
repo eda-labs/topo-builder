@@ -30,6 +30,7 @@ import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from
 import { generateUniqueName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { TopologyNodeData, TopologyEdgeData } from '../types/topology';
+
 import DeviceNode from './nodes/DeviceNode';
 import SimDeviceNode, { type SimDeviceNodeData } from './nodes/SimDeviceNode';
 import LinkEdge from './edges/LinkEdge';
@@ -47,11 +48,11 @@ const edgeTypes: EdgeTypes = {
   linkEdge: LinkEdge,
 };
 
-function LayoutHandler({ layoutVersion }: { layoutVersion: number }) {
+function LayoutHandler({ layoutVersion }: Readonly<{ layoutVersion: number }>) {
   const { fitView } = useReactFlow();
 
   useEffect(() => {
-    const timer = setTimeout(() => fitView({ padding: 0.2 }), 50);
+    const timer = setTimeout(() => { void fitView({ padding: 0.2 }); }, 50);
     return () => clearTimeout(timer);
   }, [layoutVersion, fitView]);
 
@@ -63,12 +64,12 @@ function SidePanel({
   onTabChange,
   open,
   onToggle,
-}: {
+}: Readonly<{
   activeTab: number;
   onTabChange: (tab: number) => void;
   open: boolean;
   onToggle: () => void;
-}) {
+}>) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const borderColor = isDark ? '#424242' : '#e0e0e0';
@@ -240,7 +241,7 @@ function TopologyEditorInner() {
       setActiveTab(1);
     }
   }, [selectedEdgeId]);
-  
+
   useEffect(() => {
     if (selectedNodeId || selectedEdgeId || selectedSimNodeName) {
       setActiveTab(1);
@@ -415,9 +416,11 @@ function TopologyEditorInner() {
         const targetIsSimNode = edge.target.startsWith('sim-');
 
         const extractPortNumber = (iface: string): number => {
-          const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+          const ethernetRegex = /ethernet-1-(\d+)/;
+          const ethernetMatch = ethernetRegex.exec(iface);
           if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-          const ethMatch = iface.match(/eth(\d+)/);
+          const ethRegex = /eth(\d+)/;
+          const ethMatch = ethRegex.exec(iface);
           if (ethMatch) return parseInt(ethMatch[1], 10);
           return 0;
         };
@@ -496,7 +499,7 @@ function TopologyEditorInner() {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isMac = navigator.userAgent.toUpperCase().includes('MAC');
       const isCtrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
 
       if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
@@ -926,7 +929,7 @@ function TopologyEditorInner() {
       const memberLinks = edge.data.memberLinks || [];
       return memberLinks[selectedMemberLinkIndices[0]]?.template;
     }
-    
+
     if (selectedLagId) {
       const lag = edge.data.lagGroups?.find(l => l.id === selectedLagId);
       return lag?.template;
@@ -947,7 +950,14 @@ function TopologyEditorInner() {
 
   const handleDeleteSimNode = () => selectedSimNodeName && deleteSimNode(selectedSimNodeName);
 
-  const hasSelection = selectedNodeId ? 'node' : selectedEdgeIds.length > 1 ? 'multiEdge' : selectedEdgeId ? 'edge' : selectedSimNodeName ? 'simNode' : null;
+  const getSelectionType = (): 'node' | 'edge' | 'simNode' | 'multiEdge' | null => {
+    if (selectedNodeId) return 'node';
+    if (selectedEdgeIds.length > 1) return 'multiEdge';
+    if (selectedEdgeId) return 'edge';
+    if (selectedSimNodeName) return 'simNode';
+    return null;
+  };
+  const hasSelection = getSelectionType();
 
   return (
     <AppLayout>

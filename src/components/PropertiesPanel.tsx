@@ -15,16 +15,96 @@ import {
   Divider,
 } from "@mui/material";
 import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from "@mui/icons-material";
+import type { Edge } from "@xyflow/react";
+
+import { useTopologyStore } from "../lib/store";
+import { formatName } from "../lib/utils";
+import {
+  getInheritedNodeLabels,
+  getInheritedLinkLabels,
+  getInheritedLagLabels,
+} from "../lib/labels";
+import {
+  NODE_PROFILE_SUGGESTIONS,
+  PLATFORM_SUGGESTIONS,
+  DEFAULT_INTERFACE,
+} from "../lib/constants";
+import type {
+  MemberLink,
+  LagGroup,
+  TopologyNodeData,
+  TopologyEdgeData,
+  NodeTemplate,
+  LinkTemplate,
+  LinkType,
+  LinkSpeed,
+  EncapType,
+  SimNodeTemplate,
+  SimNodeType,
+} from "../types/topology";
+
+// Shared template name blur handler
+function createNameBlurHandler<T extends { name: string }>(
+  template: T,
+  localName: string,
+  setLocalName: (name: string) => void,
+  onUpdate: (name: string, update: Partial<T>) => boolean | void
+) {
+  return () => {
+    const success = onUpdate(template.name, { name: localName } as Partial<T>);
+    if (!success) {
+      setLocalName(template.name);
+    }
+  };
+}
+
+// Shared label handling utilities for template editors
+function createLabelHandlers<T extends { name: string; labels?: Record<string, string> }>(
+  template: T,
+  onUpdate: (name: string, update: Partial<T>) => boolean | void
+) {
+  const handleAddLabel = () => {
+    let counter = 1;
+    let newKey = `eda.nokia.com/label-${counter}`;
+    while (template.labels?.[newKey]) {
+      counter++;
+      newKey = `eda.nokia.com/label-${counter}`;
+    }
+    onUpdate(template.name, {
+      labels: {
+        ...template.labels,
+        [newKey]: "",
+      },
+    } as Partial<T>);
+  };
+
+  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
+    const newLabels = { ...template.labels };
+    if (oldKey !== newKey) {
+      delete newLabels[oldKey];
+    }
+    newLabels[newKey] = value;
+    onUpdate(template.name, { labels: newLabels } as Partial<T>);
+  };
+
+  const handleDeleteLabel = (key: string) => {
+    const newLabels = { ...template.labels };
+    delete newLabels[key];
+    onUpdate(template.name, { labels: newLabels } as Partial<T>);
+  };
+
+  return { handleAddLabel, handleUpdateLabel, handleDeleteLabel };
+}
 
 function PanelHeader({
   title,
   chip,
   actions,
-}: {
+}: Readonly<{
   title: string;
   chip?: ReactNode;
   actions?: ReactNode;
-}) {
+}>) {
   return (
     <Box sx={{ mb: '1rem' }}>
       <Box
@@ -54,12 +134,12 @@ function PanelSection({
   count,
   actions,
   children,
-}: {
+}: Readonly<{
   title: string;
   count?: number;
   actions?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <Box sx={{ mt: '1rem' }}>
       <Box
@@ -84,10 +164,10 @@ function PanelSection({
 function PanelCard({
   children,
   highlighted,
-}: {
+}: Readonly<{
   children: ReactNode;
   highlighted?: boolean;
-}) {
+}>) {
   return (
     <Paper
       variant="outlined"
@@ -104,33 +184,6 @@ function PanelCard({
     </Paper>
   );
 }
-
-import { useTopologyStore } from "../lib/store";
-import { formatName } from "../lib/utils";
-import {
-  getInheritedNodeLabels,
-  getInheritedLinkLabels,
-  getInheritedLagLabels,
-} from "../lib/labels";
-import {
-  NODE_PROFILE_SUGGESTIONS,
-  PLATFORM_SUGGESTIONS,
-  DEFAULT_INTERFACE,
-} from "../lib/constants";
-import type { Edge } from "@xyflow/react";
-import type {
-  MemberLink,
-  LagGroup,
-  TopologyNodeData,
-  TopologyEdgeData,
-  NodeTemplate,
-  LinkTemplate,
-  LinkType,
-  LinkSpeed,
-  EncapType,
-  SimNodeTemplate,
-  SimNodeType,
-} from "../types/topology";
 
 export function SelectionPanel() {
   const selectedNodeId = useTopologyStore((state) => state.selectedNodeId);
@@ -321,9 +374,9 @@ export function SelectionPanel() {
             count={allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
           >
             <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
-              {allConnectedEdges.map((edge) => {
+              {allConnectedEdges.flatMap((edge) => {
                 const edgeData = edge.data;
-                if (!edgeData) return null;
+                if (!edgeData) return [];
                 const memberLinks = edgeData.memberLinks || [];
                 const lagGroups = edgeData.lagGroups || [];
                 const isEsiLag = edgeData.isMultihomed;
@@ -333,7 +386,7 @@ export function SelectionPanel() {
 
                 if (isEsiLag && edgeData.esiLeaves) {
                   const esiName = memberLinks[0]?.name || `${edgeData.sourceNode}-esi-lag`;
-                  return (
+                  return [(
                     <Paper
                       key={edge.id}
                       variant="outlined"
@@ -350,7 +403,7 @@ export function SelectionPanel() {
                         {edgeData.esiLeaves.length} member links
                       </Typography>
                     </Paper>
-                  );
+                  )];
                 }
 
                 const indicesInLags = new Set<number>();
@@ -428,13 +481,6 @@ export function SelectionPanel() {
     const nodeA = edgeData.targetNode;
     const nodeB = edgeData.sourceNode;
 
-    const indicesInLags = new Set<number>();
-    for (const lag of lagGroups) {
-      for (const idx of lag.memberLinkIndices) {
-        indicesInLags.add(idx);
-      }
-    }
-
     const handleUpdateLink = (index: number, update: Partial<MemberLink>) => {
       const newLinks = memberLinks.map((link, i) =>
         i === index ? { ...link, ...update } : link,
@@ -476,13 +522,18 @@ export function SelectionPanel() {
 
     const selectedLag = selectedLagId ? lagGroups.find(lag => lag.id === selectedLagId) : null;
 
-    const linksToShow = isExpanded && memberLinks.length > 1
-      ? (selectedMemberLinkIndices.length > 0
-          ? selectedMemberLinkIndices
-              .filter(i => i >= 0 && i < memberLinks.length)
-              .map(i => ({ link: memberLinks[i], index: i }))
-          : [])
-      : memberLinks.map((link, index) => ({ link, index }));
+    const getLinksToShow = () => {
+      if (isExpanded && memberLinks.length > 1) {
+        if (selectedMemberLinkIndices.length > 0) {
+          return selectedMemberLinkIndices
+            .filter(i => i >= 0 && i < memberLinks.length)
+            .map(i => ({ link: memberLinks[i], index: i }));
+        }
+        return [];
+      }
+      return memberLinks.map((link, index) => ({ link, index }));
+    };
+    const linksToShow = getLinksToShow();
 
     if (selectedLag) {
       const lagMemberLinksWithIndices = selectedLag.memberLinkIndices
@@ -577,7 +628,7 @@ export function SelectionPanel() {
                       onChange={(e) =>
                         handleUpdateLink(index, { targetInterface: e.target.value })
                       }
-                      inputProps={{ tabIndex: listIndex * 2 + 1 }}
+                      slotProps={{ input: { tabIndex: listIndex * 2 + 1 } }}
                       fullWidth
                     />
                     <TextField
@@ -587,7 +638,7 @@ export function SelectionPanel() {
                       onChange={(e) =>
                         handleUpdateLink(index, { sourceInterface: e.target.value })
                       }
-                      inputProps={{ tabIndex: listIndex * 2 + 2 }}
+                      slotProps={{ input: { tabIndex: listIndex * 2 + 2 } }}
                       fullWidth
                     />
                     <IconButton
@@ -717,7 +768,7 @@ export function SelectionPanel() {
                         onChange={(e) =>
                           handleUpdateLink(index, { targetInterface: e.target.value })
                         }
-                        inputProps={{ tabIndex: index * 2 + 1 }}
+                        slotProps={{ input: { tabIndex: index * 2 + 1 } }}
                         fullWidth
                       />
                       <TextField
@@ -727,7 +778,7 @@ export function SelectionPanel() {
                         onChange={(e) =>
                           handleUpdateLink(index, { sourceInterface: e.target.value })
                         }
-                        inputProps={{ tabIndex: index * 2 + 2 }}
+                        slotProps={{ input: { tabIndex: index * 2 + 2 } }}
                         fullWidth
                       />
                       <IconButton
@@ -755,7 +806,8 @@ export function SelectionPanel() {
       const lastLink = memberLinks[memberLinks.length - 1];
       const nextNum = memberLinks.length + 1;
       const incrementInterface = (iface: string) => {
-        const match = iface.match(/^(.+?)(\d+)$/);
+        const interfaceRegex = /^(.*\D)(\d+)$/;
+        const match = interfaceRegex.exec(iface);
         if (match) {
           return `${match[1]}${parseInt(match[2], 10) + 1}`;
         }
@@ -972,7 +1024,7 @@ export function SelectionPanel() {
                       })
                     }
                     inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                    inputProps={{ tabIndex: 1 }}
+                    slotProps={{ input: { tabIndex: 1 } }}
                     fullWidth
                   />
                   <TextField
@@ -985,7 +1037,7 @@ export function SelectionPanel() {
                       })
                     }
                     inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
-                    inputProps={{ tabIndex: 2 }}
+                    slotProps={{ input: { tabIndex: 2 } }}
                     fullWidth
                   />
                 </Box>
@@ -1032,7 +1084,7 @@ export function SelectionPanel() {
 
 const TOPOBUILDER_LABEL_PREFIX = 'topobuilder.eda.labs/';
 
-function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
+function InheritedLabels({ labels }: Readonly<{ labels?: Record<string, string> }>) {
   const filteredLabels = Object.entries(labels || {}).filter(
     ([key]) => !key.startsWith(TOPOBUILDER_LABEL_PREFIX)
   );
@@ -1067,11 +1119,11 @@ function EditableLabelsSection({
   labels,
   inheritedLabels,
   onUpdate,
-}: {
+}: Readonly<{
   labels?: Record<string, string>;
   inheritedLabels?: Record<string, string>;
   onUpdate: (labels: Record<string, string>) => void;
-}) {
+}>) {
   const handleAddLabel = () => {
     let counter = 1;
     let newKey = `eda.nokia.com/label-${counter}`;
@@ -1144,13 +1196,13 @@ function NodeTemplateEditor({
   onDelete,
   existingNodeProfiles,
   existingPlatforms,
-}: {
+}: Readonly<{
   template: NodeTemplate;
   onUpdate: (name: string, update: Partial<NodeTemplate>) => boolean;
   onDelete: (name: string) => void;
   existingNodeProfiles: string[];
   existingPlatforms: string[];
-}) {
+}>) {
   const [localName, setLocalName] = useState(template.name);
   const [localPlatform, setLocalPlatform] = useState(template.platform || "");
   const [localNodeProfile, setLocalNodeProfile] = useState(
@@ -1164,43 +1216,8 @@ function NodeTemplateEditor({
     setLocalNodeProfile(template.nodeProfile || "");
   }, [template]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
-
-  const handleAddLabel = () => {
-    // Find a unique key
-    let counter = 1;
-    let newKey = `eda.nokia.com/label-${counter}`;
-    while (template.labels?.[newKey]) {
-      counter++;
-      newKey = `eda.nokia.com/label-${counter}`;
-    }
-    onUpdate(template.name, {
-      labels: {
-        ...template.labels,
-        [newKey]: "",
-      },
-    });
-  };
-
-  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
-    const newLabels = { ...template.labels };
-    if (oldKey !== newKey) {
-      delete newLabels[oldKey];
-    }
-    newLabels[newKey] = value;
-    onUpdate(template.name, { labels: newLabels });
-  };
-
-  const handleDeleteLabel = (key: string) => {
-    const newLabels = { ...template.labels };
-    delete newLabels[key];
-    onUpdate(template.name, { labels: newLabels });
-  };
+  const handleNameBlur = createNameBlurHandler(template, localName, setLocalName, onUpdate);
+  const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createLabelHandlers(template, onUpdate);
 
   return (
     <PanelCard highlighted>
@@ -1299,13 +1316,13 @@ function LabelEditor({
   onUpdate,
   onDelete,
   disableSuggestions = false,
-}: {
+}: Readonly<{
   labelKey: string;
   labelValue: string;
   onUpdate: (key: string, value: string) => void;
   onDelete: () => void;
   disableSuggestions?: boolean;
-}) {
+}>) {
   const [localKey, setLocalKey] = useState(labelKey);
   const [localValue, setLocalValue] = useState(labelValue);
 
@@ -1452,11 +1469,11 @@ function LinkTemplateEditor({
   template,
   onUpdate,
   onDelete,
-}: {
+}: Readonly<{
   template: LinkTemplate;
   onUpdate: (name: string, update: Partial<LinkTemplate>) => boolean;
   onDelete: (name: string) => void;
-}) {
+}>) {
   const [localName, setLocalName] = useState(template.name);
 
   // Sync local state when template changes from external source
@@ -1464,42 +1481,8 @@ function LinkTemplateEditor({
     setLocalName(template.name);
   }, [template.name]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
-
-  const handleAddLabel = () => {
-    let counter = 1;
-    let newKey = `eda.nokia.com/label-${counter}`;
-    while (template.labels?.[newKey]) {
-      counter++;
-      newKey = `eda.nokia.com/label-${counter}`;
-    }
-    onUpdate(template.name, {
-      labels: {
-        ...template.labels,
-        [newKey]: "",
-      },
-    });
-  };
-
-  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
-    const newLabels = { ...template.labels };
-    if (oldKey !== newKey) {
-      delete newLabels[oldKey];
-    }
-    newLabels[newKey] = value;
-    onUpdate(template.name, { labels: newLabels });
-  };
-
-  const handleDeleteLabel = (key: string) => {
-    const newLabels = { ...template.labels };
-    delete newLabels[key];
-    onUpdate(template.name, { labels: newLabels });
-  };
+  const handleNameBlur = createNameBlurHandler(template, localName, setLocalName, onUpdate);
+  const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createLabelHandlers(template, onUpdate);
 
   return (
     <PanelCard highlighted>
@@ -1698,12 +1681,12 @@ function SimNodeSelectionEditor({
   simNodeTemplates,
   connectedEdges,
   onUpdate,
-}: {
+}: Readonly<{
   simNode: { name: string; template?: string; id?: string };
   simNodeTemplates: SimNodeTemplate[];
   connectedEdges: Edge<TopologyEdgeData>[];
   onUpdate: (update: Partial<{ name: string; template?: string }>) => void;
-}) {
+}>) {
   const [localName, setLocalName] = useState(simNode.name);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -1768,9 +1751,9 @@ function SimNodeSelectionEditor({
           count={connectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
         >
           <Box sx={{ display: "flex", flexDirection: "column", gap: '0.5rem' }}>
-            {connectedEdges.map((edge) => {
+            {connectedEdges.flatMap((edge) => {
               const edgeData = edge.data;
-              if (!edgeData) return null;
+              if (!edgeData) return [];
               const memberLinks = edgeData.memberLinks || [];
               const lagGroups = edgeData.lagGroups || [];
               const isEsiLag = edgeData.isMultihomed;
@@ -1780,7 +1763,7 @@ function SimNodeSelectionEditor({
 
               if (isEsiLag && edgeData.esiLeaves) {
                 const esiName = memberLinks[0]?.name || `${edgeData.sourceNode}-esi-lag`;
-                return (
+                return [(
                   <Paper
                     key={edge.id}
                     variant="outlined"
@@ -1797,7 +1780,7 @@ function SimNodeSelectionEditor({
                       {edgeData.esiLeaves.length} member links
                     </Typography>
                   </Paper>
-                );
+                )];
               }
 
               const indicesInLags = new Set<number>();
@@ -1871,11 +1854,11 @@ function SimNodeTemplateEditor({
   template,
   onUpdate,
   onDelete,
-}: {
+}: Readonly<{
   template: SimNodeTemplate;
   onUpdate: (name: string, update: Partial<SimNodeTemplate>) => boolean;
   onDelete: (name: string) => void;
-}) {
+}>) {
   const [localName, setLocalName] = useState(template.name);
   const [localImage, setLocalImage] = useState(template.image || "");
   const [localImagePullSecret, setLocalImagePullSecret] = useState(
@@ -1888,12 +1871,7 @@ function SimNodeTemplateEditor({
     setLocalImagePullSecret(template.imagePullSecret || "");
   }, [template]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
+  const handleNameBlur = createNameBlurHandler(template, localName, setLocalName, onUpdate);
 
   return (
     <PanelCard highlighted>

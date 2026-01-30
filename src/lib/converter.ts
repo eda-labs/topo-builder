@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import type { Node, Edge } from '@xyflow/react';
+
 import type {
   TopologyNodeData,
   TopologyEdgeData,
@@ -9,6 +10,7 @@ import type {
   Operation,
   Simulation,
 } from '../types/topology';
+
 import { LABEL_POS_X, LABEL_POS_Y, LABEL_SRC_HANDLE, LABEL_DST_HANDLE, LABEL_EDGE_ID, LABEL_MEMBER_INDEX, DEFAULT_INTERFACE, DEFAULT_SIM_INTERFACE } from './constants';
 
 export interface ExportOptions {

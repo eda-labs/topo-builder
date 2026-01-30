@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
+
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml } from '../lib/converter';
 
@@ -67,8 +68,9 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
 
   let linksStart = -1;
   let linksIndent = 0;
+  const linksRegex = /^(\s*)links:\s*$/;
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^(\s*)links:\s*$/);
+    const match = linksRegex.exec(lines[i]);
     if (match) {
       linksStart = i;
       linksIndent = match[1].length;

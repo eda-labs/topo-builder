@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 import { getNodesBounds } from '@xyflow/react';
+
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, downloadYaml } from '../lib/converter';
 import { validateNetworkTopology, type ValidationResult } from '../lib/validate';
@@ -45,7 +46,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children }: Readonly<AppLayoutProps>) {
   const darkMode = useTopologyStore((state) => state.darkMode);
   const setDarkMode = useTopologyStore((state) => state.setDarkMode);
 
@@ -96,7 +97,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setDisplayedError(error);
     }
   }, [error]);
-  
+
   const getYaml = (withTimestamp = false) => exportToYaml({
     topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
     namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
@@ -175,12 +176,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </IconButton>
               </Tooltip>
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
-                <IconButton size="small" onClick={handleCopy} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Copy as kubectl apply">
-                <IconButton size="small" onClick={handleCopyKubectl} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: 'white' }}>
                   <TerminalIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -190,7 +191,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Save as SVG">
-                <IconButton size="small" onClick={handleExportSvg} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

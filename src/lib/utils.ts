@@ -68,31 +68,43 @@ export interface YamlEndpoint {
   type?: string;
 }
 
+function buildLocalRemoteEndpoint(ep: YamlEndpoint, defaultInterface: string): ParsedEndpoint {
+  return {
+    sourceName: ep.local!.node,
+    targetName: ep.remote!.node,
+    sourceInterface: ep.local!.interface || defaultInterface,
+    targetInterface: ep.remote!.interface || defaultInterface,
+  };
+}
+
+function buildLocalSimEndpoint(ep: YamlEndpoint, defaultInterface: string, defaultSimInterface: string): ParsedEndpoint {
+  const simName = ep.sim!.simNode || ep.sim!.node;
+  return {
+    sourceName: simName!,
+    targetName: ep.local!.node,
+    sourceInterface: ep.sim?.simNodeInterface || ep.sim?.interface || defaultSimInterface,
+    targetInterface: ep.local!.interface || defaultInterface,
+  };
+}
+
+function buildLocalOnlyEndpoint(ep: YamlEndpoint, defaultInterface: string): ParsedEndpoint {
+  return {
+    sourceName: ep.local!.node,
+    targetName: null,
+    sourceInterface: ep.local!.interface || defaultInterface,
+    targetInterface: null,
+  };
+}
+
 export function parseYamlEndpoint(ep: YamlEndpoint, defaultInterface: string, defaultSimInterface: string): ParsedEndpoint | null {
   if (ep.local?.node && ep.remote?.node) {
-    return {
-      sourceName: ep.local.node,
-      targetName: ep.remote.node,
-      sourceInterface: ep.local.interface || defaultInterface,
-      targetInterface: ep.remote.interface || defaultInterface,
-    };
+    return buildLocalRemoteEndpoint(ep, defaultInterface);
   }
   if (ep.local?.node && (ep.sim?.simNode || ep.sim?.node)) {
-    const simName = ep.sim!.simNode || ep.sim!.node;
-    return {
-      sourceName: simName!,
-      targetName: ep.local.node,
-      sourceInterface: ep.sim?.simNodeInterface || ep.sim?.interface || defaultSimInterface,
-      targetInterface: ep.local.interface || defaultInterface,
-    };
+    return buildLocalSimEndpoint(ep, defaultInterface, defaultSimInterface);
   }
   if (ep.local?.node) {
-    return {
-      sourceName: ep.local.node,
-      targetName: null,
-      sourceInterface: ep.local.interface || defaultInterface,
-      targetInterface: null,
-    };
+    return buildLocalOnlyEndpoint(ep, defaultInterface);
   }
   return null;
 }

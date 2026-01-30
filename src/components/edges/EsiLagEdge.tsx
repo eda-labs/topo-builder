@@ -1,7 +1,9 @@
 import { Position } from '@xyflow/react';
-import { getHandleCoordinates, getControlPoint } from './edgeUtils';
+
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { EsiLeafConnection } from '../../types/topology';
+
+import { getHandleCoordinates, getControlPoint } from './edgeUtils';
 
 interface NodeInfo {
   id: string;
@@ -35,7 +37,7 @@ export default function EsiLagEdge({
   isSimNodeEdge,
   esiLeaves,
   leafNodes,
-}: EsiLagEdgeProps) {
+}: Readonly<EsiLagEdgeProps>) {
   const strokeColor = isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)';
 
   const stemLength = 25;

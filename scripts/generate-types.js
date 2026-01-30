@@ -44,6 +44,8 @@ const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type'
 const output = `// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
 
+import type { Node, Edge } from '@xyflow/react';
+
 export type Operation = ${operationEnum ? operationEnum.map(v => `'${v}'`).join(' | ') : 'string'};
 
 export type LinkType = ${linkTypeEnum ? linkTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
@@ -158,8 +160,8 @@ export interface Simulation {
 }
 
 export interface Clipboard {
-  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
-  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
+  nodes: Node<TopologyNodeData>[];
+  edges: Edge<TopologyEdgeData>[];
   simNodes: SimNode[];
   copiedLink?: {
     edgeId: string;
@@ -173,8 +175,8 @@ export interface TopologyState {
   operation: Operation;
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
-  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
-  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
+  nodes: Node<TopologyNodeData>[];
+  edges: Edge<TopologyEdgeData>[];
   simulation: Simulation;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;

@@ -1,8 +1,11 @@
-import { EdgeLabelRenderer, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { EdgeLabelRenderer } from '@xyflow/react';
 import { Chip } from '@mui/material';
-import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
+
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { MemberLink, LagGroup } from '../../types/topology';
+
+import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
 
 interface ExpandedBundleEdgeProps {
   sourceX: number;
@@ -42,7 +45,7 @@ export default function ExpandedBundleEdge({
   onMemberLinkContextMenu,
   onLagClick,
   onLagContextMenu,
-}: ExpandedBundleEdgeProps) {
+}: Readonly<ExpandedBundleEdgeProps>) {
   const indicesInLags = new Set<number>();
   for (const lag of lagGroups) {
     for (const idx of lag.memberLinkIndices) {

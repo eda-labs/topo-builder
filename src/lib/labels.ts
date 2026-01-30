@@ -1,4 +1,5 @@
 import type { Node, Edge } from '@xyflow/react';
+
 import type {
   TopologyNodeData,
   TopologyEdgeData,
@@ -7,6 +8,7 @@ import type {
   MemberLink,
   LagGroup,
 } from '../types/topology';
+
 import {
   LABEL_POS_X,
   LABEL_POS_Y,

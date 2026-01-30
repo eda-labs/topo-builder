@@ -1,7 +1,9 @@
 import { type NodeProps } from '@xyflow/react';
 import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
+
 import type { SimNode, SimNodeType } from '../../types/topology';
 import { useTopologyStore } from '../../lib/store';
+
 import BaseNode from './BaseNode';
 
 export interface SimDeviceNodeData {
@@ -18,13 +20,14 @@ function SimDeviceNode({ id, data, selected }: NodeProps) {
   const template = simulation.simNodeTemplates.find(t => t.name === simNode.template);
   const nodeType: SimNodeType = simNode.type || template?.type || 'Linux';
 
-  const icon = template ? (
-    nodeType === 'TestMan' ? (
-      <SpeedIcon sx={{ fontSize: 28, color: '#888' }} />
-    ) : (
-      <ContainerIcon sx={{ fontSize: 28, color: '#888' }} />
-    )
-  ) : undefined;
+  const getIcon = () => {
+    if (!template) return undefined;
+    if (nodeType === 'TestMan') {
+      return <SpeedIcon sx={{ fontSize: 28, color: '#888' }} />;
+    }
+    return <ContainerIcon sx={{ fontSize: 28, color: '#888' }} />;
+  };
+  const icon = getIcon();
 
   return (
     <BaseNode

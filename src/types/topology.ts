@@ -93,6 +93,7 @@ export interface SimNodeTemplate {
   name: string;
   type?: SimNodeType;
   image?: string;
+  imagePullSecret?: string;
   labels?: Record<string, string>;
 }
 

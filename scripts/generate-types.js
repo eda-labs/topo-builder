@@ -136,6 +136,7 @@ export interface SimNodeTemplate {
   name: string;
   type?: SimNodeType;
   image?: string;
+  imagePullSecret?: string;
   labels?: Record<string, string>;
 }
 
@@ -154,6 +155,16 @@ export interface Simulation {
   simNodeTemplates: SimNodeTemplate[];
   simNodes: SimNode[];
   topology?: unknown;
+}
+
+export interface Clipboard {
+  nodes: import('@xyflow/react').Node<TopologyNodeData>[];
+  edges: import('@xyflow/react').Edge<TopologyEdgeData>[];
+  simNodes: SimNode[];
+  copiedLink?: {
+    edgeId: string;
+    template?: string;
+  };
 }
 
 export interface TopologyState {
@@ -178,6 +189,7 @@ export interface TopologyState {
   darkMode: boolean;
   showSimNodes: boolean;
   error: string | null;
+  clipboard: Clipboard;
 }
 `;
 

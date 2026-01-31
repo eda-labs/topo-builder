@@ -404,7 +404,8 @@ function TopologyEditorInner() {
   }, [setClipboard]);
 
   const handlePaste = useCallback(() => {
-    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboard;
+    const currentClipboard = useTopologyStore.getState().clipboard;
+    const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = currentClipboard;
 
     if (copiedLink) {
       const currentState = useTopologyStore.getState();
@@ -489,7 +490,7 @@ function TopologyEditorInner() {
         isPastingRef.current = false;
       }, 0);
     }
-  }, [clipboard, contextMenu.open, contextMenu.flowPosition, addMemberLink, pasteSelection, triggerYamlRefresh, screenToFlowPosition]);
+  }, [contextMenu.open, contextMenu.flowPosition, addMemberLink, pasteSelection, triggerYamlRefresh, screenToFlowPosition]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -954,6 +955,7 @@ function TopologyEditorInner() {
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Box
           onContextMenu={e => e.preventDefault()}
+          data-testid="topology-canvas"
           sx={{
             flex: 1,
             position: 'relative',

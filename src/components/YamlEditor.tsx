@@ -233,7 +233,7 @@ export default function YamlEditor() {
   }, [importFromYaml]);
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box data-testid="yaml-editor" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1 }}>
         <Editor
           height="100%"

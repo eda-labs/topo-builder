@@ -3,6 +3,7 @@ import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-materi
 import type { SimNode, SimNodeType } from '../../types/topology';
 import { useTopologyStore } from '../../lib/store';
 import BaseNode from './BaseNode';
+import { topologySimNodeTestId } from '../../lib/testIds';
 
 export interface SimDeviceNodeData {
   [key: string]: unknown;
@@ -33,6 +34,7 @@ function SimDeviceNode({ id, data, selected }: NodeProps) {
       name={simNode.name}
       icon={icon}
       className="border-dashed"
+      testId={topologySimNodeTestId(simNode.name)}
     />
   );
 }

@@ -570,26 +570,26 @@ export function SelectionPanel() {
                       alignItems: "center",
                     }}
                   >
-                    <TextField
-                      label={nodeA}
-                      size="small"
-                      value={link.targetInterface}
-                      onChange={(e) =>
-                        handleUpdateLink(index, { targetInterface: e.target.value })
-                      }
-                      inputProps={{ tabIndex: listIndex * 2 + 1 }}
-                      fullWidth
-                    />
-                    <TextField
-                      label={nodeB}
-                      size="small"
-                      value={link.sourceInterface}
-                      onChange={(e) =>
-                        handleUpdateLink(index, { sourceInterface: e.target.value })
-                      }
-                      inputProps={{ tabIndex: listIndex * 2 + 2 }}
-                      fullWidth
-                    />
+	                    <TextField
+	                      label={nodeA}
+	                      size="small"
+	                      value={link.targetInterface}
+	                      onChange={(e) =>
+	                        handleUpdateLink(index, { targetInterface: e.target.value })
+	                      }
+	                      slotProps={{ htmlInput: { tabIndex: listIndex * 2 + 1 } }}
+	                      fullWidth
+	                    />
+	                    <TextField
+	                      label={nodeB}
+	                      size="small"
+	                      value={link.sourceInterface}
+	                      onChange={(e) =>
+	                        handleUpdateLink(index, { sourceInterface: e.target.value })
+	                      }
+	                      slotProps={{ htmlInput: { tabIndex: listIndex * 2 + 2 } }}
+	                      fullWidth
+	                    />
                     <IconButton
                       size="small"
                       onClick={() => removeLinkFromLag(selectedEdge.id, selectedLag.id, index)}
@@ -710,26 +710,26 @@ export function SelectionPanel() {
                         alignItems: "center",
                       }}
                     >
-                      <TextField
-                        label={leaf.nodeName}
-                        size="small"
-                        value={memberLink?.targetInterface || ''}
-                        onChange={(e) =>
-                          handleUpdateLink(index, { targetInterface: e.target.value })
-                        }
-                        inputProps={{ tabIndex: index * 2 + 1 }}
-                        fullWidth
-                      />
-                      <TextField
-                        label={nodeB}
-                        size="small"
-                        value={memberLink?.sourceInterface || ''}
-                        onChange={(e) =>
-                          handleUpdateLink(index, { sourceInterface: e.target.value })
-                        }
-                        inputProps={{ tabIndex: index * 2 + 2 }}
-                        fullWidth
-                      />
+	                      <TextField
+	                        label={leaf.nodeName}
+	                        size="small"
+	                        value={memberLink?.targetInterface || ''}
+	                        onChange={(e) =>
+	                          handleUpdateLink(index, { targetInterface: e.target.value })
+	                        }
+	                        slotProps={{ htmlInput: { tabIndex: index * 2 + 1 } }}
+	                        fullWidth
+	                      />
+	                      <TextField
+	                        label={nodeB}
+	                        size="small"
+	                        value={memberLink?.sourceInterface || ''}
+	                        onChange={(e) =>
+	                          handleUpdateLink(index, { sourceInterface: e.target.value })
+	                        }
+	                        slotProps={{ htmlInput: { tabIndex: index * 2 + 2 } }}
+	                        fullWidth
+	                      />
                       <IconButton
                         size="small"
                         onClick={() => removeLinkFromEsiLag(selectedEdge.id, index)}
@@ -851,29 +851,31 @@ export function SelectionPanel() {
                       gap: '0.5rem',
                     }}
                   >
-                    <TextField
-                      label={`${nodeA} Interface`}
-                      size="small"
-                      value={link.targetInterface}
-                      onChange={(e) =>
-                        handleUpdateLink(index, {
-                          targetInterface: e.target.value,
-                        })
-                      }
-                      inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                      fullWidth
-                    />
-                    <TextField
-                      label={`${nodeB} Interface`}
-                      size="small"
-                      value={link.sourceInterface}
-                      onChange={(e) =>
-                        handleUpdateLink(index, {
-                          sourceInterface: e.target.value,
-                        })
-                      }
-                      fullWidth
-                    />
+	                    <TextField
+	                      label={`${nodeA} Interface`}
+	                      size="small"
+	                      value={link.targetInterface}
+	                      onChange={(e) =>
+	                        handleUpdateLink(index, {
+	                          targetInterface: e.target.value,
+	                        })
+	                      }
+	                      inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
+	                      slotProps={{ htmlInput: { 'data-testid': `link-endpoint-a-${listIndex}` } }}
+	                      fullWidth
+	                    />
+	                    <TextField
+	                      label={`${nodeB} Interface`}
+	                      size="small"
+	                      value={link.sourceInterface}
+	                      onChange={(e) =>
+	                        handleUpdateLink(index, {
+	                          sourceInterface: e.target.value,
+	                        })
+	                      }
+	                      slotProps={{ htmlInput: { 'data-testid': `link-endpoint-b-${listIndex}` } }}
+	                      fullWidth
+	                    />
                   </Box>
 
                   <FormControl size="small" fullWidth>
@@ -962,32 +964,32 @@ export function SelectionPanel() {
                     alignItems: "center",
                   }}
                 >
-                  <TextField
-                    label={nodeA}
-                    size="small"
-                    value={link.targetInterface}
-                    onChange={(e) =>
-                      handleUpdateLink(index, {
-                        targetInterface: e.target.value,
-                      })
-                    }
-                    inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
-                    inputProps={{ tabIndex: 1 }}
-                    fullWidth
-                  />
-                  <TextField
-                    label={nodeB}
-                    size="small"
-                    value={link.sourceInterface}
-                    onChange={(e) =>
-                      handleUpdateLink(index, {
-                        sourceInterface: e.target.value,
-                      })
-                    }
-                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
-                    inputProps={{ tabIndex: 2 }}
-                    fullWidth
-                  />
+	                  <TextField
+	                    label={nodeA}
+	                    size="small"
+	                    value={link.targetInterface}
+	                    onChange={(e) =>
+	                      handleUpdateLink(index, {
+	                        targetInterface: e.target.value,
+	                      })
+	                    }
+	                    inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
+	                    slotProps={{ htmlInput: { tabIndex: 1, 'data-testid': `link-endpoint-a-${listIndex}` } }}
+	                    fullWidth
+	                  />
+	                  <TextField
+	                    label={nodeB}
+	                    size="small"
+	                    value={link.sourceInterface}
+	                    onChange={(e) =>
+	                      handleUpdateLink(index, {
+	                        sourceInterface: e.target.value,
+	                      })
+	                    }
+	                    inputRef={listIndex === 0 ? targetInterfaceRef : undefined}
+	                    slotProps={{ htmlInput: { tabIndex: 2, 'data-testid': `link-endpoint-b-${listIndex}` } }}
+	                    fullWidth
+	                  />
                 </Box>
               </Paper>
             </PanelSection>

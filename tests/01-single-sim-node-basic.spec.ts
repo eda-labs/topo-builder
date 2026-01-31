@@ -1,13 +1,11 @@
 import { test, expect } from '@playwright/test';
-  import {getNodeCount, getYamlContent } from './utils';                                    
+import { canvasPane, getNodeCount, getYamlContent } from './utils';
 
 test('Add a single SimNode (testman)', async ({ page }) => {
-    await page.goto('http://localhost:4321/');
-    await page.waitForSelector('.react-flow__pane');          
-    await page.locator('.react-flow__pane').click();
-    await page.locator('.react-flow__pane').click({
-        button: 'right'
-    });
+    await page.goto('/');
+    await canvasPane(page).waitFor();
+    await canvasPane(page).click();
+    await canvasPane(page).click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Add SimNode' }).click();
 
     await page.getByRole('tab', { name: 'YAML' }).click();

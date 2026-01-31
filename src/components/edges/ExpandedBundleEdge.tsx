@@ -3,8 +3,11 @@ import { Chip } from '@mui/material';
 import { createFannedBezierPath, calculateLinkOffsets } from './edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { MemberLink, LagGroup } from '../../types/topology';
+import { topologyLagTestId, topologyMemberLinkTestId } from '../../lib/testIds';
 
 interface ExpandedBundleEdgeProps {
+  edgeNodeA?: string;
+  edgeNodeB?: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -25,6 +28,8 @@ interface ExpandedBundleEdgeProps {
 }
 
 export default function ExpandedBundleEdge({
+  edgeNodeA,
+  edgeNodeB,
   sourceX,
   sourceY,
   targetX,
@@ -43,6 +48,7 @@ export default function ExpandedBundleEdge({
   onLagClick,
   onLagContextMenu,
 }: ExpandedBundleEdgeProps) {
+  const canBuildTestIds = Boolean(edgeNodeA && edgeNodeB);
   const indicesInLags = new Set<number>();
   for (const lag of lagGroups) {
     for (const idx of lag.memberLinkIndices) {
@@ -82,6 +88,10 @@ export default function ExpandedBundleEdge({
 
         if (item.type === 'link') {
           const isSelectedMemberLink = isSelected && selectedMemberLinkIndices.includes(item.index);
+          const memberTestId =
+            canBuildTestIds && edgeNodeA && edgeNodeB
+              ? topologyMemberLinkTestId(edgeNodeA, edgeNodeB, item.index)
+              : undefined;
 
           return (
             <g
@@ -90,6 +100,8 @@ export default function ExpandedBundleEdge({
               style={{ cursor: 'pointer' }}
             >
               <path
+                className="react-flow__edge-interaction"
+                data-testid={memberTestId}
                 d={curvePath}
                 fill="none"
                 stroke="transparent"
@@ -109,6 +121,10 @@ export default function ExpandedBundleEdge({
           );
         } else {
           const isLagSelected = isSelected && selectedLagId === item.lag.id;
+          const lagTestId =
+            canBuildTestIds && edgeNodeA && edgeNodeB
+              ? topologyLagTestId(edgeNodeA, edgeNodeB, item.lag.name)
+              : undefined;
 
           return (
             <g key={`lag-${item.lag.id}`}>
@@ -117,6 +133,8 @@ export default function ExpandedBundleEdge({
                 style={{ cursor: 'pointer' }}
               >
                 <path
+                  className="react-flow__edge-interaction"
+                  data-testid={lagTestId}
                   d={curvePath}
                   fill="none"
                   stroke="transparent"

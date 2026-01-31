@@ -5,6 +5,7 @@ import { getControlPoint } from './edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 
 interface StandardEdgeProps {
+  testId?: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -18,6 +19,7 @@ interface StandardEdgeProps {
 }
 
 export default function StandardEdge({
+  testId,
   sourceX,
   sourceY,
   targetX,
@@ -74,6 +76,7 @@ export default function StandardEdge({
       >
         <path
           className="react-flow__edge-interaction"
+          data-testid={testId}
           d={edgePath}
           fill="none"
           stroke="transparent"

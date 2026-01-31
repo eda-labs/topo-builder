@@ -955,6 +955,7 @@ function TopologyEditorInner() {
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Box
           onContextMenu={e => e.preventDefault()}
+          data-testid="topology-canvas"
           sx={{
             flex: 1,
             position: 'relative',

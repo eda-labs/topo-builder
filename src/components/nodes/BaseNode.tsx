@@ -8,6 +8,7 @@ export interface BaseNodeProps {
   name: string;
   icon?: ReactNode;
   className?: string;
+  testId?: string;
 }
 
 export default function BaseNode({
@@ -16,6 +17,7 @@ export default function BaseNode({
   name,
   icon,
   className = '',
+  testId,
 }: BaseNodeProps) {
   const darkMode = useTopologyStore((state) => state.darkMode);
   const edges = useTopologyStore((state) => state.edges);
@@ -61,6 +63,7 @@ export default function BaseNode({
   return (
     <div
       onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}
+      data-testid={testId}
       className={`group relative w-20 h-20 bg-(--color-node-bg) border rounded-lg flex flex-col items-center justify-center gap-0.5 ${
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
       } ${darkMode ? 'dark' : ''} ${className || 'border-solid'}`}

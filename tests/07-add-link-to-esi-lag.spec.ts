@@ -5,8 +5,8 @@ import {
   NODE3_POS,
   SIM_POS,
   addContextMenuItem,
-  clickEdgeNearNode,
   connectNodes,
+  openEdgeContextMenu,
   parseLinks,
   selectEdgesByNames,
 } from './lag-utils';
@@ -28,7 +28,7 @@ test('Add a link to an existing ESI LAG', async ({ page }) => {
     ['testman1', 'leaf1'],
     ['testman1', 'leaf2'],
   ]);
-  await clickEdgeNearNode(page, 'leaf2', { button: 'right' });
+  await openEdgeContextMenu(page, 'testman1', 'leaf2');
   await page.getByRole('menuitem', { name: 'Create ESI-LAG' }).click();
 
   await addContextMenuItem(page, NODE3_POS, 'Add Node');
@@ -39,7 +39,7 @@ test('Add a link to an existing ESI LAG', async ({ page }) => {
     ['testman1', 'leaf1'],
     ['testman1', 'leaf3'],
   ]);
-  await clickEdgeNearNode(page, 'leaf3', { button: 'right' });
+  await openEdgeContextMenu(page, 'testman1', 'leaf3');
   await page.getByRole('menuitem', { name: 'Merge into ESI-LAG' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();

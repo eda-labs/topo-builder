@@ -1,29 +1,29 @@
 import { test, expect } from '@playwright/test';
-import { getNodeCount, getEdgeCount, getYamlContent } from './utils';
+import { canvasPane, getNodeCount, getEdgeCount, getYamlContent } from './utils';
 
 const NODE1_POS = { x: 200, y: 300 };
 const NODE2_POS = { x: 600, y: 300 };
 const EMPTY_POS = { x: 50, y: 50 };
 
 test('Add two nodes and connect them with a link', async ({ page }) => {
-  await page.goto('http://localhost:4321/');
-  await page.waitForSelector('.react-flow__pane');
+  await page.goto('/');
+  await canvasPane(page).waitFor();
 
-  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });
+  await canvasPane(page).click({ button: 'right', position: NODE1_POS });
   await page.getByRole('menuitem', { name: 'Add Node' }).click();
 
-  await page.waitForSelector('.react-flow__node');
-  await page.locator('.react-flow__pane').click({ position: EMPTY_POS });
+  await page.getByTestId('topology-node-leaf1').waitFor();
+  await canvasPane(page).click({ position: EMPTY_POS });
 
-  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE2_POS });
+  await canvasPane(page).click({ button: 'right', position: NODE2_POS });
   await page.getByRole('menuitem', { name: 'Add Node' }).click();
 
-  await page.waitForFunction(() => document.querySelectorAll('.react-flow__node').length === 2);
+  await page.getByTestId('topology-node-leaf2').waitFor();
 
   expect(await getNodeCount(page)).toBe(2);
 
-  const firstNode = page.locator('.react-flow__node').first();
-  const secondNode = page.locator('.react-flow__node').last();
+  const firstNode = page.getByTestId('topology-node-leaf1');
+  const secondNode = page.getByTestId('topology-node-leaf2');
 
   const firstBounds = await firstNode.boundingBox();
   const secondBounds = await secondNode.boundingBox();
@@ -118,22 +118,22 @@ spec:
 });
 
 test('Change link endpoint', async ({ page }) => {
-  await page.goto('http://localhost:4321/');
-  await page.waitForSelector('.react-flow__pane');
+  await page.goto('/');
+  await canvasPane(page).waitFor();
 
-  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE1_POS });
+  await canvasPane(page).click({ button: 'right', position: NODE1_POS });
   await page.getByRole('menuitem', { name: 'Add Node' }).click();
 
-  await page.waitForSelector('.react-flow__node');
-  await page.locator('.react-flow__pane').click({ position: EMPTY_POS });
+  await page.getByTestId('topology-node-leaf1').waitFor();
+  await canvasPane(page).click({ position: EMPTY_POS });
 
-  await page.locator('.react-flow__pane').click({ button: 'right', position: NODE2_POS });
+  await canvasPane(page).click({ button: 'right', position: NODE2_POS });
   await page.getByRole('menuitem', { name: 'Add Node' }).click();
 
-  await page.waitForFunction(() => document.querySelectorAll('.react-flow__node').length === 2);
+  await page.getByTestId('topology-node-leaf2').waitFor();
 
-  const firstNode = page.locator('.react-flow__node').first();
-  const secondNode = page.locator('.react-flow__node').last();
+  const firstNode = page.getByTestId('topology-node-leaf1');
+  const secondNode = page.getByTestId('topology-node-leaf2');
 
   const firstBounds = await firstNode.boundingBox();
   const secondBounds = await secondNode.boundingBox();
@@ -153,12 +153,9 @@ test('Change link endpoint', async ({ page }) => {
   await page.mouse.up();
 
   expect(await getEdgeCount(page)).toBe(1);
-  
-  await page.waitForTimeout(100);
 
-  await page.keyboard.press('Backspace')
-  await page.keyboard.press('3');
-  await page.keyboard.press('Escape');
+  // Selection switches to the "Edit" tab automatically; update the (leaf1) endpoint explicitly.
+  await page.getByTestId('link-endpoint-a-0').fill('ethernet-1-3');
 
   await page.getByRole('tab', { name: 'YAML' }).click();
   const yaml = await getYamlContent(page);

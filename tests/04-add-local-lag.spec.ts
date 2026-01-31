@@ -6,6 +6,7 @@ import {
   clickEdgeBetween,
   connectNodes,
   copySelected,
+  memberLinkByIndex,
   openEdgeContextMenu,
   parseLinks,
   pasteSelected,
@@ -31,14 +32,13 @@ test('Add a local LAG from bundled links', async ({ page }) => {
   await page.waitForSelector('[title*="links - click to expand"]');
   await page.getByTitle(/links - click to expand/i).click();
 
-  await page.waitForFunction(() =>
-    document.querySelectorAll('.react-flow__edges path[stroke="transparent"]').length >= 2,
-  );
-  const memberPaths = page.locator('.react-flow__edges path[stroke="transparent"]');
-  await memberPaths.nth(0).click();
-  await memberPaths.nth(1).click({ modifiers: ['Shift'] });
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 0).waitFor();
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).waitFor();
 
-  await memberPaths.nth(1).click({ button: 'right' });
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 0).click();
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).click({ modifiers: ['Shift'] });
+
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();

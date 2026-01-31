@@ -6,6 +6,8 @@ import {
   clickEdgeBetween,
   connectNodes,
   copySelected,
+  firstLagByLabels,
+  memberLinkByIndex,
   openEdgeContextMenu,
   parseLinks,
   pasteSelected,
@@ -31,18 +33,16 @@ test('Add a link to an existing LAG', async ({ page }) => {
   await page.waitForSelector('[title*="links - click to expand"]');
   await page.getByTitle(/links - click to expand/i).click();
 
-  await page.waitForFunction(() =>
-    document.querySelectorAll('.react-flow__edges path[stroke="transparent"]').length >= 2,
-  );
-  const memberPaths = page.locator('.react-flow__edges path[stroke="transparent"]');
-  await memberPaths.nth(0).click();
-  await memberPaths.nth(1).click({ modifiers: ['Shift'] });
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 0).waitFor();
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).waitFor();
 
-  await memberPaths.nth(1).click({ button: 'right' });
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 0).click();
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).click({ modifiers: ['Shift'] });
+
+  await memberLinkByIndex(page, 'leaf1', 'leaf2', 1).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
 
-  const lagPath = page.locator('.react-flow__edges path[stroke="transparent"]').first();
-  await lagPath.click();
+  await firstLagByLabels(page, 'leaf1', 'leaf2').click({ force: true });
   const endpointsHeader = page.getByText(/^Endpoints/).first();
   await endpointsHeader.locator('..').getByRole('button', { name: 'Add' }).click();
 

@@ -11,6 +11,7 @@ interface NodeInfo {
 
 interface EsiLagEdgeProps {
   id: string;
+  testId?: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -25,6 +26,7 @@ interface EsiLagEdgeProps {
 
 export default function EsiLagEdge({
   id,
+  testId,
   sourceX,
   sourceY,
   targetX,
@@ -86,6 +88,7 @@ export default function EsiLagEdge({
         <g key={`${id}-path${i}`}>
           <path
             className="react-flow__edge-interaction"
+            data-testid={i === 0 ? testId : undefined}
             d={path}
             fill="none"
             stroke="transparent"

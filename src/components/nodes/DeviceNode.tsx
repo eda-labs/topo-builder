@@ -5,6 +5,7 @@ import BaseNode from './BaseNode';
 import spineIcon from '../../static/icons/spine.svg?raw';
 import leafIcon from '../../static/icons/leaf.svg?raw';
 import superspineIcon from '../../static/icons/superspine.svg?raw';
+import { topologyNodeTestId } from '../../lib/testIds';
 
 const RoleIcons: Record<string, string> = {
   spine: spineIcon,
@@ -29,6 +30,7 @@ export default function DeviceNode({ id, data, selected }: NodeProps) {
       selected={selected ?? false}
       name={nodeData.name}
       icon={iconSvg ? <span dangerouslySetInnerHTML={{ __html: iconSvg }} /> : undefined}
+      testId={topologyNodeTestId(nodeData.name)}
     />
   );
 }

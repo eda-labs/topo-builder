@@ -4,6 +4,7 @@ import type { TopologyEdgeData } from '../../types/topology';
 import StandardEdge from './StandardEdge';
 import ExpandedBundleEdge from './ExpandedBundleEdge';
 import EsiLagEdge from './EsiLagEdge';
+import { topologyEdgeTestId } from '../../lib/testIds';
 
 export default function LinkEdge({
   id,
@@ -20,6 +21,10 @@ export default function LinkEdge({
 }: EdgeProps) {
   const edgeData = data as TopologyEdgeData | undefined;
   const isSimNodeEdge = source?.startsWith('sim-') || target?.startsWith('sim-');
+
+  const edgeNodeA = edgeData?.sourceNode ?? source;
+  const edgeNodeB = edgeData?.targetNode ?? target;
+  const edgeTestId = topologyEdgeTestId(edgeNodeA, edgeNodeB);
 
   const expandedEdges = useTopologyStore((state) => state.expandedEdges);
   const selectedMemberLinkIndices = useTopologyStore((state) => state.selectedMemberLinkIndices);
@@ -93,6 +98,7 @@ export default function LinkEdge({
       return (
         <EsiLagEdge
           id={id}
+          testId={edgeTestId}
           sourceX={sourceX}
           sourceY={sourceY}
           targetX={targetX}
@@ -111,6 +117,8 @@ export default function LinkEdge({
   if (isExpanded && linkCount > 0) {
     return (
       <ExpandedBundleEdge
+        edgeNodeA={edgeNodeA}
+        edgeNodeB={edgeNodeB}
         sourceX={sourceX}
         sourceY={sourceY}
         targetX={targetX}
@@ -134,6 +142,7 @@ export default function LinkEdge({
 
   return (
     <StandardEdge
+      testId={edgeTestId}
       sourceX={sourceX}
       sourceY={sourceY}
       targetX={targetX}

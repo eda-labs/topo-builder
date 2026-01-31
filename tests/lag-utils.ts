@@ -1,5 +1,13 @@
 import type { Page } from '@playwright/test';
 import yaml from 'js-yaml';
+import {
+  topologyEdgeKey,
+  topologyEdgeTestId,
+  topologyLagTestId,
+  topologyMemberLinkTestId,
+  topologyNodeTestId,
+  topologySimNodeTestId,
+} from '../src/lib/testIds';
 
 export const NODE1_POS = { x: 200, y: 300 };
 export const NODE2_POS = { x: 600, y: 300 };
@@ -15,7 +23,11 @@ export const parseLinks = (yamlText: string): Array<{ name?: string; endpoints?:
 };
 
 export const nodeByLabel = (page: Page, label: string) =>
-  page.locator('.react-flow__node', { hasText: label }).first();
+  page
+    .locator(
+      `[data-testid="${topologyNodeTestId(label)}"], [data-testid="${topologySimNodeTestId(label)}"]`,
+    )
+    .first();
 
 export const getNodeCenter = async (page: Page, label: string) => {
   const box = await nodeByLabel(page, label).boundingBox();
@@ -23,41 +35,19 @@ export const getNodeCenter = async (page: Page, label: string) => {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
 
-export const clickEdgeClosestTo = async (
-  page: Page,
-  point: { x: number; y: number },
-  options: { button?: 'left' | 'right'; modifiers?: Array<'Shift' | 'Alt' | 'Control' | 'Meta'> } = {},
-) => {
-  const paths = page.locator('.react-flow__edge-interaction');
-  const count = await paths.count();
-  if (count === 0) throw new Error('No edge paths found');
+export const edgeByLabels = (page: Page, a: string, b: string) =>
+  page.getByTestId(topologyEdgeTestId(a, b));
 
-  let bestIndex = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
+export const memberLinkByIndex = (page: Page, a: string, b: string, memberIndex: number) =>
+  page.getByTestId(topologyMemberLinkTestId(a, b, memberIndex));
 
-  for (let i = 0; i < count; i++) {
-    const box = await paths.nth(i).boundingBox();
-    if (!box) continue;
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-    const dist = Math.hypot(cx - point.x, cy - point.y);
-    if (dist < bestDistance) {
-      bestDistance = dist;
-      bestIndex = i;
-    }
-  }
-
-  await paths.nth(bestIndex).click({ ...options, force: true });
+export const firstLagByLabels = (page: Page, a: string, b: string) => {
+  const key = topologyEdgeKey(a, b);
+  return page.locator(`[data-testid^="topology-lag-${key}-"]`).first();
 };
 
-export const clickEdgeNearNode = async (
-  page: Page,
-  nodeLabel: string,
-  options: { button?: 'left' | 'right'; modifiers?: Array<'Shift' | 'Alt' | 'Control' | 'Meta'> } = {},
-) => {
-  const point = await getNodeCenter(page, nodeLabel);
-  await clickEdgeClosestTo(page, point, options);
-};
+export const lagByName = (page: Page, a: string, b: string, lagName: string) =>
+  page.getByTestId(topologyLagTestId(a, b, lagName));
 
 export const selectEdgesByNames = async (page: Page, pairs: Array<[string, string]>) => {
   await page.evaluate(async (edgePairs) => {
@@ -87,10 +77,7 @@ export const clickEdgeBetween = async (
   targetLabel: string,
   options: { button?: 'left' | 'right'; modifiers?: Array<'Shift' | 'Alt' | 'Control' | 'Meta'> } = {},
 ) => {
-  const source = await getNodeCenter(page, sourceLabel);
-  const target = await getNodeCenter(page, targetLabel);
-  const mid = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
-  await clickEdgeClosestTo(page, mid, options);
+  await edgeByLabels(page, sourceLabel, targetLabel).click({ ...options, force: true });
 };
 
 export const connectNodes = async (page: Page, sourceLabel: string, targetLabel: string) => {
@@ -111,7 +98,7 @@ export const connectNodes = async (page: Page, sourceLabel: string, targetLabel:
 };
 
 export const addContextMenuItem = async (page: Page, position: { x: number; y: number }, label: string) => {
-  await page.locator('.react-flow__pane').click({ button: 'right', position });
+  await page.getByTestId('topology-canvas').locator('.react-flow__pane').click({ button: 'right', position });
   await page.getByRole('menuitem', { name: label }).click();
 };
 

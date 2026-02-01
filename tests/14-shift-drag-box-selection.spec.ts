@@ -47,6 +47,7 @@ test('shift+drag box selection selects multiple nodes', async ({ page, browserNa
 
   const selectedCount = await page.evaluate(async () => {
     // @ts-expect-error - it's in the browser context!
+    const mod = await import('/src/lib/store.ts');
     const state = mod.useTopologyStore.getState();
     return state.nodes.filter((n: { selected?: boolean }) => n.selected).length;
   });

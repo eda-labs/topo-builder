@@ -613,7 +613,8 @@ function TopologyEditorInner() {
 
     const simNodeNames = selectedNodes
       .filter(n => n.type === 'simDeviceNode')
-      .map(n => (n.data as SimDeviceNodeData).simNode.name);
+      .map(n => (n.data as SimDeviceNodeData)?.simNode?.name)
+      .filter((name): name is string => Boolean(name));
 
     const edgeIds = selectedEdges.map(e => e.id);
     syncSelectionFromReactFlow(regularNodeIds, edgeIds, simNodeNames);

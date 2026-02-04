@@ -748,6 +748,7 @@ function TopologyEditorInner() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             nodesDraggable
+            nodeDragThreshold={2}
             fitView
             snapToGrid
             snapGrid={[15, 15]}

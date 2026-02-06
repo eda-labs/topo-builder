@@ -13,14 +13,16 @@ import {
   Chip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
-import { useTopologyStore } from '../../lib/store/index';
+import type { Edge } from '@xyflow/react';
+
+import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import { getInheritedLinkLabels, getInheritedLagLabels } from '../../lib/labels';
-import { DEFAULT_INTERFACE } from '../../lib/constants';
-import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
-import type { Edge } from '@xyflow/react';
+import { CARD_BG, CARD_BORDER, DEFAULT_INTERFACE } from '../../lib/constants';
 import type { LinkTemplate } from '../../types/schema';
 import type { UIMemberLink, UILagGroup, UIEdgeData } from '../../types/ui';
+
+import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
 
 interface EdgeEditorProps {
   edge: Edge<UIEdgeData>;
@@ -102,13 +104,16 @@ export function EdgeEditor({
 
   const selectedLag = selectedLagId ? lagGroups.find(lag => lag.id === selectedLagId) : null;
 
-  const linksToShow = isExpanded && memberLinks.length > 1
-    ? (selectedMemberLinkIndices.length > 0
-      ? selectedMemberLinkIndices
-        .filter(i => i >= 0 && i < memberLinks.length)
-        .map(i => ({ link: memberLinks[i], index: i }))
-      : [])
-    : memberLinks.map((link, index) => ({ link, index }));
+  const linksToShow = (() => {
+    if (isExpanded && memberLinks.length > 1) {
+      return selectedMemberLinkIndices.length > 0
+        ? selectedMemberLinkIndices
+          .filter(i => i >= 0 && i < memberLinks.length)
+          .map(i => ({ link: memberLinks[i], index: i }))
+        : [];
+    }
+    return memberLinks.map((link, index) => ({ link, index }));
+  })();
 
   // LAG editor view
   if (selectedLag) {
@@ -187,7 +192,7 @@ export function EdgeEditor({
               <Paper
                 key={index}
                 variant="outlined"
-                sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
               >
                 <Box
                   sx={{
@@ -328,7 +333,7 @@ export function EdgeEditor({
                 <Paper
                   key={index}
                   variant="outlined"
-                  sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                  sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                 >
                   <Box
                     sx={{
@@ -445,7 +450,7 @@ export function EdgeEditor({
             <Paper
               key={index}
               variant="outlined"
-              sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+              sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
             >
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <Box
@@ -585,7 +590,7 @@ export function EdgeEditor({
           </Box>
 
           <PanelSection title="Endpoints">
-            <Paper variant="outlined" sx={{ p: '0.5rem', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}>
+            <Paper variant="outlined" sx={{ p: '0.5rem', bgcolor: CARD_BG, borderColor: CARD_BORDER }}>
               <Box
                 sx={{
                   display: 'grid',

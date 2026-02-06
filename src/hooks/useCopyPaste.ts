@@ -1,8 +1,9 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { useTopologyStore } from '../lib/store/index';
-import type { UINodeData, UIEdgeData, UIClipboard } from '../types/ui';
 import type { Node, Edge } from '@xyflow/react';
+
+import { useTopologyStore } from '../lib/store';
+import type { UINodeData, UIEdgeData, UIClipboard } from '../types/ui';
 
 // Use UIClipboard but with React Flow node types for the nodes/edges arrays
 type ClipboardData = Omit<UIClipboard, 'nodes' | 'edges'> & {

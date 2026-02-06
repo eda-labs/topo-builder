@@ -26,11 +26,12 @@ import {
   CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
-import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store/index';
+import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
 import { generateUniqueName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { UINodeData, UIEdgeData } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
+
 import { TopoNode, SimNode } from './nodes';
 import { LinkEdge } from './edges';
 import AppLayout from './AppLayout';
@@ -713,7 +714,13 @@ function TopologyEditorInner() {
 
   const handleDeleteSimNode = () => { if (selectedSimNodeName) deleteSimNode(selectedSimNodeName); };
 
-  const hasSelection = selectedNodeId ? 'node' : selectedEdgeIds.length > 1 ? 'multiEdge' : selectedEdgeId ? 'edge' : selectedSimNodeName ? 'simNode' : null;
+  const hasSelection = (() => {
+    if (selectedNodeId) return 'node';
+    if (selectedEdgeIds.length > 1) return 'multiEdge';
+    if (selectedEdgeId) return 'edge';
+    if (selectedSimNodeName) return 'simNode';
+    return null;
+  })();
 
   return (
     <AppLayout>

@@ -1,11 +1,13 @@
 import { type EdgeProps, useInternalNode } from '@xyflow/react';
-import { useTopologyStore } from '../../lib/store/index';
+
+import { useTopologyStore } from '../../lib/store';
 import type { UIEdgeData } from '../../types/ui';
+import { topologyEdgeTestId } from '../../lib/testIds';
+import { getFloatingEdgeParams } from '../../lib/edgeUtils';
+
 import StandardEdge from './StandardEdge';
 import BundleEdge from './BundleEdge';
 import EsiLagEdge from './EsiLagEdge';
-import { topologyEdgeTestId } from '../../lib/testIds';
-import { getFloatingEdgeParams } from '../../lib/edgeUtils';
 
 export default function LinkEdge({
   id,

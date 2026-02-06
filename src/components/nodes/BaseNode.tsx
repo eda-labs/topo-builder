@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
-import { useTopologyStore } from '../../lib/store/index';
+
+import { useTopologyStore } from '../../lib/store';
 import { getNodeCenter } from '../../lib/edgeUtils';
 
 export interface BaseNodeProps {

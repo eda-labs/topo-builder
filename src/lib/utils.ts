@@ -1,5 +1,6 @@
-import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
 import type { UIEdge, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
+
+import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
 
 export const isValidName = (name: string): boolean => {
   if (!name || name.length > NAME_MAX_LENGTH) return false;

@@ -1,6 +1,8 @@
 import type { Node, Edge } from '@xyflow/react';
+
 import type { NodeTemplate, LinkTemplate } from '../types/schema';
 import type { UINodeData, UIEdgeData, UIMemberLink, UILagGroup } from '../types/ui';
+
 import {
   LABEL_POS_X,
   LABEL_POS_Y,

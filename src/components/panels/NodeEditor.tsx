@@ -10,13 +10,18 @@ import {
   InputLabel,
   Chip,
 } from '@mui/material';
-import { useTopologyStore } from '../../lib/store/index';
+import type { Node, Edge } from '@xyflow/react';
+
+import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import { getInheritedNodeLabels } from '../../lib/labels';
-import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
-import type { Node, Edge } from '@xyflow/react';
+import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 import type { NodeTemplate } from '../../types/schema';
 import type { UINodeData, UIEdgeData } from '../../types/ui';
+
+import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
+
+const SPACE_BETWEEN = 'space-between';
 
 interface NodeEditorProps {
   node: Node<UINodeData>;
@@ -151,10 +156,10 @@ export function NodeEditor({
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                     onClick={() => { useTopologyStore.getState().selectEdge(edge.id); }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                       <Typography variant="body2" fontWeight={500}>
                         {esiName}
                       </Typography>
@@ -174,13 +179,13 @@ export function NodeEditor({
                 <Paper
                   key={lag.id}
                   variant="outlined"
-                  sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                  sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                   onClick={() => {
                     useTopologyStore.getState().selectEdge(edge.id);
                     useTopologyStore.getState().selectLag(edge.id, lag.id);
                   }}
                 >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                     <Typography variant="body2" fontWeight={500}>
                       {lag.name || `${nodeData.name} ↔ ${otherNode}`}
                     </Typography>
@@ -208,13 +213,13 @@ export function NodeEditor({
                     <Paper
                       key={`${edge.id}-${idx}`}
                       variant="outlined"
-                      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                       onClick={() => {
                         useTopologyStore.getState().selectEdge(edge.id);
                         useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
                       }}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                         <Typography variant="body2" fontWeight={500}>
                           {link.name}
                         </Typography>
@@ -222,7 +227,7 @@ export function NodeEditor({
                           → {otherNode}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN }}>
                         <Typography variant="caption" color="text.secondary">
                           {localInterface}
                         </Typography>

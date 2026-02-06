@@ -10,12 +10,17 @@ import {
   InputLabel,
   Chip,
 } from '@mui/material';
-import { useTopologyStore } from '../../lib/store/index';
-import { formatName } from '../../lib/utils';
-import { PanelHeader, PanelSection } from './shared';
 import type { Edge } from '@xyflow/react';
+
+import { useTopologyStore } from '../../lib/store';
+import { formatName } from '../../lib/utils';
+import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 import type { SimNodeTemplate } from '../../types/schema';
 import type { UIEdgeData } from '../../types/ui';
+
+import { PanelHeader, PanelSection } from './shared';
+
+const SPACE_BETWEEN = 'space-between';
 
 interface SimNodeEditorProps {
   simNode: { name: string; template?: string; id?: string };
@@ -110,10 +115,10 @@ export function SimNodeEditor({
                   <Paper
                     key={edge.id}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                     onClick={() => { useTopologyStore.getState().selectEdge(edge.id); }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                       <Typography variant="body2" fontWeight={500}>
                         {esiName}
                       </Typography>
@@ -133,13 +138,13 @@ export function SimNodeEditor({
                 <Paper
                   key={lag.id}
                   variant="outlined"
-                  sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                  sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                   onClick={() => {
                     useTopologyStore.getState().selectEdge(edge.id);
                     useTopologyStore.getState().selectLag(edge.id, lag.id);
                   }}
                 >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                     <Typography variant="body2" fontWeight={500}>
                       {lag.name || `${simNode.name} ↔ ${otherNode}`}
                     </Typography>
@@ -163,13 +168,13 @@ export function SimNodeEditor({
                   <Paper
                     key={`${edge.id}-${idx}`}
                     variant="outlined"
-                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: CARD_BG, borderColor: CARD_BORDER }}
                     onClick={() => {
                       useTopologyStore.getState().selectEdge(edge.id);
                       useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
                       <Typography variant="body2" fontWeight={500}>
                         {link.name}
                       </Typography>

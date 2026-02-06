@@ -8,10 +8,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Node, Edge } from '@xyflow/react';
-import baseTemplateYaml from '../../static/base-template.yaml?raw';
 
+import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIState } from '../../types/ui';
 import type { Operation } from '../../types/schema';
+import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
+import { yamlToUI, setIdCounters } from '../yaml-converter';
 
 import { createNodeSlice, setNodeIdGenerator, type NodeSlice } from './nodes';
 import { createLinkSlice, setEdgeIdGenerator, type LinkSlice } from './links';
@@ -20,9 +22,6 @@ import { createEsiLagSlice, setEsiLagEdgeIdGenerator, type EsiLagSlice } from '.
 import { createSimNodeSlice, setSimNodeIdGenerator, type SimNodeSlice } from './simNodes';
 import { createTemplateSlice, type TemplateSlice } from './templates';
 import { createSelectionSlice, type SelectionSlice } from './selection';
-
-import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
-import { yamlToUI, setIdCounters } from '../yaml-converter';
 import {
   captureState,
   pushToUndoHistory,

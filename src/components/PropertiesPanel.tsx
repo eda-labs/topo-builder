@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 
-import { useTopologyStore } from '../lib/store/index';
+import { useTopologyStore } from '../lib/store';
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
@@ -184,6 +184,51 @@ export function SelectionPanel() {
   );
 }
 
+function createNameBlurHandler(
+  templateName: string,
+  localName: string,
+  setLocalName: (v: string) => void,
+  onUpdate: (name: string, update: { name: string }) => boolean,
+) {
+  return () => {
+    const success = onUpdate(templateName, { name: localName });
+    if (!success) setLocalName(templateName);
+  };
+}
+
+function createTemplateLabelHandlers(
+  template: { name: string; labels?: Record<string, string> },
+  onUpdate: (name: string, update: { labels: Record<string, string> }) => void,
+) {
+  const handleAddLabel = () => {
+    let counter = 1;
+    let newKey = `eda.nokia.com/label-${counter}`;
+    while (template.labels?.[newKey]) {
+      counter++;
+      newKey = `eda.nokia.com/label-${counter}`;
+    }
+    onUpdate(template.name, {
+      labels: { ...template.labels, [newKey]: '' },
+    });
+  };
+
+  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
+    const filteredLabels = Object.fromEntries(
+      Object.entries(template.labels ?? {}).filter(([k]) => k !== oldKey),
+    );
+    onUpdate(template.name, { labels: { ...filteredLabels, [newKey]: value } });
+  };
+
+  const handleDeleteLabel = (key: string) => {
+    const newLabels = Object.fromEntries(
+      Object.entries(template.labels ?? {}).filter(([k]) => k !== key),
+    );
+    onUpdate(template.name, { labels: newLabels });
+  };
+
+  return { handleAddLabel, handleUpdateLabel, handleDeleteLabel };
+}
+
 // Individual template editor to maintain stable local state for text fields
 function NodeTemplateEditor({
   template,
@@ -211,42 +256,8 @@ function NodeTemplateEditor({
     setLocalNodeProfile(template.nodeProfile || '');
   }, [template]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
-
-  const handleAddLabel = () => {
-    // Find a unique key
-    let counter = 1;
-    let newKey = `eda.nokia.com/label-${counter}`;
-    while (template.labels?.[newKey]) {
-      counter++;
-      newKey = `eda.nokia.com/label-${counter}`;
-    }
-    onUpdate(template.name, {
-      labels: {
-        ...template.labels,
-        [newKey]: '',
-      },
-    });
-  };
-
-  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
-    const filteredLabels = Object.fromEntries(
-      Object.entries(template.labels ?? {}).filter(([k]) => k !== oldKey),
-    );
-    onUpdate(template.name, { labels: { ...filteredLabels, [newKey]: value } });
-  };
-
-  const handleDeleteLabel = (key: string) => {
-    const newLabels = Object.fromEntries(
-      Object.entries(template.labels ?? {}).filter(([k]) => k !== key),
-    );
-    onUpdate(template.name, { labels: newLabels });
-  };
+  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
+  const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
     <PanelCard highlighted>
@@ -437,41 +448,8 @@ function LinkTemplateEditor({
     setLocalName(template.name);
   }, [template.name]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
-
-  const handleAddLabel = () => {
-    let counter = 1;
-    let newKey = `eda.nokia.com/label-${counter}`;
-    while (template.labels?.[newKey]) {
-      counter++;
-      newKey = `eda.nokia.com/label-${counter}`;
-    }
-    onUpdate(template.name, {
-      labels: {
-        ...template.labels,
-        [newKey]: '',
-      },
-    });
-  };
-
-  const handleUpdateLabel = (oldKey: string, newKey: string, value: string) => {
-    const filteredLabels = Object.fromEntries(
-      Object.entries(template.labels ?? {}).filter(([k]) => k !== oldKey),
-    );
-    onUpdate(template.name, { labels: { ...filteredLabels, [newKey]: value } });
-  };
-
-  const handleDeleteLabel = (key: string) => {
-    const newLabels = Object.fromEntries(
-      Object.entries(template.labels ?? {}).filter(([k]) => k !== key),
-    );
-    onUpdate(template.name, { labels: newLabels });
-  };
+  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
+  const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
     <PanelCard highlighted>
@@ -686,12 +664,7 @@ function SimNodeTemplateEditor({
     setLocalImagePullSecret(template.imagePullSecret || '');
   }, [template]);
 
-  const handleNameBlur = () => {
-    const success = onUpdate(template.name, { name: localName });
-    if (!success) {
-      setLocalName(template.name); // Revert on failure
-    }
-  };
+  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
 
   return (
     <PanelCard highlighted>

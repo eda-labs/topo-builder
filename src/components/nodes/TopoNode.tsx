@@ -1,11 +1,13 @@
 import { type NodeProps } from '@xyflow/react';
+
 import type { UINodeData } from '../../types/ui';
-import { useTopologyStore } from '../../lib/store/index';
-import BaseNode from './BaseNode';
+import { useTopologyStore } from '../../lib/store';
 import spineIcon from '../../static/icons/spine.svg?raw';
 import leafIcon from '../../static/icons/leaf.svg?raw';
 import superspineIcon from '../../static/icons/superspine.svg?raw';
 import { topologyNodeTestId } from '../../lib/testIds';
+
+import BaseNode from './BaseNode';
 
 const RoleIcons: Record<string, string> = {
   spine: spineIcon,

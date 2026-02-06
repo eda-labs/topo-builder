@@ -5,6 +5,7 @@
  */
 
 import type { StateCreator } from 'zustand';
+
 import type { UINode, UIEdge, SelectionState } from '../../types/ui';
 import { EMPTY_STRING_SET, toggleMemberLinkIndex } from '../utils';
 
@@ -66,7 +67,9 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
         ? currentNodeIds.filter(nid => nid !== id)
         : [...currentNodeIds, id];
       set({
-        selectedNodeId: isCurrentlySelected ? (newNodeIds.length > 0 ? newNodeIds[newNodeIds.length - 1] : null) : id,
+        selectedNodeId: isCurrentlySelected
+          ? (newNodeIds.at(-1) ?? null)
+          : id,
         selectedNodeIds: newNodeIds,
         selectedSimNodeName: null,
         selectedSimNodeNames: EMPTY_STRING_SET,

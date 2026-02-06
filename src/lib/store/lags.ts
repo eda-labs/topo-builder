@@ -5,6 +5,7 @@
  */
 
 import type { StateCreator } from 'zustand';
+
 import type { UIEdge, UIMemberLink, UILagGroup } from '../../types/ui';
 import {
   generateLagId,

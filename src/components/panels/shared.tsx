@@ -11,7 +11,10 @@ import {
   Divider,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import { INTERNAL_LABEL_PREFIX } from '../../lib/constants';
+
+import { CARD_BG, CARD_BORDER, INTERNAL_LABEL_PREFIX } from '../../lib/constants';
+
+const SPACE_BETWEEN = 'space-between';
 
 export function PanelHeader({
   title,
@@ -27,7 +30,7 @@ export function PanelHeader({
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: SPACE_BETWEEN,
           alignItems: 'center',
           minHeight: 32,
           mb: '0.5rem',
@@ -62,7 +65,7 @@ export function PanelSection({
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: SPACE_BETWEEN,
           alignItems: 'center',
           minHeight: 32,
         }}
@@ -90,8 +93,8 @@ export function PanelCard({
       variant="outlined"
       sx={{
         p: '0.5rem',
-        bgcolor: highlighted ? 'action.hover' : 'var(--mui-palette-card-bg)',
-        borderColor: 'var(--mui-palette-card-border)',
+        bgcolor: highlighted ? 'action.hover' : CARD_BG,
+        borderColor: CARD_BORDER,
         '&:hover': highlighted ? {
           borderColor: 'action.disabled',
         } : undefined,
@@ -123,8 +126,8 @@ export function InheritedLabels({ labels }: { labels?: Record<string, string> })
             size="small"
             variant="outlined"
             sx={{
-              bgcolor: 'var(--mui-palette-card-bg)',
-              borderColor: 'var(--mui-palette-card-border)',
+              bgcolor: CARD_BG,
+              borderColor: CARD_BORDER,
             }}
           />
         ))}
@@ -177,7 +180,7 @@ export function EditableLabelsSection({
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: SPACE_BETWEEN,
             alignItems: 'center',
           }}
         >

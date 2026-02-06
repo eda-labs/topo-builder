@@ -1,5 +1,7 @@
-import { EdgeLabelRenderer, Position } from '@xyflow/react';
+import type { Position } from '@xyflow/react';
+import { EdgeLabelRenderer } from '@xyflow/react';
 import { Chip } from '@mui/material';
+
 import { createFannedBezierPath, calculateLinkOffsets } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { UIMemberLink, UILagGroup } from '../../types/ui';

@@ -7,6 +7,7 @@
  */
 
 import yaml from 'js-yaml';
+
 import type {
   Topology,
   TopoNode,
@@ -27,6 +28,7 @@ import type {
   UISimNode,
   UISimulation,
 } from '../types/ui';
+
 import {
   LABEL_POS_X,
   LABEL_POS_Y,

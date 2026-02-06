@@ -23,7 +23,10 @@ import {
   Redo as RedoIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState } from 'react';
+
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/schema';
+
+const SUBMENU_CHEVRON_SX = { ml: 1, color: 'text.secondary' } as const;
 
 interface ContextMenuProps {
   open: boolean;
@@ -179,7 +182,7 @@ export default function ContextMenu({
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Template</ListItemText>
-                    <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
+                    <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
                   </MenuItem>
 
                   {showSubmenu && (
@@ -208,7 +211,7 @@ export default function ContextMenu({
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Template</ListItemText>
-                    <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
+                    <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
                   </MenuItem>
 
                   {showSubmenu && (
@@ -248,7 +251,7 @@ export default function ContextMenu({
                   <MenuItem>
                     <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Template</ListItemText>
-                    <ChevronRightIcon fontSize="small" sx={{ ml: 1, color: 'text.secondary' }} />
+                    <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
                   </MenuItem>
 
                   {showSubmenu && (

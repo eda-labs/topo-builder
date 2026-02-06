@@ -5,6 +5,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react';
+
 import type { UINodeData, UIEdgeData, UISimulation } from '../../types/ui';
 import type { NodeTemplate, LinkTemplate } from '../../types/schema';
 import { UNDO_LIMIT } from '../constants';

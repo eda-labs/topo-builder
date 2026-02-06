@@ -2,7 +2,8 @@ import { useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
-import { useTopologyStore } from '../lib/store/index';
+
+import { useTopologyStore } from '../lib/store';
 import { exportToYaml } from '../lib/yaml-converter';
 
 let editorInstance: editor.IStandaloneCodeEditor | null = null;

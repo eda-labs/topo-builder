@@ -5,6 +5,7 @@
  */
 
 import type { StateCreator } from 'zustand';
+
 import type { NodeTemplate, LinkTemplate, SimNodeTemplate } from '../../types/schema';
 import type { UISimulation } from '../../types/ui';
 import { validateTemplateName } from '../utils';

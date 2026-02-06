@@ -1,5 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
+
 import { DEFAULT_NODE_WIDTH, DEFAULT_NODE_HEIGHT, LINK_OFFSET_SPACING } from './constants';
 
 // ============ Floating Edge Utilities ============
@@ -48,8 +49,14 @@ export function getFloatingEdgeParams(
     targetPos = sourceCenter.y > targetCenter.y ? Position.Bottom : Position.Top;
   }
 
-  const sourceHandle = sourcePos === Position.Left ? 'left' : sourcePos === Position.Right ? 'right' : sourcePos === Position.Top ? 'top' : 'bottom';
-  const targetHandle = targetPos === Position.Left ? 'left' : targetPos === Position.Right ? 'right' : targetPos === Position.Top ? 'top' : 'bottom';
+  const posToHandle = (pos: Position) => {
+    if (pos === Position.Left) return 'left';
+    if (pos === Position.Right) return 'right';
+    if (pos === Position.Top) return 'top';
+    return 'bottom';
+  };
+  const sourceHandle = posToHandle(sourcePos);
+  const targetHandle = posToHandle(targetPos);
 
   const sourceCoords = getHandleCoordinatesFromPosition(sourceNode, sourceHandle);
   const targetCoords = getHandleCoordinatesFromPosition(targetNode, targetHandle);

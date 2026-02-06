@@ -1,28 +1,29 @@
 import { type RefObject } from 'react';
+import { Add as AddIcon, Delete as DeleteIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
 import {
   Box,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
   Button,
-  IconButton,
-  Paper,
-  FormControl,
-  InputLabel,
   Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
 import type { Edge } from '@xyflow/react';
 
+import { LagCard } from '../edges/cards';
+import { CARD_BG, CARD_BORDER, DEFAULT_INTERFACE } from '../../lib/constants';
+import { getInheritedLagLabels, getInheritedLinkLabels } from '../../lib/labels';
 import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
-import { getInheritedLinkLabels, getInheritedLagLabels } from '../../lib/labels';
-import { CARD_BG, CARD_BORDER, DEFAULT_INTERFACE } from '../../lib/constants';
 import type { LinkTemplate } from '../../types/schema';
-import type { UIMemberLink, UILagGroup, UIEdgeData } from '../../types/ui';
+import type { UIEdgeData, UILagGroup, UIMemberLink } from '../../types/ui';
 
-import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
+import { EditableLabelsSection, PanelHeader, PanelSection } from './shared';
 
 interface EdgeEditorProps {
   edge: Edge<UIEdgeData>;
@@ -46,7 +47,6 @@ export function EdgeEditor({
   const updateEdge = useTopologyStore(state => state.updateEdge);
   const deleteEdge = useTopologyStore(state => state.deleteEdge);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
-
   const edgeData = edge.data;
   if (!edgeData) return null;
   const memberLinks = edgeData.memberLinks || [];
@@ -388,6 +388,9 @@ export function EdgeEditor({
     const addMemberLink = useTopologyStore.getState().addMemberLink;
     const isShowingBundle = !isExpanded || memberLinks.length <= 1;
 
+    const indicesInLags = new Set<number>();
+    lagGroups.forEach(lag => { lag.memberLinkIndices.forEach(i => indicesInLags.add(i)); });
+
     const handleAddLink = () => {
       const lastLink = memberLinks[memberLinks.length - 1];
       const nextNum = memberLinks.length + 1;
@@ -437,6 +440,8 @@ export function EdgeEditor({
     }
 
     if (isShowingBundle && memberLinks.length > 1) {
+      const standaloneLinks = linksToShow.filter(({ index }) => !indicesInLags.has(index));
+
       return (
         <Box>
           <PanelHeader
@@ -449,7 +454,17 @@ export function EdgeEditor({
           />
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {linksToShow.map(({ link, index }, listIndex) => (
+            {lagGroups.map(lag => (
+              <LagCard
+                key={lag.id}
+                lag={lag}
+                edgeId={edge.id}
+                localNode={nodeB}
+                otherNode={nodeA}
+              />
+            ))}
+
+            {standaloneLinks.map(({ link, index }, listIndex) => (
               <Paper
                 key={index}
                 variant="outlined"
@@ -468,15 +483,10 @@ export function EdgeEditor({
                       label="Link Name"
                       size="small"
                       value={link.name}
-                      onChange={e =>
-                      { handleUpdateLink(index, { name: formatName(e.target.value) }); }
-                      }
+                      onChange={e => { handleUpdateLink(index, { name: formatName(e.target.value) }); }}
                       fullWidth
                     />
-                    <IconButton
-                      size="small"
-                      onClick={() => { handleDeleteLink(index); }}
-                    >
+                    <IconButton size="small" onClick={() => { handleDeleteLink(index); }}>
                       <DeleteIcon fontSize="small" color="error" />
                     </IconButton>
                   </Box>
@@ -492,11 +502,7 @@ export function EdgeEditor({
                       label={`${nodeA} Interface`}
                       size="small"
                       value={link.targetInterface}
-                      onChange={e =>
-                      { handleUpdateLink(index, {
-                        targetInterface: e.target.value,
-                      }); }
-                      }
+                      onChange={e => { handleUpdateLink(index, { targetInterface: e.target.value }); }}
                       inputRef={listIndex === 0 ? sourceInterfaceRef : undefined}
                       slotProps={{ htmlInput: { 'data-testid': `link-endpoint-a-${listIndex}` } }}
                       fullWidth
@@ -505,11 +511,7 @@ export function EdgeEditor({
                       label={`${nodeB} Interface`}
                       size="small"
                       value={link.sourceInterface}
-                      onChange={e =>
-                      { handleUpdateLink(index, {
-                        sourceInterface: e.target.value,
-                      }); }
-                      }
+                      onChange={e => { handleUpdateLink(index, { sourceInterface: e.target.value }); }}
                       slotProps={{ htmlInput: { 'data-testid': `link-endpoint-b-${listIndex}` } }}
                       fullWidth
                     />
@@ -520,9 +522,7 @@ export function EdgeEditor({
                     <Select
                       label="Template"
                       value={link.template || ''}
-                      onChange={e =>
-                      { handleUpdateLink(index, { template: e.target.value }); }
-                      }
+                      onChange={e => { handleUpdateLink(index, { template: e.target.value }); }}
                     >
                       <MenuItem value="">None</MenuItem>
                       {linkTemplates.map(t => (

@@ -1,6 +1,5 @@
-import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import type { Node, Edge } from '@xyflow/react';
+import { useReactFlow, type Node, type Edge } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
 import type { UINodeData, UIEdgeData, UIClipboard } from '../types/ui';

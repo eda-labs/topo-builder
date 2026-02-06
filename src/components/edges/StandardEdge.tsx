@@ -16,6 +16,7 @@ interface StandardEdgeProps {
   targetPosition: Position;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   linkCount: number;
   onDoubleClick?: () => void;
 }
@@ -30,6 +31,7 @@ export default function StandardEdge({
   targetPosition,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   linkCount,
   onDoubleClick,
 }: StandardEdgeProps) {
@@ -70,6 +72,14 @@ export default function StandardEdge({
     onDoubleClick?.();
   };
 
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isSelected) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
+
   return (
     <>
       <g
@@ -87,7 +97,7 @@ export default function StandardEdge({
         <path
           d={edgePath}
           fill="none"
-          stroke={isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+          stroke={strokeColor}
           strokeWidth={1}
           strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
         />

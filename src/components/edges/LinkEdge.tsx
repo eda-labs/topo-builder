@@ -51,10 +51,13 @@ export default function LinkEdge({
   const expandedEdges = useTopologyStore(state => state.expandedEdges);
   const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);
   const selectedLagId = useTopologyStore(state => state.selectedLagId);
+  const selectedNodeId = useTopologyStore(state => state.selectedNodeId);
   const toggleEdgeExpanded = useTopologyStore(state => state.toggleEdgeExpanded);
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
   const selectLag = useTopologyStore(state => state.selectLag);
   const nodes = useTopologyStore(state => state.nodes);
+
+  const isConnectedToSelectedNode = selectedNodeId !== null && (source === selectedNodeId || target === selectedNodeId);
 
   if (!sourceNode || !targetNode) {
     return null;
@@ -90,6 +93,7 @@ export default function LinkEdge({
         sourceNode={sourceNode}
         isSelected={isSelected}
         isSimNodeEdge={isSimNodeEdge}
+        isConnectedToSelectedNode={isConnectedToSelectedNode}
         esiLeaves={esiLeaves}
         leafNodes={leafNodes}
       />
@@ -111,6 +115,7 @@ export default function LinkEdge({
         targetPosition={targetPosition}
         isSelected={isSelected}
         isSimNodeEdge={isSimNodeEdge}
+        isConnectedToSelectedNode={isConnectedToSelectedNode}
         memberLinks={memberLinks}
         lagGroups={lagGroups}
         selectedMemberLinkIndices={selectedMemberLinkIndices}
@@ -169,6 +174,7 @@ export default function LinkEdge({
       targetPosition={targetPosition}
       isSelected={isSelected}
       isSimNodeEdge={isSimNodeEdge}
+      isConnectedToSelectedNode={isConnectedToSelectedNode}
       linkCount={linkCount}
       onDoubleClick={handleDoubleClick}
     />

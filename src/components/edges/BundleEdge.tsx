@@ -18,6 +18,7 @@ interface BundleEdgeProps {
   targetPosition: Position;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   memberLinks: UIMemberLink[];
   lagGroups: UILagGroup[];
   selectedMemberLinkIndices: number[];
@@ -34,6 +35,7 @@ function MemberLinkVisual({
   curvePath,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   selectedMemberLinkIndices,
   onDoubleClick,
   onMemberLinkClick,
@@ -46,6 +48,7 @@ function MemberLinkVisual({
   curvePath: string;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   selectedMemberLinkIndices: number[];
   onDoubleClick: (e: React.MouseEvent) => void;
   onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
@@ -59,6 +62,14 @@ function MemberLinkVisual({
     canBuildTestIds && edgeNodeA && edgeNodeB
       ? topologyMemberLinkTestId(edgeNodeA, edgeNodeB, index)
       : undefined;
+
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isSelectedMemberLink) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
 
   return (
     <g
@@ -78,7 +89,7 @@ function MemberLinkVisual({
       <path
         d={curvePath}
         fill="none"
-        stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+        stroke={strokeColor}
         strokeWidth={1}
         strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
         pointerEvents="none"
@@ -93,6 +104,7 @@ function LagVisual({
   curveMidpoint,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   selectedLagId,
   onDoubleClick,
   onLagClick,
@@ -106,6 +118,7 @@ function LagVisual({
   curveMidpoint: { x: number; y: number };
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   selectedLagId: string | null;
   onDoubleClick: (e: React.MouseEvent) => void;
   onLagClick: (e: React.MouseEvent, lagId: string) => void;
@@ -119,6 +132,14 @@ function LagVisual({
     canBuildTestIds && edgeNodeA && edgeNodeB
       ? topologyLagTestId(edgeNodeA, edgeNodeB, lag.name)
       : undefined;
+
+  let strokeColor = 'var(--color-link-stroke)';
+  if (isConnectedToSelectedNode) {
+    strokeColor = 'var(--color-link-stroke-highlight)';
+  }
+  if (isLagSelected) {
+    strokeColor = 'var(--color-link-stroke-selected)';
+  }
 
   return (
     <g>
@@ -139,7 +160,7 @@ function LagVisual({
         <path
           d={curvePath}
           fill="none"
-          stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+          stroke={strokeColor}
           strokeWidth={1}
           strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
           pointerEvents="none"
@@ -184,6 +205,7 @@ export default function BundleEdge({
   targetPosition,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   memberLinks,
   lagGroups,
   selectedMemberLinkIndices,
@@ -240,6 +262,7 @@ export default function BundleEdge({
               curvePath={curvePath}
               isSelected={isSelected}
               isSimNodeEdge={isSimNodeEdge}
+              isConnectedToSelectedNode={isConnectedToSelectedNode}
               selectedMemberLinkIndices={selectedMemberLinkIndices}
               onDoubleClick={handleDoubleClick}
               onMemberLinkClick={onMemberLinkClick}
@@ -259,6 +282,7 @@ export default function BundleEdge({
             curveMidpoint={curveMidpoint}
             isSelected={isSelected}
             isSimNodeEdge={isSimNodeEdge}
+            isConnectedToSelectedNode={isConnectedToSelectedNode}
             selectedLagId={selectedLagId}
             onDoubleClick={handleDoubleClick}
             onLagClick={onLagClick}

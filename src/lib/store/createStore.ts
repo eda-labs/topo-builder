@@ -450,11 +450,16 @@ export const createTopologyStore = () => {
               topologyName: result.topologyName,
               namespace: result.namespace,
               operation: result.operation,
-              nodeTemplates: result.nodeTemplates,
-              linkTemplates: result.linkTemplates,
+              nodeTemplates: result.nodeTemplates.length ? result.nodeTemplates : (baseTemplate.nodeTemplates || []),
+              linkTemplates: result.linkTemplates.length ? result.linkTemplates : (baseTemplate.linkTemplates || []),
               nodes: result.nodes,
               edges: result.edges,
-              simulation: result.simulation,
+              simulation: {
+                ...result.simulation,
+                simNodeTemplates: result.simulation.simNodeTemplates?.length
+                  ? result.simulation.simNodeTemplates
+                  : (baseTemplate.simulation?.simNodeTemplates || []),
+              },
               layoutVersion: get().layoutVersion + 1,
             });
 

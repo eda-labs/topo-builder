@@ -197,32 +197,42 @@ export function NodeEditor({
                 </Paper>
               ));
 
+              const isSource = edgeData.sourceNode === nodeData.name;
               const standaloneLinks = memberLinks
                 .map((link, idx) => ({ link, idx }))
                 .filter(({ idx }) => !indicesInLags.has(idx))
-                .map(({ link, idx }) => (
-                  <Paper
-                    key={`${edge.id}-${idx}`}
-                    variant="outlined"
-                    sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
-                    onClick={() => {
-                      useTopologyStore.getState().selectEdge(edge.id);
-                      useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" fontWeight={500}>
-                        {link.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        → {otherNode}
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {link.sourceInterface} ↔ {link.targetInterface}
-                    </Typography>
-                  </Paper>
-                ));
+                .map(({ link, idx }) => {
+                  const localInterface = isSource ? link.sourceInterface : link.targetInterface;
+                  const remoteInterface = isSource ? link.targetInterface : link.sourceInterface;
+                  return (
+                    <Paper
+                      key={`${edge.id}-${idx}`}
+                      variant="outlined"
+                      sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
+                      onClick={() => {
+                        useTopologyStore.getState().selectEdge(edge.id);
+                        useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {link.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          → {otherNode}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {localInterface}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {remoteInterface}
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  );
+                });
 
               return [...lagElements, ...standaloneLinks];
             })}

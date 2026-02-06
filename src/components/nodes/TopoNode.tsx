@@ -1,6 +1,6 @@
 import { type NodeProps } from '@xyflow/react';
 import type { UINodeData } from '../../types/ui';
-import { useTopologyStore } from '../../lib/store/index';
+import { useTopologyStore } from '../../lib/store';
 import BaseNode from './BaseNode';
 import spineIcon from '../../static/icons/spine.svg?raw';
 import leafIcon from '../../static/icons/leaf.svg?raw';

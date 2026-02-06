@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 
-import { useTopologyStore } from '../lib/store/index';
+import { useTopologyStore } from '../lib/store';
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,

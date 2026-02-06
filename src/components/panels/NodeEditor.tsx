@@ -10,10 +10,11 @@ import {
   InputLabel,
   Chip,
 } from '@mui/material';
-import { useTopologyStore } from '../../lib/store/index';
+import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import { getInheritedNodeLabels } from '../../lib/labels';
 import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
+import { LagCard, LinkDiagram } from '../edges/cards';
 import type { Node, Edge } from '@xyflow/react';
 import type { NodeTemplate } from '../../types/schema';
 import type { UINodeData, UIEdgeData } from '../../types/ui';
@@ -134,7 +135,7 @@ export function NodeEditor({
           title="Connected Links"
           count={allConnectedEdges.reduce((sum, e) => sum + (e.data?.memberLinks?.length || 0), 0)}
         >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
             {allConnectedEdges.map(edge => {
               const edgeData = edge.data;
               if (!edgeData) return null;
@@ -170,34 +171,19 @@ export function NodeEditor({
               const indicesInLags = new Set<number>();
               lagGroups.forEach(lag => { lag.memberLinkIndices.forEach(i => indicesInLags.add(i)); });
 
+              const isSource = edgeData.sourceNode === nodeData.name;
+
               const lagElements = lagGroups.map(lag => (
-                <Paper
+                <LagCard
                   key={lag.id}
-                  variant="outlined"
-                  sx={{ p: '0.5rem', cursor: 'pointer', bgcolor: 'var(--mui-palette-card-bg)', borderColor: 'var(--mui-palette-card-border)' }}
-                  onClick={() => {
-                    useTopologyStore.getState().selectEdge(edge.id);
-                    useTopologyStore.getState().selectLag(edge.id, lag.id);
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {lag.name || `${nodeData.name} ↔ ${otherNode}`}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
-                      <Typography variant="caption" color="text.secondary">
-                        → {otherNode}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {lag.memberLinkIndices.length} member links
-                  </Typography>
-                </Paper>
+                  lag={lag}
+                  edgeId={edge.id}
+                  localNode={nodeData.name}
+                  otherNode={otherNode}
+                  selectEdgeOnClick
+                />
               ));
 
-              const isSource = edgeData.sourceNode === nodeData.name;
               const standaloneLinks = memberLinks
                 .map((link, idx) => ({ link, idx }))
                 .filter(({ idx }) => !indicesInLags.has(idx))
@@ -214,22 +200,15 @@ export function NodeEditor({
                         useTopologyStore.getState().selectMemberLink(edge.id, idx, false);
                       }}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {link.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          → {otherNode}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {localInterface}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {remoteInterface}
-                        </Typography>
-                      </Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ mb: '0.25rem' }}>
+                        {link.name}
+                      </Typography>
+                      <LinkDiagram
+                        localNode={nodeData.name}
+                        remoteNode={otherNode}
+                        localInterface={localInterface}
+                        remoteInterface={remoteInterface}
+                      />
                     </Paper>
                   );
                 });

@@ -15,6 +15,7 @@ interface EsiLagEdgeProps {
   sourceNode: NodeInfo;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   esiLeaves: UIEsiLeaf[];
   leafNodes: Map<string, NodeInfo>;
 }
@@ -25,10 +26,11 @@ export default function EsiLagEdge({
   sourceNode,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   esiLeaves,
   leafNodes,
 }: EsiLagEdgeProps) {
-  const strokeColor = isSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)';
+  const strokeColor = isSelected ? 'var(--color-link-stroke-selected)' : isConnectedToSelectedNode ? 'var(--color-link-stroke-highlight)' : 'var(--color-link-stroke)';
 
   const sourceCenter = getNodeCenter(sourceNode);
 

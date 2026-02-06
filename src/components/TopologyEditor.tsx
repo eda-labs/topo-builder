@@ -26,7 +26,7 @@ import {
   CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
-import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store/index';
+import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
 import { generateUniqueName } from '../lib/utils';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
 import type { UINodeData, UIEdgeData } from '../types/ui';

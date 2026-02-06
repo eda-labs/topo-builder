@@ -16,6 +16,7 @@ interface BundleEdgeProps {
   targetPosition: Position;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isConnectedToSelectedNode?: boolean;
   memberLinks: UIMemberLink[];
   lagGroups: UILagGroup[];
   selectedMemberLinkIndices: number[];
@@ -38,6 +39,7 @@ export default function BundleEdge({
   targetPosition,
   isSelected,
   isSimNodeEdge,
+  isConnectedToSelectedNode,
   memberLinks,
   lagGroups,
   selectedMemberLinkIndices,
@@ -112,7 +114,7 @@ export default function BundleEdge({
               <path
                 d={curvePath}
                 fill="none"
-                stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+                stroke={isSelectedMemberLink ? 'var(--color-link-stroke-selected)' : isConnectedToSelectedNode ? 'var(--color-link-stroke-highlight)' : 'var(--color-link-stroke)'}
                 strokeWidth={1}
                 strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
                 pointerEvents="none"
@@ -145,7 +147,7 @@ export default function BundleEdge({
                 <path
                   d={curvePath}
                   fill="none"
-                  stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : 'var(--color-link-stroke)'}
+                  stroke={isLagSelected ? 'var(--color-link-stroke-selected)' : isConnectedToSelectedNode ? 'var(--color-link-stroke-highlight)' : 'var(--color-link-stroke)'}
                   strokeWidth={1}
                   strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
                   pointerEvents="none"

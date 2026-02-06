@@ -58,6 +58,7 @@
   --color-primary-dark: #5c1fd4;
   --color-link-stroke: #6872824C;
   --color-link-stroke-selected: #6098FF;
+  --color-link-stroke-highlight: #6098FF;
   --color-node-border: #6872824C;
   --color-node-border-selected: #6098FF;
   --color-node-bg: #F7F9FD;
@@ -69,6 +70,7 @@
 
 .dark {
   --color-link-stroke: #8994a37f;
+  --color-link-stroke-highlight: #6098FF;
   --color-node-border: #8994a37f;
   --color-node-bg: #000000;
   --color-node-text: #ffffff;

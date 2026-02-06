@@ -13,11 +13,12 @@ import {
   Chip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
-import { useTopologyStore } from '../../lib/store/index';
+import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import { getInheritedLinkLabels, getInheritedLagLabels } from '../../lib/labels';
 import { DEFAULT_INTERFACE } from '../../lib/constants';
 import { PanelHeader, PanelSection, EditableLabelsSection } from './shared';
+import { LagCard } from '../edges/cards';
 import type { Edge } from '@xyflow/react';
 import type { LinkTemplate } from '../../types/schema';
 import type { UIMemberLink, UILagGroup, UIEdgeData } from '../../types/ui';
@@ -44,7 +45,6 @@ export function EdgeEditor({
   const updateEdge = useTopologyStore(state => state.updateEdge);
   const deleteEdge = useTopologyStore(state => state.deleteEdge);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
-
   const edgeData = edge.data;
   if (!edgeData) return null;
   const memberLinks = edgeData.memberLinks || [];
@@ -429,6 +429,8 @@ export function EdgeEditor({
   }
 
   if (isShowingBundle && memberLinks.length > 1) {
+    const standaloneLinks = linksToShow.filter(({ index }) => !indicesInLags.has(index));
+
     return (
       <Box>
         <PanelHeader
@@ -441,7 +443,17 @@ export function EdgeEditor({
         />
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {linksToShow.map(({ link, index }, listIndex) => (
+          {lagGroups.map(lag => (
+            <LagCard
+              key={lag.id}
+              lag={lag}
+              edgeId={edge.id}
+              localNode={nodeB}
+              otherNode={nodeA}
+            />
+          ))}
+
+          {standaloneLinks.map(({ link, index }, listIndex) => (
             <Paper
               key={index}
               variant="outlined"

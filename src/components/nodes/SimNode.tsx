@@ -2,7 +2,7 @@ import { type NodeProps } from '@xyflow/react';
 import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
 import type { UINodeData } from '../../types/ui';
 import type { SimNodeType } from '../../types/schema';
-import { useTopologyStore } from '../../lib/store/index';
+import { useTopologyStore } from '../../lib/store';
 import BaseNode from './BaseNode';
 import { topologySimNodeTestId } from '../../lib/testIds';
 

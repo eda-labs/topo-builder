@@ -9,6 +9,8 @@ export const LABEL_POS_X = 'topobuilder.eda.labs/x';
 export const LABEL_POS_Y = 'topobuilder.eda.labs/y';
 export const LABEL_EDGE_ID = 'topobuilder.eda.labs/edgeId';
 export const LABEL_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
+export const LABEL_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
+export const LABEL_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
 export const LABEL_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
 
 export const DEFAULT_INTERFACE = 'ethernet-1-1';

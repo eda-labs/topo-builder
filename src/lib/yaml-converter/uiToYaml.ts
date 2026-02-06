@@ -23,6 +23,8 @@ import {
   LABEL_POS_Y,
   LABEL_EDGE_ID,
   LABEL_MEMBER_INDEX,
+  LABEL_SRC_HANDLE,
+  LABEL_DST_HANDLE,
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
@@ -101,10 +103,6 @@ export function buildCrd(options: UIToYamlOptions): Topology {
 
   // Convert TopoNodes
   const yamlNodes: TopoNode[] = topoNodes.map(node => {
-    const labels: Record<string, string> = {};
-    labels[LABEL_POS_X] = String(Math.round(node.position.x));
-    labels[LABEL_POS_Y] = String(Math.round(node.position.y));
-
     const yamlNode: TopoNode = { name: node.data.name };
 
     if (node.data.template) {
@@ -118,11 +116,13 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.serialNumber = node.data.serialNumber;
     }
 
-    if (node.data.labels) {
-      Object.assign(labels, node.data.labels);
-    }
-
+    const labels: Record<string, string> = {
+      [LABEL_POS_X]: String(Math.round(node.position.x)),
+      [LABEL_POS_Y]: String(Math.round(node.position.y)),
+      ...node.data.labels,
+    };
     yamlNode.labels = labels;
+
     return yamlNode;
   });
 
@@ -336,11 +336,14 @@ function buildUnlaggedLinksForEdge(options: {
 
 // ============ ESI-LAG Processing ============
 
-function createPosLabels(edge: Pick<UIEdge, 'id'>, memberIndex: number): Record<string, string> {
-  return {
+function createLabels(edge: Pick<UIEdge, 'id' | 'data'>, memberIndex: number): Record<string, string> {
+  const labels: Record<string, string> = {
     [LABEL_EDGE_ID]: edge.id,
     [LABEL_MEMBER_INDEX]: String(memberIndex),
   };
+  if (edge.data?.sourceHandle) labels[LABEL_SRC_HANDLE] = edge.data.sourceHandle;
+  if (edge.data?.targetHandle) labels[LABEL_DST_HANDLE] = edge.data.targetHandle;
+  return labels;
 }
 
 function isSimNodeId(nodeId: string): boolean {
@@ -545,7 +548,7 @@ function buildLagLinkForSimOnSource(options: {
 
   return {
     name: lag.name,
-    labels: { ...lag.labels, ...createPosLabels(edge, firstMemberIndex) },
+    labels: createLabels(edge, firstMemberIndex),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -575,7 +578,7 @@ function buildLagLinkForSimOnTarget(options: {
 
   return {
     name: lag.name,
-    labels: { ...lag.labels, ...createPosLabels(edge, firstMemberIndex) },
+    labels: createLabels(edge, firstMemberIndex),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -621,7 +624,7 @@ function buildLagLinkForTopoOnly(options: {
 
   return {
     name: lag.name,
-    labels: { ...lag.labels, ...createPosLabels(edge, firstMemberIndex) },
+    labels: createLabels(edge, firstMemberIndex),
     endpoints,
   };
 }
@@ -709,7 +712,7 @@ function buildSimMemberLinkWithTargetSim(options: {
   return {
     name: member.name,
     template: member.template,
-    labels: { ...member.labels, ...createPosLabels(edge, memberIndex) },
+    labels: createLabels(edge, memberIndex),
     endpoints: [
       {
         local: {
@@ -737,7 +740,7 @@ function buildSimMemberLinkWithSourceSim(options: {
   return {
     name: member.name,
     template: member.template,
-    labels: { ...member.labels, ...createPosLabels(edge, memberIndex) },
+    labels: createLabels(edge, memberIndex),
     endpoints: [
       {
         local: {
@@ -764,7 +767,7 @@ function buildIslMemberLink(options: {
 
   const link: Link = {
     name: member.name,
-    labels: { ...member.labels, ...createPosLabels(edge, memberIndex) },
+    labels: createLabels(edge, memberIndex),
     endpoints: [
       {
         local: {

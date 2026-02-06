@@ -39,20 +39,34 @@ export const setEdgeIdGenerator = (fn: () => string) => {
   generateEdgeId = fn;
 };
 
-function normalizeConnectionForSimNodes(connection: Connection): { sourceId: string; targetId: string } | null {
+function normalizeConnectionForSimNodes(connection: Connection): {
+  sourceId: string;
+  targetId: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+} | null {
   const source = connection.source;
   const target = connection.target;
   if (!source || !target) return null;
 
-  // Normalize: ensure SimNodes are always the source if one endpoint is a SimNode.
   const sourceIsSimNode = source.startsWith('sim-');
   const targetIsSimNode = target.startsWith('sim-');
 
   if (targetIsSimNode && !sourceIsSimNode) {
-    return { sourceId: target, targetId: source };
+    return {
+      sourceId: target,
+      targetId: source,
+      sourceHandle: connection.targetHandle ?? undefined,
+      targetHandle: connection.sourceHandle ?? undefined,
+    };
   }
 
-  return { sourceId: source, targetId: target };
+  return {
+    sourceId: source,
+    targetId: target,
+    sourceHandle: connection.sourceHandle ?? undefined,
+    targetHandle: connection.targetHandle ?? undefined,
+  };
 }
 
 function isSimNodeId(nodeId: string): boolean {
@@ -74,11 +88,23 @@ function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolea
   return linkTemplates.find(t => t.type === 'edge')?.name || 'edge';
 }
 
-function findExistingEdge(edges: UIEdge[], sourceId: string, targetId: string): UIEdge | undefined {
+function findExistingEdge(
+  edges: UIEdge[],
+  sourceId: string,
+  targetId: string,
+  sourceHandle?: string,
+  targetHandle?: string,
+): UIEdge | undefined {
   for (const edge of edges) {
     if (edge.data?.edgeType === 'esilag') continue;
-    if (edge.source === sourceId && edge.target === targetId) return edge;
-    if (edge.source === targetId && edge.target === sourceId) return edge;
+    const edgeSrcHandle = edge.data?.sourceHandle;
+    const edgeTgtHandle = edge.data?.targetHandle;
+    if (edge.source === sourceId && edge.target === targetId) {
+      if (edgeSrcHandle === sourceHandle && edgeTgtHandle === targetHandle) return edge;
+    }
+    if (edge.source === targetId && edge.target === sourceId) {
+      if (edgeSrcHandle === targetHandle && edgeTgtHandle === sourceHandle) return edge;
+    }
   }
   return undefined;
 }
@@ -261,7 +287,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
 
     const nextLinkNumber = getNextLinkNumberForPair(edges, sourceNodeName, targetNodeName);
-    const existingEdge = findExistingEdge(edges, sourceId, targetId);
+    const existingEdge = findExistingEdge(edges, sourceId, targetId, normalized.sourceHandle, normalized.targetHandle);
 
     const newMemberLink: UIMemberLink = {
       name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
@@ -295,6 +321,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
         id,
         sourceNode: sourceNodeName,
         targetNode: targetNodeName,
+        sourceHandle: normalized.sourceHandle,
+        targetHandle: normalized.targetHandle,
         edgeType: 'normal',
         memberLinks: [newMemberLink],
       },

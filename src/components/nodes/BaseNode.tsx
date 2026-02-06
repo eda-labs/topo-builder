@@ -2,7 +2,7 @@ import { type ReactNode, useMemo } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
-import { getNodeCenter } from '../../lib/edgeUtils';
+import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
 
 export interface BaseNodeProps {
   nodeId: string;
@@ -14,7 +14,7 @@ export interface BaseNodeProps {
 }
 
 type NodeLike = { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } };
-type EdgeLike = { source: string; target: string; data?: { esiLeaves?: Array<{ nodeId: string }> } };
+type EdgeLike = { source: string; target: string; data?: { esiLeaves?: Array<{ nodeId: string }>; sourceHandle?: string; targetHandle?: string } };
 
 function getConnectedPosition(
   thisNode: NodeLike,
@@ -64,11 +64,17 @@ function addStandardConnectedPositions(
   edge: EdgeLike,
   nodesById: Map<string, NodeLike>,
 ) {
-  let otherNodeId: string | null = null;
-  if (edge.source === nodeId) otherNodeId = edge.target;
-  else if (edge.target === nodeId) otherNodeId = edge.source;
-  if (!otherNodeId) return;
+  const isSource = edge.source === nodeId;
+  const isTarget = edge.target === nodeId;
+  if (!isSource && !isTarget) return;
 
+  const storedHandle = isSource ? edge.data?.sourceHandle : edge.data?.targetHandle;
+  if (storedHandle) {
+    positions.add(parseHandlePosition(storedHandle));
+    return;
+  }
+
+  const otherNodeId = isSource ? edge.target : edge.source;
   const otherNode = nodesById.get(otherNodeId);
   if (otherNode) positions.add(getConnectedPosition(thisNode, otherNode));
 }
@@ -132,12 +138,12 @@ export default function BaseNode({
     >
       <Handle type="source" position={Position.Top} id="top" className={getHandleClassName(Position.Top)} />
       <Handle type="target" position={Position.Top} id="top-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName(Position.Right)} />
+      <Handle type="target" position={Position.Right} id="right-target" className="!opacity-0 !w-2.5 !h-2.5" />
       <Handle type="source" position={Position.Bottom} id="bottom" className={getHandleClassName(Position.Bottom)} />
       <Handle type="target" position={Position.Bottom} id="bottom-target" className="!opacity-0 !w-2.5 !h-2.5" />
       <Handle type="source" position={Position.Left} id="left" className={getHandleClassName(Position.Left)} />
       <Handle type="target" position={Position.Left} id="left-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName(Position.Right)} />
-      <Handle type="target" position={Position.Right} id="right-target" className="!opacity-0 !w-2.5 !h-2.5" />
 
       <div
         onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}

@@ -185,11 +185,11 @@ export function createFannedBezierPath(
 }
 
 export function parseHandlePosition(handle: string | null | undefined): Position {
-  const handleStr = handle ?? '';
-  if (handleStr.startsWith('top')) return Position.Top;
-  if (handleStr.startsWith('bottom')) return Position.Bottom;
-  if (handleStr.startsWith('left')) return Position.Left;
-  if (handleStr.startsWith('right')) return Position.Right;
+  const h = handle ?? '';
+  if (h.startsWith('top')) return Position.Top;
+  if (h.startsWith('right')) return Position.Right;
+  if (h.startsWith('bottom')) return Position.Bottom;
+  if (h.startsWith('left')) return Position.Left;
   return Position.Bottom;
 }
 

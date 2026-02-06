@@ -26,6 +26,7 @@ import { DEFAULT_INTERFACE } from '../constants';
 import {
   asArray,
   extractPosition,
+  extractHandles,
   fallbackIfEmptyString,
   filterUserLabels,
   generateEdgeId,
@@ -356,6 +357,8 @@ interface EdgeGroup {
   lagGroups: UILagGroup[];
   sourceName: string;
   targetName: string;
+  sourceHandle?: string;
+  targetHandle?: string;
 }
 
 interface EsiLagLeafWithInterfaces {
@@ -434,8 +437,10 @@ function buildEsiLagEdgeFromLink(options: {
   parsedEndpoints: ParsedEndpoint[];
   nameToId: Map<string, string>;
   userLabels: Record<string, string> | undefined;
+  sourceHandle?: string;
+  targetHandle?: string;
 }): UIEdge | null {
-  const { link, parsedEndpoints, nameToId, userLabels } = options;
+  const { link, parsedEndpoints, nameToId, userLabels, sourceHandle, targetHandle } = options;
 
   const first = parsedEndpoints[0];
   if (!first) return null;
@@ -460,6 +465,8 @@ function buildEsiLagEdgeFromLink(options: {
       id: edgeId,
       sourceNode: commonName,
       targetNode: leaves[0].name,
+      sourceHandle,
+      targetHandle,
       edgeType: 'esilag',
       esiLeaves,
       memberLinks,
@@ -468,8 +475,10 @@ function buildEsiLagEdgeFromLink(options: {
   };
 }
 
-function edgePairKey(a: string, b: string): string {
-  return [a, b].sort().join('|');
+function edgePairKey(a: string, b: string, srcHandle?: string, dstHandle?: string): string {
+  const nodeKey = [a, b].sort().join('|');
+  const handleKey = `${srcHandle ?? ''}:${dstHandle ?? ''}`;
+  return `${nodeKey}#${handleKey}`;
 }
 
 function getOrCreateEdgeGroup(
@@ -557,9 +566,15 @@ function addStandardLinkToEdgeGroups(options: {
   if (!nameToId.has(sourceName)) return;
   if (!nameToId.has(targetName)) return;
 
-  const pairKey = edgePairKey(sourceName, targetName);
+  const handles = extractHandles(link.labels);
+  const pairKey = edgePairKey(sourceName, targetName, handles.sourceHandle, handles.targetHandle);
   const edgeGroup = getOrCreateEdgeGroup(edgesByPair, pairKey, sourceName, targetName);
   const linkName = fallbackIfEmptyString(link.name, `${sourceName}-${targetName}`);
+
+  if (!edgeGroup.sourceHandle && !edgeGroup.targetHandle) {
+    if (handles.sourceHandle) edgeGroup.sourceHandle = handles.sourceHandle;
+    if (handles.targetHandle) edgeGroup.targetHandle = handles.targetHandle;
+  }
 
   if (endpoints.length > 1) {
     addLagToEdgeGroup({ edgeGroup, link, parsedEndpoints, pairKey, linkName, userLabels });
@@ -607,6 +622,8 @@ function buildEdgesFromGroups(options: {
         id,
         sourceNode: group.sourceName,
         targetNode: group.targetName,
+        sourceHandle: group.sourceHandle,
+        targetHandle: group.targetHandle,
         edgeType,
         memberLinks: group.memberLinks,
         lagGroups,
@@ -633,7 +650,15 @@ function yamlLinksToUIEdges(
     const parsedEndpoints = parseYamlLinkEndpoints(endpoints);
 
     if (isEsiLagLink(parsedEndpoints)) {
-      const esiLagEdge = buildEsiLagEdgeFromLink({ link, parsedEndpoints, nameToId, userLabels });
+      const handles = extractHandles(link.labels);
+      const esiLagEdge = buildEsiLagEdgeFromLink({
+        link,
+        parsedEndpoints,
+        nameToId,
+        userLabels,
+        sourceHandle: handles.sourceHandle,
+        targetHandle: handles.targetHandle,
+      });
       if (esiLagEdge) esiLagEdges.push(esiLagEdge);
       continue;
     }

@@ -110,6 +110,58 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
         node.id === id ? { ...node, data: { ...node.data, ...data } } : node,
       ),
     });
+
+    if (newName && newName !== oldName && oldName) {
+      set({
+        edges: get().edges.map(edge => {
+          if (!edge.data) return edge;
+          let updated = false;
+          const updates: Partial<UIEdge['data']> = {};
+
+          if (edge.data.sourceNode === oldName) {
+            updates.sourceNode = newName;
+            updated = true;
+          }
+          if (edge.data.targetNode === oldName) {
+            updates.targetNode = newName;
+            updated = true;
+          }
+
+          const memberLinks = edge.data.memberLinks;
+          if (memberLinks?.length) {
+            const updatedLinks = memberLinks.map(link => {
+              if (link.name.includes(oldName)) {
+                return { ...link, name: link.name.replaceAll(oldName, newName) };
+              }
+              return link;
+            });
+            if (updatedLinks.some((l, i) => l !== memberLinks[i])) {
+              updates.memberLinks = updatedLinks;
+              updated = true;
+            }
+          }
+
+          const esiLeaves = edge.data.esiLeaves;
+          if (esiLeaves?.length) {
+            const updatedLeaves = esiLeaves.map(leaf => {
+              if (leaf.nodeName === oldName) {
+                return { ...leaf, nodeName: newName };
+              }
+              return leaf;
+            });
+            if (updatedLeaves.some((l, i) => l !== esiLeaves[i])) {
+              updates.esiLeaves = updatedLeaves;
+              updated = true;
+            }
+          }
+
+          if (updated) {
+            return { ...edge, data: { ...edge.data, ...updates } };
+          }
+          return edge;
+        }),
+      });
+    }
   },
 
   deleteNode: (id: string) => {

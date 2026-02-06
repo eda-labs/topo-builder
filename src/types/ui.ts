@@ -56,6 +56,8 @@ export interface UIEdgeData {
   id: string;
   sourceNode: string;
   targetNode: string;
+  sourceHandle?: string;
+  targetHandle?: string;
   edgeType?: UIEdgeType;
   memberLinks?: UIMemberLink[];
   lagGroups?: UILagGroup[];

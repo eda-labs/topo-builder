@@ -2,6 +2,8 @@ import type { Endpoint } from '../../types/schema';
 import {
   LABEL_POS_X,
   LABEL_POS_Y,
+  LABEL_SRC_HANDLE,
+  LABEL_DST_HANDLE,
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
   INTERNAL_LABEL_PREFIX,
@@ -90,6 +92,14 @@ export function extractPosition(labels?: Record<string, string>): { x: number; y
   const y = labels[LABEL_POS_Y];
   if (x && y) return { x: parseFloat(x), y: parseFloat(y) };
   return null;
+}
+
+export function extractHandles(labels?: Record<string, string>): { sourceHandle?: string; targetHandle?: string } {
+  if (!labels) return {};
+  const result: { sourceHandle?: string; targetHandle?: string } = {};
+  if (labels[LABEL_SRC_HANDLE]) result.sourceHandle = labels[LABEL_SRC_HANDLE];
+  if (labels[LABEL_DST_HANDLE]) result.targetHandle = labels[LABEL_DST_HANDLE];
+  return result;
 }
 
 /**

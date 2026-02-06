@@ -3,7 +3,7 @@ import { type EdgeProps, useInternalNode } from '@xyflow/react';
 import { useTopologyStore } from '../../lib/store';
 import type { UIEdgeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
-import { getFloatingEdgeParams } from '../../lib/edgeUtils';
+import { getHandleCoordinates } from '../../lib/edgeUtils';
 
 import StandardEdge from './StandardEdge';
 import BundleEdge from './BundleEdge';
@@ -63,7 +63,14 @@ export default function LinkEdge({
     return null;
   }
 
-  const { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, sourcePos: sourcePosition, targetPos: targetPosition } = getFloatingEdgeParams(sourceNode, targetNode);
+  const sourceCoords = getHandleCoordinates(sourceNode, edgeData?.sourceHandle ?? 'bottom');
+  const targetCoords = getHandleCoordinates(targetNode, edgeData?.targetHandle ?? 'bottom');
+  const sourceX = sourceCoords.x;
+  const sourceY = sourceCoords.y;
+  const sourcePosition = sourceCoords.position;
+  const targetX = targetCoords.x;
+  const targetY = targetCoords.y;
+  const targetPosition = targetCoords.position;
 
   const isEsiLag = edgeData?.edgeType === 'esilag';
   const esiLeaves = edgeData?.esiLeaves;

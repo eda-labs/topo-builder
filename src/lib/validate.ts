@@ -105,6 +105,65 @@ interface ParsedDoc {
   };
 }
 
+function asArray<T>(value: T[] | undefined | null): T[] {
+  if (value) return value;
+  return [];
+}
+
+function validateInterfaceUniqueness(links: Array<NonNullable<NonNullable<ParsedDoc['spec']>['links']>[number]>): ValidationError[] {
+  type InterfaceUsage = {
+    linkName: string;
+    linkIndex: number;
+    endpointIndex: number;
+    side: 'local' | 'remote';
+  };
+
+  const errors: ValidationError[] = [];
+  const interfacesByNode = new Map<string, Map<string, InterfaceUsage[]>>();
+
+  links.forEach((link, linkIndex) => {
+    asArray(link.endpoints).forEach((endpoint, endpointIndex) => {
+      const maybeAddUsage = (side: 'local' | 'remote', node: string, iface: string) => {
+        let nodeInterfaces = interfacesByNode.get(node);
+        if (!nodeInterfaces) {
+          nodeInterfaces = new Map();
+          interfacesByNode.set(node, nodeInterfaces);
+        }
+
+        let ifaceList = nodeInterfaces.get(iface);
+        if (!ifaceList) {
+          ifaceList = [];
+          nodeInterfaces.set(iface, ifaceList);
+        }
+
+        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side });
+      };
+
+      const localNode = endpoint.local?.node;
+      const localIface = endpoint.local?.interface;
+      if (localNode && localIface) maybeAddUsage('local', localNode, localIface);
+
+      const remoteNode = endpoint.remote?.node;
+      const remoteIface = endpoint.remote?.interface;
+      if (remoteNode && remoteIface) maybeAddUsage('remote', remoteNode, remoteIface);
+    });
+  });
+
+  for (const [nodeName, interfaces] of interfacesByNode) {
+    for (const [ifaceName, usages] of interfaces) {
+      if (usages.length <= 1) continue;
+
+      const linkNames = usages.map(u => u.linkName).join(', ');
+      errors.push({
+        path: '/spec/links',
+        message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
+      });
+    }
+  }
+
+  return errors;
+}
+
 function validateCrossReferences(doc: Record<string, unknown>): ValidationError[] {
   const errors: ValidationError[] = [];
   const parsed = doc as ParsedDoc;
@@ -112,13 +171,20 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
 
   if (!spec) return errors;
 
-  const nodeNames = new Set((spec.nodes || []).map(n => n.name));
-  const nodeTemplateNames = new Set((spec.nodeTemplates || []).map(t => t.name));
-  const linkTemplateNames = new Set((spec.linkTemplates || []).map(t => t.name));
-  const simNodeNames = new Set((spec.simulation?.simNodes || []).map(n => n.name));
-  const simNodeTemplateNames = new Set((spec.simulation?.simNodeTemplates || []).map(t => t.name));
+  const nodes = asArray(spec.nodes);
+  const links = asArray(spec.links);
+  const nodeTemplates = asArray(spec.nodeTemplates);
+  const linkTemplates = asArray(spec.linkTemplates);
+  const simNodes = asArray(spec.simulation?.simNodes);
+  const simNodeTemplates = asArray(spec.simulation?.simNodeTemplates);
 
-  (spec.nodes || []).forEach((node, i) => {
+  const nodeNames = new Set(nodes.map(n => n.name));
+  const nodeTemplateNames = new Set(nodeTemplates.map(t => t.name));
+  const linkTemplateNames = new Set(linkTemplates.map(t => t.name));
+  const simNodeNames = new Set(simNodes.map(n => n.name));
+  const simNodeTemplateNames = new Set(simNodeTemplates.map(t => t.name));
+
+  nodes.forEach((node, i) => {
     if (node.template && !nodeTemplateNames.has(node.template)) {
       errors.push({
         path: `/spec/nodes/${i}/template`,
@@ -127,7 +193,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     }
   });
 
-  (spec.links || []).forEach((link, i) => {
+  links.forEach((link, i) => {
     if (link.template && !linkTemplateNames.has(link.template)) {
       errors.push({
         path: `/spec/links/${i}/template`,
@@ -135,7 +201,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
       });
     }
 
-    (link.endpoints || []).forEach((endpoint, j) => {
+    asArray(link.endpoints).forEach((endpoint, j) => {
       if (endpoint.local?.node) {
         const localNode = endpoint.local.node;
         if (!nodeNames.has(localNode) && !simNodeNames.has(localNode)) {
@@ -157,7 +223,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     });
   });
 
-  (spec.simulation?.simNodes || []).forEach((simNode, i) => {
+  simNodes.forEach((simNode, i) => {
     if (simNode.template && !simNodeTemplateNames.has(simNode.template)) {
       errors.push({
         path: `/spec/simulation/simNodes/${i}/template`,
@@ -166,54 +232,7 @@ function validateCrossReferences(doc: Record<string, unknown>): ValidationError[
     }
   });
 
-  const interfacesByNode = new Map<string, Map<string, { linkName: string; linkIndex: number; endpointIndex: number; side: string }[]>>();
-
-  (spec.links || []).forEach((link, linkIndex) => {
-    (link.endpoints || []).forEach((endpoint, endpointIndex) => {
-      if (endpoint.local?.node && endpoint.local?.interface) {
-        const node = endpoint.local.node;
-        const iface = endpoint.local.interface;
-        let nodeInterfaces = interfacesByNode.get(node);
-        if (!nodeInterfaces) {
-          nodeInterfaces = new Map();
-          interfacesByNode.set(node, nodeInterfaces);
-        }
-        let ifaceList = nodeInterfaces.get(iface);
-        if (!ifaceList) {
-          ifaceList = [];
-          nodeInterfaces.set(iface, ifaceList);
-        }
-        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side: 'local' });
-      }
-      if (endpoint.remote?.node && endpoint.remote?.interface) {
-        const node = endpoint.remote.node;
-        const iface = endpoint.remote.interface;
-        let nodeInterfaces = interfacesByNode.get(node);
-        if (!nodeInterfaces) {
-          nodeInterfaces = new Map();
-          interfacesByNode.set(node, nodeInterfaces);
-        }
-        let ifaceList = nodeInterfaces.get(iface);
-        if (!ifaceList) {
-          ifaceList = [];
-          nodeInterfaces.set(iface, ifaceList);
-        }
-        ifaceList.push({ linkName: link.name, linkIndex, endpointIndex, side: 'remote' });
-      }
-    });
-  });
-
-  for (const [nodeName, interfaces] of interfacesByNode) {
-    for (const [ifaceName, usages] of interfaces) {
-      if (usages.length > 1) {
-        const linkNames = usages.map(u => u.linkName).join(', ');
-        errors.push({
-          path: '/spec/links',
-          message: `Node "${nodeName}" has duplicate interface "${ifaceName}" used in links: ${linkNames}`,
-        });
-      }
-    }
-  }
+  errors.push(...validateInterfaceUniqueness(links));
 
   return errors;
 }

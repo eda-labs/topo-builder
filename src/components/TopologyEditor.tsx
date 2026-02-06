@@ -26,10 +26,9 @@ import {
   CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
-import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory } from '../lib/store';
-import { generateUniqueName } from '../lib/utils';
-import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH } from '../lib/constants';
-import type { UINodeData, UIEdgeData } from '../types/ui';
+import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName } from '../lib/store';
+import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES } from '../lib/constants';
+import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
 
 import { TopoNode, SimNode } from './nodes';
@@ -47,6 +46,301 @@ const nodeTypes: NodeTypes = {
 const edgeTypes: EdgeTypes = {
   linkEdge: LinkEdge,
 };
+
+function areSameIndexSet(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+
+  const sortedA = [...a].sort((x, y) => x - y);
+  const sortedB = [...b].sort((x, y) => x - y);
+
+  for (let i = 0; i < sortedA.length; i++) {
+    if (sortedA[i] !== sortedB[i]) return false;
+  }
+  return true;
+}
+
+function findLagMatchingSelection(lagGroups: UILagGroup[] | undefined, selectedMemberLinkIndices: number[]): UILagGroup | null {
+  if (!lagGroups || selectedMemberLinkIndices.length < 2) return null;
+
+  for (const lag of lagGroups) {
+    if (areSameIndexSet(lag.memberLinkIndices, selectedMemberLinkIndices)) return lag;
+  }
+  return null;
+}
+
+function getMemberLinkJumpTarget({
+  activeTab,
+  selectedEdgeId,
+  selectedMemberLinkIndices,
+  edges,
+  expandedEdges,
+}: {
+  activeTab: number;
+  selectedEdgeId: string | null;
+  selectedMemberLinkIndices: number[];
+  edges: Edge<UIEdgeData>[];
+  expandedEdges: Set<string>;
+}): { edgeId: string; memberIndex: number } | null {
+  if (activeTab !== 0) return null;
+  if (!selectedEdgeId) return null;
+  if (selectedMemberLinkIndices.length === 0) return null;
+
+  const edge = edges.find(e => e.id === selectedEdgeId);
+  if (!edge?.data?.memberLinks) return null;
+  if (edge.data.memberLinks.length <= 1) return null;
+  if (!expandedEdges.has(selectedEdgeId)) return null;
+
+  if (selectedMemberLinkIndices.length === 1) {
+    return { edgeId: selectedEdgeId, memberIndex: selectedMemberLinkIndices[0] };
+  }
+
+  const matchingLag = findLagMatchingSelection(edge.data.lagGroups, selectedMemberLinkIndices);
+  const firstMemberIndex = matchingLag?.memberLinkIndices[0];
+  if (firstMemberIndex === undefined) return null;
+
+  return { edgeId: selectedEdgeId, memberIndex: firstMemberIndex };
+}
+
+function shouldIgnoreGlobalHotkeyTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  if (el.tagName === 'INPUT') return true;
+  if (el.tagName === 'TEXTAREA') return true;
+  return el.isContentEditable;
+}
+
+function isCtrlOrCmdPressed(e: KeyboardEvent): boolean {
+  const isMac = /mac/i.test(navigator.userAgent);
+  return isMac ? e.metaKey : e.ctrlKey;
+}
+
+function handleUndoRedoHotkeys(
+  e: KeyboardEvent,
+  isCtrlOrCmd: boolean,
+  onUndo: () => void,
+  onRedo: () => void,
+): boolean {
+  if (!isCtrlOrCmd) return false;
+
+  if (e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    onUndo();
+    return true;
+  }
+
+  if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+    e.preventDefault();
+    onRedo();
+    return true;
+  }
+
+  return false;
+}
+
+function selectAllInStore(): void {
+  const currentState = useTopologyStore.getState();
+  const currentNodes = currentState.nodes;
+  const currentEdges = currentState.edges;
+
+  let selectableNodes = currentNodes;
+  let selectableEdges = currentEdges;
+
+  if (!currentState.showSimNodes) {
+    selectableNodes = currentNodes.filter(n => n.data.nodeType !== 'simnode');
+    const selectableNodeIds = new Set(selectableNodes.map(n => n.id));
+    selectableEdges = currentEdges.filter(e => selectableNodeIds.has(e.source) && selectableNodeIds.has(e.target));
+  }
+
+  const allNodeIds = selectableNodes.map(n => n.id);
+  const allEdgeIds = selectableEdges.map(e => e.id);
+  const selectableNodeIds = new Set(allNodeIds);
+  const selectableEdgeIds = new Set(allEdgeIds);
+
+  const simNodes = selectableNodes.filter(n => n.data.nodeType === 'simnode');
+  const simNodeNames = new Set(simNodes.map(n => n.data.name));
+  const simNodeNameList = [...simNodeNames];
+  const selectedSimNodeName = simNodeNameList.length > 0 ? simNodeNameList[simNodeNameList.length - 1] : null;
+
+  useTopologyStore.setState({
+    nodes: currentNodes.map(n => ({ ...n, selected: selectableNodeIds.has(n.id) })),
+    edges: currentEdges.map(e => ({ ...e, selected: selectableEdgeIds.has(e.id) })),
+    selectedNodeIds: allNodeIds,
+    selectedEdgeIds: allEdgeIds,
+    selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
+    selectedNodeId: allNodeIds.length > 0 ? allNodeIds[allNodeIds.length - 1] : null,
+    selectedSimNodeNames: simNodeNames,
+    selectedSimNodeName,
+  });
+}
+
+function handleSelectAllHotkey(e: KeyboardEvent, isCtrlOrCmd: boolean): boolean {
+  if (!isCtrlOrCmd) return false;
+  if (e.key !== 'a') return false;
+
+  e.preventDefault();
+  selectAllInStore();
+  return true;
+}
+
+type DeleteHotkeyHandlers = {
+  deleteMemberLink: (edgeId: string, index: number) => void;
+  clearMemberLinkSelection: () => void;
+  deleteNode: (nodeId: string) => void;
+  deleteEdge: (edgeId: string) => void;
+  deleteSimNode: (simNodeName: string) => void;
+  selectSimNodes: (names: Set<string>) => void;
+  triggerYamlRefresh: () => void;
+};
+
+function tryDeleteSelectedMemberLinks(
+  state: ReturnType<typeof useTopologyStore.getState>,
+  handlers: DeleteHotkeyHandlers,
+): boolean {
+  const selectedEdgeId = state.selectedEdgeId;
+  if (!selectedEdgeId) return false;
+  if (state.selectedMemberLinkIndices.length === 0) return false;
+
+  const edge = state.edges.find(e => e.id === selectedEdgeId);
+  const memberLinksCount = edge?.data?.memberLinks?.length ?? 0;
+  if (memberLinksCount <= 1) return false;
+
+  // Delete from highest index so earlier deletes don't shift later indices.
+  const sortedIndices = [...state.selectedMemberLinkIndices].sort((a, b) => b - a);
+  sortedIndices.forEach(index => { handlers.deleteMemberLink(selectedEdgeId, index); });
+  handlers.clearMemberLinkSelection();
+  handlers.triggerYamlRefresh();
+
+  return true;
+}
+
+function deleteSelectedItems(state: ReturnType<typeof useTopologyStore.getState>, handlers: DeleteHotkeyHandlers): void {
+  const selectedNodeIds = state.nodes.filter(n => n.selected).map(n => n.id);
+  selectedNodeIds.forEach(id => { handlers.deleteNode(id); });
+
+  const selectedEdgeIds = state.edges.filter(edge => edge.selected).map(edge => edge.id);
+  selectedEdgeIds.forEach(id => { handlers.deleteEdge(id); });
+
+  if (state.selectedSimNodeNames.size > 0) {
+    state.selectedSimNodeNames.forEach(name => { handlers.deleteSimNode(name); });
+    handlers.selectSimNodes(new Set());
+  }
+}
+
+function handleDeleteHotkey(e: KeyboardEvent, handlers: DeleteHotkeyHandlers): boolean {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return false;
+
+  const state = useTopologyStore.getState();
+  if (tryDeleteSelectedMemberLinks(state, handlers)) return true;
+
+  deleteSelectedItems(state, handlers);
+  return true;
+}
+
+type EsiLagValidation =
+  | { valid: false; error: string | null }
+  | { valid: true; error: null; esiLag: Edge<UIEdgeData> | null; regularEdges: Edge<UIEdgeData>[] };
+
+function getEdgesById(edges: Edge<UIEdgeData>[], ids: string[]): Edge<UIEdgeData>[] | null {
+  const selectedEdges: Edge<UIEdgeData>[] = [];
+  for (const id of ids) {
+    const edge = edges.find(e => e.id === id);
+    if (!edge) return null;
+    selectedEdges.push(edge);
+  }
+  return selectedEdges;
+}
+
+function splitEsiLagEdges(selectedEdges: Edge<UIEdgeData>[]): {
+  esiLag: Edge<UIEdgeData> | null;
+  regularEdges: Edge<UIEdgeData>[];
+  error?: string;
+} {
+  const esiLagEdges: Edge<UIEdgeData>[] = [];
+  const regularEdges: Edge<UIEdgeData>[] = [];
+
+  for (const edge of selectedEdges) {
+    if (edge.data?.edgeType === 'esilag') esiLagEdges.push(edge);
+    else regularEdges.push(edge);
+  }
+
+  if (esiLagEdges.length > 1) {
+    return { esiLag: null, regularEdges, error: 'Cannot merge multiple ESI-LAGs' };
+  }
+
+  return { esiLag: esiLagEdges[0] ?? null, regularEdges };
+}
+
+function validateEsiLagSizeLimit(
+  esiLag: Edge<UIEdgeData> | null,
+  regularEdges: Edge<UIEdgeData>[],
+  selectedEdgeCount: number,
+): string | null {
+  if (esiLag) {
+    const esiLeafCount = esiLag.data?.esiLeaves?.length ?? 0;
+    const totalLeaves = esiLeafCount + regularEdges.length;
+    if (totalLeaves > ESI_LAG_MAX_EDGES) return `ESI-LAG cannot have more than ${ESI_LAG_MAX_EDGES} links`;
+    return null;
+  }
+
+  if (selectedEdgeCount > ESI_LAG_MAX_EDGES) return `ESI-LAG cannot have more than ${ESI_LAG_MAX_EDGES} links`;
+  return null;
+}
+
+function findCommonNodeId(edges: Edge<UIEdgeData>[]): string | null {
+  const nodeCounts = new Map<string, number>();
+  for (const edge of edges) {
+    nodeCounts.set(edge.source, (nodeCounts.get(edge.source) ?? 0) + 1);
+    nodeCounts.set(edge.target, (nodeCounts.get(edge.target) ?? 0) + 1);
+  }
+
+  const commonNodes: string[] = [];
+  for (const [nodeId, count] of nodeCounts) {
+    if (count === edges.length) commonNodes.push(nodeId);
+  }
+
+  if (commonNodes.length !== 1) return null;
+  return commonNodes[0];
+}
+
+function validateEsiLagCommonNode(esiLag: Edge<UIEdgeData> | null, regularEdges: Edge<UIEdgeData>[]): string | null {
+  if (esiLag) {
+    const esiLagSourceId = esiLag.source;
+    if (!esiLagSourceId.startsWith('sim-')) {
+      return 'ESI-LAG common node must be a SimNode';
+    }
+
+    for (const edge of regularEdges) {
+      if (edge.source !== esiLagSourceId && edge.target !== esiLagSourceId) {
+        return 'Selected edges must share exactly one common node';
+      }
+    }
+    return null;
+  }
+
+  const commonNodeId = findCommonNodeId(regularEdges);
+  if (!commonNodeId) return 'Selected edges must share exactly one common node';
+  if (!commonNodeId.startsWith('sim-')) return 'ESI-LAG common node must be a SimNode';
+
+  return null;
+}
+
+function validateEsiLagSelection(selectedEdgeIds: string[], edges: Edge<UIEdgeData>[]): EsiLagValidation {
+  if (selectedEdgeIds.length < 2) return { valid: false, error: null };
+
+  const selectedEdges = getEdgesById(edges, selectedEdgeIds);
+  if (!selectedEdges) return { valid: false, error: null };
+
+  const { esiLag, regularEdges, error: splitError } = splitEsiLagEdges(selectedEdges);
+  if (splitError) return { valid: false, error: splitError };
+
+  const sizeError = validateEsiLagSizeLimit(esiLag, regularEdges, selectedEdges.length);
+  if (sizeError) return { valid: false, error: sizeError };
+
+  const commonNodeError = validateEsiLagCommonNode(esiLag, regularEdges);
+  if (commonNodeError) return { valid: false, error: commonNodeError };
+
+  return { valid: true, error: null, esiLag, regularEdges };
+}
 
 function LayoutHandler({ layoutVersion }: { layoutVersion: number }) {
   const { fitView } = useReactFlow();
@@ -152,6 +446,58 @@ function SidePanel({
   );
 }
 
+function TopologyControls({
+  nodes,
+  edges,
+  showSimNodes,
+  setShowSimNodes,
+  expandedEdges,
+  toggleAllEdgesExpanded,
+}: {
+  nodes: Node<UINodeData>[];
+  edges: Edge<UIEdgeData>[];
+  showSimNodes: boolean;
+  setShowSimNodes: (show: boolean) => void;
+  expandedEdges: Set<string>;
+  toggleAllEdgesExpanded: () => void;
+}) {
+  const hasSimNodes = nodes.some(n => n.data.nodeType === 'simnode');
+  const hasExpandableLinks = edges.some(e => (e.data?.memberLinks?.length ?? 0) > 1);
+
+  return (
+    <Controls position="top-right">
+      {hasSimNodes && (
+        <ControlButton
+          onClick={() => { setShowSimNodes(!showSimNodes); }}
+          title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}
+        >
+          {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
+        </ControlButton>
+      )}
+      {hasExpandableLinks && (
+        <ControlButton
+          onClick={toggleAllEdgesExpanded}
+          title={expandedEdges.size > 0 ? 'Collapse all links' : 'Expand all links'}
+        >
+          {expandedEdges.size > 0 ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+        </ControlButton>
+      )}
+    </Controls>
+  );
+}
+
+function EmptyCanvasHint({ show }: { show: boolean }) {
+  if (!show) return null;
+
+  return (
+    <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}>
+      <Typography variant="h5" sx={{ color: 'text.disabled', userSelect: 'none' }}>
+        Right-click to add your first node
+      </Typography>
+    </Box>
+  );
+}
+
 function TopologyEditorInner() {
   const {
     nodes,
@@ -200,9 +546,9 @@ function TopologyEditorInner() {
 
   const { screenToFlowPosition } = useReactFlow();
 
-  const [undoRedoTrigger, setUndoRedoTrigger] = useState(0);
-  const canUndoNow = undoRedoTrigger >= 0 && canUndo();
-  const canRedoNow = undoRedoTrigger >= 0 && canRedo();
+  const [, setUndoRedoTrigger] = useState(0);
+  const canUndoNow = canUndo();
+  const canRedoNow = canRedo();
 
   const handleUndo = useCallback(() => {
     undo();
@@ -270,30 +616,16 @@ function TopologyEditorInner() {
   }, [onConnect]);
 
   useEffect(() => {
-    if (activeTab !== 0 || !selectedEdgeId || selectedMemberLinkIndices.length === 0) return;
+    const target = getMemberLinkJumpTarget({
+      activeTab,
+      selectedEdgeId,
+      selectedMemberLinkIndices,
+      edges,
+      expandedEdges,
+    });
+    if (!target) return;
 
-    const edge = edges.find(e => e.id === selectedEdgeId);
-    const memberLinks = edge?.data?.memberLinks;
-    const lagGroups = edge?.data?.lagGroups;
-
-    if (!memberLinks || memberLinks.length <= 1 || !expandedEdges.has(selectedEdgeId)) return;
-
-    if (lagGroups && selectedMemberLinkIndices.length >= 2) {
-      const sortedSelected = [...selectedMemberLinkIndices].sort((a, b) => a - b);
-      for (const lag of lagGroups) {
-        const sortedLagIndices = [...lag.memberLinkIndices].sort((a, b) => a - b);
-        if (sortedSelected.length === sortedLagIndices.length &&
-            sortedSelected.every((idx, i) => idx === sortedLagIndices[i])) {
-          const firstMemberIndex = lag.memberLinkIndices[0];
-          jumpToMemberLinkInEditor(selectedEdgeId, firstMemberIndex);
-          return;
-        }
-      }
-    }
-
-    if (selectedMemberLinkIndices.length === 1) {
-      jumpToMemberLinkInEditor(selectedEdgeId, selectedMemberLinkIndices[0]);
-    }
+    jumpToMemberLinkInEditor(target.edgeId, target.memberIndex);
   }, [activeTab, selectedEdgeId, selectedMemberLinkIndices, edges, expandedEdges]);
 
   const visibleNodes = useMemo(() => {
@@ -313,88 +645,22 @@ function TopologyEditorInner() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (shouldIgnoreGlobalHotkeyTarget(e.target)) return;
 
-      const isMac = /mac/i.test(navigator.userAgent);
-      const isCtrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+      const isCtrlOrCmd = isCtrlOrCmdPressed(e);
 
-      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-        return;
-      }
+      if (handleUndoRedoHotkeys(e, isCtrlOrCmd, handleUndo, handleRedo)) return;
+      if (handleSelectAllHotkey(e, isCtrlOrCmd)) return;
 
-      if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
-
-      if (isCtrlOrCmd && e.key === 'a') {
-        e.preventDefault();
-        const currentState = useTopologyStore.getState();
-        const currentNodes = currentState.nodes;
-        const currentEdges = currentState.edges;
-        const currentShowSimNodes = currentState.showSimNodes;
-
-        const selectableNodeIds = new Set(
-          currentShowSimNodes
-            ? currentNodes.map(n => n.id)
-            : currentNodes.filter(n => n.data.nodeType !== 'simnode').map(n => n.id),
-        );
-        const selectableEdgeIds = new Set(
-          currentShowSimNodes
-            ? currentEdges.map(e => e.id)
-            : currentEdges.filter(e => !e.source.startsWith('sim-') && !e.target.startsWith('sim-')).map(e => e.id),
-        );
-
-        const allNodeIds = [...selectableNodeIds];
-        const allEdgeIds = [...selectableEdgeIds];
-        const simNodes = currentNodes.filter(n => n.data.nodeType === 'simnode' && selectableNodeIds.has(n.id));
-        const simNodeNames = new Set(simNodes.map(n => n.data.name));
-
-        useTopologyStore.setState({
-          nodes: currentNodes.map(n => ({ ...n, selected: selectableNodeIds.has(n.id) })),
-          edges: currentEdges.map(e => ({ ...e, selected: selectableEdgeIds.has(e.id) })),
-          selectedNodeIds: allNodeIds,
-          selectedEdgeIds: allEdgeIds,
-          selectedEdgeId: allEdgeIds.length > 0 ? allEdgeIds[allEdgeIds.length - 1] : null,
-          selectedNodeId: allNodeIds.length > 0 ? allNodeIds[allNodeIds.length - 1] : null,
-          selectedSimNodeNames: simNodeNames,
-          selectedSimNodeName: simNodeNames.size > 0 ? [...simNodeNames][simNodeNames.size - 1] : null,
-        });
-        return;
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const currentState = useTopologyStore.getState();
-
-        const { selectedEdgeId } = currentState;
-        if (selectedEdgeId && currentState.selectedMemberLinkIndices.length > 0) {
-          const edge = currentState.edges.find(e => e.id === selectedEdgeId);
-          const memberLinksCount = edge?.data?.memberLinks?.length ?? 0;
-
-          if (memberLinksCount > 1) {
-            const sortedIndices = [...currentState.selectedMemberLinkIndices].sort((a, b) => b - a);
-            sortedIndices.forEach(index => { deleteMemberLink(selectedEdgeId, index); });
-            clearMemberLinkSelection();
-            triggerYamlRefresh();
-            return;
-          }
-        }
-
-        const selectedNodeIds = currentState.nodes.filter(n => n.selected).map(n => n.id);
-        selectedNodeIds.forEach(id => { deleteNode(id); });
-
-        const selectedEdgeIds = currentState.edges.filter(edge => edge.selected).map(edge => edge.id);
-        selectedEdgeIds.forEach(id => { deleteEdge(id); });
-
-        if (currentState.selectedSimNodeNames.size > 0) {
-          currentState.selectedSimNodeNames.forEach(name => { deleteSimNode(name); });
-          selectSimNodes(new Set());
-        }
-      }
+      handleDeleteHotkey(e, {
+        deleteMemberLink,
+        clearMemberLinkSelection,
+        deleteNode,
+        deleteEdge,
+        deleteSimNode,
+        selectSimNodes,
+        triggerYamlRefresh,
+      });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -551,83 +817,29 @@ function TopologyEditorInner() {
 
   const canCopy = nodes.some(n => n.selected) || edges.some(e => e.selected);
   const canPaste = hasClipboardData();
+  const hasContent = nodes.length + edges.length > 0;
 
-  const esiLagValidation = (() => {
-    if (selectedEdgeIds.length < 2) return { valid: false, error: null };
-
-    const selectedEdges = selectedEdgeIds
-      .map(id => edges.find(e => e.id === id))
-      .filter((e): e is typeof edges[0] => e !== undefined);
-
-    if (selectedEdges.length !== selectedEdgeIds.length) return { valid: false, error: null };
-
-    const esiLagEdges = selectedEdges.filter(e => e.data?.edgeType === 'esilag');
-    const regularEdges = selectedEdges.filter(e => e.data?.edgeType !== 'esilag');
-
-    if (esiLagEdges.length > 1) {
-      return { valid: false, error: 'Cannot merge multiple ESI-LAGs' };
-    }
-
-    const esiLag = esiLagEdges[0];
-    const esiLeafCount = esiLag?.data?.esiLeaves?.length || 0;
-    const totalLeaves = esiLeafCount + regularEdges.length;
-
-    if (esiLag && totalLeaves > 4) {
-      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
-    }
-
-    if (!esiLag && selectedEdges.length > 4) {
-      return { valid: false, error: 'ESI-LAG cannot have more than 4 links' };
-    }
-
-    if (esiLag) {
-      const esiLagSourceId = esiLag.source;
-      if (!esiLagSourceId.startsWith('sim-')) {
-        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
-      }
-      for (const edge of regularEdges) {
-        if (edge.source !== esiLagSourceId && edge.target !== esiLagSourceId) {
-          return { valid: false, error: 'Selected edges must share exactly one common node' };
-        }
-      }
-    } else {
-      const nodeCounts = new Map<string, number>();
-      for (const edge of regularEdges) {
-        nodeCounts.set(edge.source, (nodeCounts.get(edge.source) || 0) + 1);
-        nodeCounts.set(edge.target, (nodeCounts.get(edge.target) || 0) + 1);
-      }
-
-      const commonNodes = [...nodeCounts.entries()].filter(([_, count]) => count === regularEdges.length);
-
-      if (commonNodes.length !== 1) {
-        return { valid: false, error: 'Selected edges must share exactly one common node' };
-      }
-
-      const commonNodeId = commonNodes[0][0];
-      if (!commonNodeId.startsWith('sim-')) {
-        return { valid: false, error: 'ESI-LAG common node must be a SimNode' };
-      }
-    }
-
-    return { valid: true, error: null, esiLag, regularEdges };
-  })();
+  const esiLagValidation = useMemo(
+    () => validateEsiLagSelection(selectedEdgeIds, edges),
+    [selectedEdgeIds, edges],
+  );
 
   const canCreateEsiLag = esiLagValidation.valid;
-  const isMergeIntoEsiLag = esiLagValidation.valid && !!(esiLagValidation as { esiLag?: typeof edges[0] }).esiLag;
+  const isMergeIntoEsiLag = esiLagValidation.valid && esiLagValidation.esiLag !== null;
 
   const handleCreateEsiLag = () => {
-    if (!esiLagValidation.valid && esiLagValidation.error) {
-      setError(esiLagValidation.error);
+    if (!esiLagValidation.valid) {
+      if (esiLagValidation.error) setError(esiLagValidation.error);
       return;
     }
-    if (esiLagValidation.valid) {
-      const { esiLag, regularEdges } = esiLagValidation as { valid: true; esiLag?: typeof edges[0]; regularEdges: typeof edges };
-      if (esiLag && regularEdges.length > 0) {
-        mergeEdgesIntoEsiLag(esiLag.id, regularEdges.map(e => e.id));
-      } else {
-        createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
-      }
+
+    const { esiLag, regularEdges } = esiLagValidation;
+    if (esiLag) {
+      mergeEdgesIntoEsiLag(esiLag.id, regularEdges.map(e => e.id));
+      return;
     }
+
+    createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
   };
 
   const handleChangeNodeTemplate = (templateName: string) => {
@@ -767,33 +979,17 @@ function TopologyEditorInner() {
             selectionOnDrag
             onSelectionChange={handleSelectionChange}
           >
-            <Controls position="top-right">
-              {nodes.some(n => n.data.nodeType === 'simnode') && (
-                <ControlButton
-                  onClick={() => { setShowSimNodes(!showSimNodes); }}
-                  title={showSimNodes ? 'Hide SimNodes' : 'Show SimNodes'}
-                >
-                  {showSimNodes ? <VisibilityIcon /> : <VisibilityOffIcon />}
-                </ControlButton>
-              )}
-              {edges.some(e => (e.data?.memberLinks?.length || 0) > 1) && (
-                <ControlButton
-                  onClick={toggleAllEdgesExpanded}
-                  title={expandedEdges.size > 0 ? 'Collapse all links' : 'Expand all links'}
-                >
-                  {expandedEdges.size > 0 ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
-                </ControlButton>
-              )}
-            </Controls>
+            <TopologyControls
+              nodes={nodes as Node<UINodeData>[]}
+              edges={edges}
+              showSimNodes={showSimNodes}
+              setShowSimNodes={setShowSimNodes}
+              expandedEdges={expandedEdges}
+              toggleAllEdgesExpanded={toggleAllEdgesExpanded}
+            />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <LayoutHandler layoutVersion={layoutVersion} />
-            {nodes.length === 0 && (
-              <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}>
-                <Typography variant="h5" sx={{ color: 'text.disabled', userSelect: 'none' }}>
-                  Right-click to add your first node
-                </Typography>
-              </Box>
-            )}
+            <EmptyCanvasHint show={nodes.length === 0} />
           </ReactFlow>
         </Box>
 
@@ -831,7 +1027,7 @@ function TopologyEditorInner() {
         currentLinkTemplate={currentLinkTemplate}
         onClearAll={clearAll}
         hasSelection={hasSelection}
-        hasContent={nodes.length > 0 || edges.length > 0}
+        hasContent={hasContent}
         canCopy={canCopy}
         canPaste={canPaste}
         nodeTemplates={nodeTemplates}

@@ -15,13 +15,26 @@ import type { Operation } from '../../types/schema';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
 
-import { createNodeSlice, setNodeIdGenerator, type NodeSlice } from './nodes';
-import { createLinkSlice, setEdgeIdGenerator, type LinkSlice } from './links';
-import { createLagSlice, type LagSlice } from './lags';
-import { createEsiLagSlice, setEsiLagEdgeIdGenerator, type EsiLagSlice } from './esiLags';
-import { createSimNodeSlice, setSimNodeIdGenerator, type SimNodeSlice } from './simNodes';
-import { createTemplateSlice, type TemplateSlice } from './templates';
-import { createSelectionSlice, type SelectionSlice } from './selection';
+import {
+  createNodeSlice,
+  setNodeIdGenerator,
+  type NodeSlice,
+  createLinkSlice,
+  setEdgeIdGenerator,
+  type LinkSlice,
+  createLagSlice,
+  type LagSlice,
+  createEsiLagSlice,
+  setEsiLagEdgeIdGenerator,
+  type EsiLagSlice,
+  createSimNodeSlice,
+  setSimNodeIdGenerator,
+  type SimNodeSlice,
+  createTemplateSlice,
+  type TemplateSlice,
+  createSelectionSlice,
+  type SelectionSlice,
+} from './slices';
 import {
   captureState,
   pushToUndoHistory,
@@ -129,6 +142,263 @@ const initialCoreState: CoreState = {
   error: null,
 };
 
+type StoreSetFn = (partial: Partial<TopologyStore>) => void;
+
+function buildPastedNodes({
+  copiedNodes,
+  offset,
+  allNames,
+  idMap,
+  nameMap,
+}: {
+  copiedNodes: Node<UINodeData>[];
+  offset: { x: number; y: number };
+  allNames: string[];
+  idMap: Map<string, string>;
+  nameMap: Map<string, string>;
+}): Node<UINodeData>[] {
+  return copiedNodes.map(node => {
+    const newId = generateNodeId();
+    idMap.set(node.id, newId);
+
+    const newName = generateCopyName(node.data.name, allNames);
+    allNames.push(newName);
+    nameMap.set(node.data.name, newName);
+
+    return {
+      ...node,
+      id: newId,
+      position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+      selected: true,
+      data: { ...node.data, id: newId, name: newName },
+    };
+  });
+}
+
+function getSimNodePastePosition(
+  simNode: UISimNode,
+  offset: { x: number; y: number },
+  cursorPos: { x: number; y: number } | undefined,
+): { x: number; y: number } {
+  if (simNode.position) return { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y };
+  if (cursorPos) return cursorPos;
+  return { x: 0, y: 0 };
+}
+
+function buildPastedSimNodeNodes({
+  copiedSimNodes,
+  offset,
+  cursorPos,
+  allNames,
+  idMap,
+  nameMap,
+}: {
+  copiedSimNodes: UISimNode[] | undefined;
+  offset: { x: number; y: number };
+  cursorPos: { x: number; y: number } | undefined;
+  allNames: string[];
+  idMap: Map<string, string>;
+  nameMap: Map<string, string>;
+}): { newSimNodeNodes: Node<UINodeData>[]; newSimNodeNames: string[] } {
+  const newSimNodeNodes: Node<UINodeData>[] = [];
+  const newSimNodeNames: string[] = [];
+  if (!copiedSimNodes || copiedSimNodes.length === 0) return { newSimNodeNodes, newSimNodeNames };
+
+  for (const simNode of copiedSimNodes) {
+    const newName = generateCopyName(simNode.name, allNames);
+    allNames.push(newName);
+    newSimNodeNames.push(newName);
+
+    const newId = generateSimNodeId();
+
+    // Add to idMap so edges connecting to simNodes will pass the filter.
+    idMap.set(simNode.id, newId);
+    nameMap.set(simNode.name, newName);
+
+    newSimNodeNodes.push({
+      id: newId,
+      type: 'simNode',
+      position: getSimNodePastePosition(simNode, offset, cursorPos),
+      selected: true,
+      data: {
+        id: newId,
+        name: newName,
+        nodeType: 'simnode',
+        template: simNode.template,
+        simNodeType: simNode.type,
+        image: simNode.image,
+        labels: simNode.labels,
+      },
+    });
+  }
+
+  return { newSimNodeNodes, newSimNodeNames };
+}
+
+function getLinkNameSuffix(name: string): string {
+  const parts = name.split('-');
+  const last = parts.length > 0 ? parts[parts.length - 1] : '';
+  return last || '1';
+}
+
+function remapMemberLinks(
+  memberLinks: UIEdgeData['memberLinks'] | undefined,
+  newTargetName: string,
+  newSourceName: string,
+): UIEdgeData['memberLinks'] | undefined {
+  if (!memberLinks) return undefined;
+
+  return memberLinks.map(link => ({
+    ...link,
+    name: `${newTargetName}-${newSourceName}-${getLinkNameSuffix(link.name)}`,
+  }));
+}
+
+function replaceLagNameSegment(lagName: string, oldName: string, newName: string): string {
+  return lagName.replace(new RegExp(`(^|-)${oldName}(-|$)`, 'g'), `$1${newName}$2`);
+}
+
+function remapLagGroups(
+  lagGroups: UIEdgeData['lagGroups'] | undefined,
+  oldSourceName: string,
+  oldTargetName: string,
+  newSourceName: string,
+  newTargetName: string,
+): UIEdgeData['lagGroups'] | undefined {
+  if (!lagGroups) return undefined;
+
+  return lagGroups.map(lag => ({
+    ...lag,
+    name: replaceLagNameSegment(
+      replaceLagNameSegment(lag.name, oldSourceName, newSourceName),
+      oldTargetName,
+      newTargetName,
+    ),
+    memberLinkIndices: [...lag.memberLinkIndices],
+  }));
+}
+
+function remapEsiLeaves(
+  esiLeaves: UIEdgeData['esiLeaves'] | undefined,
+  idMap: Map<string, string>,
+  nameMap: Map<string, string>,
+): UIEdgeData['esiLeaves'] | undefined {
+  if (!esiLeaves) return undefined;
+
+  return esiLeaves.map(leaf => ({
+    nodeId: idMap.get(leaf.nodeId) || leaf.nodeId,
+    nodeName: nameMap.get(leaf.nodeName) || leaf.nodeName,
+  }));
+}
+
+function remapEsiLagName(
+  esiLagName: string | undefined,
+  oldSourceName: string,
+  newSourceName: string,
+): string | undefined {
+  if (!esiLagName) return undefined;
+  if (!oldSourceName) return esiLagName;
+  return esiLagName.replace(oldSourceName, newSourceName || oldSourceName);
+}
+
+function remapCopiedEdge({
+  edge,
+  idMap,
+  nameMap,
+}: {
+  edge: Edge<UIEdgeData>;
+  idMap: Map<string, string>;
+  nameMap: Map<string, string>;
+}): Edge<UIEdgeData> | null {
+  if (!idMap.has(edge.source) || !idMap.has(edge.target)) return null;
+
+  const newSource = idMap.get(edge.source);
+  const newTarget = idMap.get(edge.target);
+  if (!newSource || !newTarget) return null;
+
+  const newId = generateEdgeId();
+
+  const oldSourceName = edge.data?.sourceNode || '';
+  const oldTargetName = edge.data?.targetNode || '';
+  const newSourceName = nameMap.get(oldSourceName) || oldSourceName;
+  const newTargetName = nameMap.get(oldTargetName) || oldTargetName;
+
+  return {
+    ...edge,
+    id: newId,
+    source: newSource,
+    target: newTarget,
+    selected: true,
+    data: edge.data
+      ? {
+        ...edge.data,
+        id: newId,
+        sourceNode: newSourceName,
+        targetNode: newTargetName,
+        memberLinks: remapMemberLinks(edge.data.memberLinks, newTargetName, newSourceName),
+        lagGroups: remapLagGroups(edge.data.lagGroups, oldSourceName, oldTargetName, newSourceName, newTargetName),
+        esiLeaves: remapEsiLeaves(edge.data.esiLeaves, idMap, nameMap),
+        esiLagName: remapEsiLagName(edge.data.esiLagName, oldSourceName, newSourceName),
+      }
+      : undefined,
+  };
+}
+
+function buildPastedEdges({
+  copiedEdges,
+  idMap,
+  nameMap,
+}: {
+  copiedEdges: Edge<UIEdgeData>[];
+  idMap: Map<string, string>;
+  nameMap: Map<string, string>;
+}): Edge<UIEdgeData>[] {
+  const newEdges: Edge<UIEdgeData>[] = [];
+
+  for (const edge of copiedEdges) {
+    const remapped = remapCopiedEdge({ edge, idMap, nameMap });
+    if (remapped) newEdges.push(remapped);
+  }
+
+  return newEdges;
+}
+
+function applyPasteSelectionToStore({
+  set,
+  existingNodes,
+  existingEdges,
+  newNodes,
+  newEdges,
+  newSimNodeNames,
+}: {
+  set: StoreSetFn;
+  existingNodes: Node<UINodeData>[];
+  existingEdges: Edge<UIEdgeData>[];
+  newNodes: Node<UINodeData>[];
+  newEdges: Edge<UIEdgeData>[];
+  newSimNodeNames: string[];
+}) {
+  const allNewNodes = newNodes;
+  const allNewNodeIds = allNewNodes.map(n => n.id);
+
+  // Deselect existing nodes and edges to ensure only pasted items are selected.
+  const deselectedExistingNodes = existingNodes.map(n => ({ ...n, selected: false }));
+  const deselectedExistingEdges = existingEdges.map(e => ({ ...e, selected: false }));
+
+  set({
+    nodes: [...deselectedExistingNodes, ...allNewNodes],
+    edges: [...deselectedExistingEdges, ...newEdges],
+    selectedNodeId: allNewNodeIds.length > 0 ? allNewNodeIds[allNewNodeIds.length - 1] : null,
+    selectedNodeIds: allNewNodeIds,
+    selectedEdgeId: allNewNodes.length === 0 && newEdges.length > 0 ? newEdges[newEdges.length - 1].id : null,
+    selectedEdgeIds: newEdges.map(e => e.id),
+    selectedSimNodeName: newSimNodeNames.length > 0 ? newSimNodeNames[newSimNodeNames.length - 1] : null,
+    selectedSimNodeNames: new Set(newSimNodeNames),
+    selectedMemberLinkIndices: [],
+    selectedLagId: null,
+  });
+}
+
 export const createTopologyStore = () => {
   return create<TopologyStore>()(
     persist(
@@ -228,144 +498,39 @@ export const createTopologyStore = () => {
             if (copiedNodes.length === 0 && (!copiedSimNodes || copiedSimNodes.length === 0)) return;
             get().saveToUndoHistory();
 
-            const existingNodes = get().nodes;
-            const existingEdges = get().edges;
+            const state = get();
+            const existingNodes = state.nodes;
+            const existingEdges = state.edges;
             const allNames = existingNodes.map(n => n.data.name);
 
             const idMap = new Map<string, string>();
             const nameMap = new Map<string, string>();
 
-            const newNodes: Node<UINodeData>[] = copiedNodes.map(node => {
-              const newId = generateNodeId();
-              idMap.set(node.id, newId);
-              const newName = generateCopyName(node.data.name, allNames);
-              allNames.push(newName);
-              nameMap.set(node.data.name, newName);
+            const newNodes = buildPastedNodes({ copiedNodes, offset, allNames, idMap, nameMap });
 
-              return {
-                ...node,
-                id: newId,
-                position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
-                selected: true,
-                data: { ...node.data, id: newId, name: newName },
-              };
+            // Process simNodes first so their IDs are in idMap for edge filtering.
+            const { newSimNodeNodes, newSimNodeNames } = buildPastedSimNodeNodes({
+              copiedSimNodes,
+              offset,
+              cursorPos,
+              allNames,
+              idMap,
+              nameMap,
             });
 
-            // Process simNodes first so their IDs are in idMap for edge filtering
-            const newSimNodeNodes: Node<UINodeData>[] = [];
-            const newSimNodeNames: string[] = [];
-            if (copiedSimNodes && copiedSimNodes.length > 0) {
-              for (const simNode of copiedSimNodes) {
-                const newName = generateCopyName(simNode.name, allNames);
-                allNames.push(newName);
-                newSimNodeNames.push(newName);
-                const newId = generateSimNodeId();
+            // Now filter edges - both regular node IDs and simNode IDs are in idMap.
+            const newEdges = buildPastedEdges({ copiedEdges, idMap, nameMap });
 
-                // Add to idMap so edges connecting to simNodes will pass the filter
-                idMap.set(simNode.id, newId);
-                nameMap.set(simNode.name, newName);
-
-                const position = simNode.position
-                  ? { x: simNode.position.x + offset.x, y: simNode.position.y + offset.y }
-                  : cursorPos || { x: 0, y: 0 };
-
-                newSimNodeNodes.push({
-                  id: newId,
-                  type: 'simNode',
-                  position,
-                  selected: true,
-                  data: {
-                    id: newId,
-                    name: newName,
-                    nodeType: 'simnode',
-                    template: simNode.template,
-                    simNodeType: simNode.type,
-                    image: simNode.image,
-                    labels: simNode.labels,
-                  },
-                });
-              }
-            }
-
-            // Now filter edges - both regular node IDs and simNode IDs are in idMap
-            const newEdges: Edge<UIEdgeData>[] = [];
-            for (const edge of copiedEdges) {
-              if (!idMap.has(edge.source) || !idMap.has(edge.target)) continue;
-
-              const newSource = idMap.get(edge.source);
-              const newTarget = idMap.get(edge.target);
-              if (!newSource || !newTarget) continue;
-
-              const newId = generateEdgeId();
-              const newSourceName = nameMap.get(edge.data?.sourceNode || '') || edge.data?.sourceNode;
-              const newTargetName = nameMap.get(edge.data?.targetNode || '') || edge.data?.targetNode;
-
-              const memberLinks = edge.data?.memberLinks?.map(link => ({
-                ...link,
-                name: `${newTargetName}-${newSourceName}-${link.name.split('-').pop() || '1'}`,
-              }));
-
-              const lagGroups = edge.data?.lagGroups?.map(lag => ({
-                ...lag,
-                name: lag.name
-                  .replace(new RegExp(`(^|-)${edge.data?.sourceNode}(-|$)`, 'g'), `$1${newSourceName}$2`)
-                  .replace(new RegExp(`(^|-)${edge.data?.targetNode}(-|$)`, 'g'), `$1${newTargetName}$2`),
-                memberLinkIndices: [...lag.memberLinkIndices],
-              }));
-
-              const esiLeaves = edge.data?.esiLeaves?.map(leaf => ({
-                nodeId: idMap.get(leaf.nodeId) || leaf.nodeId,
-                nodeName: nameMap.get(leaf.nodeName) || leaf.nodeName,
-              }));
-
-              const esiLagName = edge.data?.esiLagName && edge.data.sourceNode
-                ? edge.data.esiLagName.replace(
-                  edge.data.sourceNode,
-                  newSourceName || edge.data.sourceNode,
-                )
-                : edge.data?.esiLagName;
-
-              newEdges.push({
-                ...edge,
-                id: newId,
-                source: newSource,
-                target: newTarget,
-                selected: true,
-                data: edge.data ? {
-                  ...edge.data,
-                  id: newId,
-                  sourceNode: newSourceName || '',
-                  targetNode: newTargetName || '',
-                  memberLinks,
-                  lagGroups,
-                  esiLeaves,
-                  esiLagName,
-                } : undefined,
-              });
-            }
-
-            const allNewNodes = [...newNodes, ...newSimNodeNodes];
-            const allNewNodeIds = allNewNodes.map(n => n.id);
-
-            // Deselect existing nodes and edges to ensure only pasted items are selected
-            // This prevents selection state mismatch where original nodes have selected: true
-            // but their IDs are not in selectedNodeIds
-            const deselectedExistingNodes = existingNodes.map(n => ({ ...n, selected: false }));
-            const deselectedExistingEdges = existingEdges.map(e => ({ ...e, selected: false }));
-
-            set({
-              nodes: [...deselectedExistingNodes, ...allNewNodes],
-              edges: [...deselectedExistingEdges, ...newEdges],
-              selectedNodeId: allNewNodeIds.length > 0 ? allNewNodeIds[allNewNodeIds.length - 1] : null,
-              selectedNodeIds: allNewNodeIds,
-              selectedEdgeId: allNewNodes.length === 0 && newEdges.length > 0 ? newEdges[newEdges.length - 1].id : null,
-              selectedEdgeIds: newEdges.map(e => e.id),
-              selectedSimNodeName: newSimNodeNames.length > 0 ? newSimNodeNames[newSimNodeNames.length - 1] : null,
-              selectedSimNodeNames: new Set(newSimNodeNames),
-              selectedMemberLinkIndices: [],
-              selectedLagId: null,
+            applyPasteSelectionToStore({
+              set: set as StoreSetFn,
+              existingNodes,
+              existingEdges,
+              newNodes: [...newNodes, ...newSimNodeNodes],
+              newEdges,
+              newSimNodeNames,
             });
-            get().triggerYamlRefresh();
+
+            state.triggerYamlRefresh();
           },
         };
 

@@ -115,62 +115,59 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     return null;
   }, [getNodes, getEdges]);
 
+  const pasteCopiedLinkTemplate = useCallback((copiedLink: NonNullable<ClipboardData['copiedLink']>) => {
+    const currentState = useTopologyStore.getState();
+    const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
+    const edge = currentState.edges.find(e => e.id === targetEdgeId);
+    if (!edge?.data) return;
+
+    const sourceIsSimNode = edge.source.startsWith('sim-');
+    const targetIsSimNode = edge.target.startsWith('sim-');
+
+    const extractPortNumber = (iface: string): number => {
+      const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
+      if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+
+      const ethMatch = iface.match(/eth(\d+)/);
+      if (ethMatch) return parseInt(ethMatch[1], 10);
+
+      return 0;
+    };
+
+    const nextPortForNode = (nodeId: string): number => {
+      const portNumbers = currentState.edges.flatMap(e => {
+        if (e.source === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
+        if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
+        return [];
+      });
+
+      return Math.max(0, ...portNumbers) + 1;
+    };
+
+    const nextSourcePort = nextPortForNode(edge.source);
+    const nextTargetPort = nextPortForNode(edge.target);
+
+    const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
+    const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+
+    const memberLinks = edge.data.memberLinks || [];
+    const nextLinkNumber = memberLinks.length + 1;
+
+    addMemberLink(edge.id, {
+      name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
+      template: copiedLink.template,
+      sourceInterface,
+      targetInterface,
+    });
+    triggerYamlRefresh();
+  }, [addMemberLink, triggerYamlRefresh]);
+
   const performPaste = useCallback((clipboardData: ClipboardData, cursorPos: { x: number; y: number }) => {
     const { nodes: copiedNodes, edges: copiedEdges, simNodes: copiedSimNodes, copiedLink } = clipboardData;
 
     // Handle pasting a copied link template
     if (copiedLink) {
-      const currentState = useTopologyStore.getState();
-      const targetEdgeId = currentState.selectedEdgeId || copiedLink.edgeId;
-      const edge = currentState.edges.find(e => e.id === targetEdgeId);
-      if (edge && edge.data) {
-        const sourceIsSimNode = edge.source.startsWith('sim-');
-        const targetIsSimNode = edge.target.startsWith('sim-');
-
-        const extractPortNumber = (iface: string): number => {
-          const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
-          if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-          const ethMatch = iface.match(/eth(\d+)/);
-          if (ethMatch) return parseInt(ethMatch[1], 10);
-          return 0;
-        };
-
-        const sourcePortNumbers = currentState.edges.flatMap(e => {
-          if (e.source === edge.source) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-          }
-          if (e.target === edge.source) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-          }
-          return [];
-        });
-        const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
-
-        const targetPortNumbers = currentState.edges.flatMap(e => {
-          if (e.source === edge.target) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-          }
-          if (e.target === edge.target) {
-            return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-          }
-          return [];
-        });
-        const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
-
-        const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-        const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
-
-        const memberLinks = edge.data.memberLinks || [];
-        const nextLinkNumber = memberLinks.length + 1;
-
-        addMemberLink(edge.id, {
-          name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
-          template: copiedLink.template,
-          sourceInterface,
-          targetInterface,
-        });
-        triggerYamlRefresh();
-      }
+      pasteCopiedLinkTemplate(copiedLink);
       return;
     }
 
@@ -206,7 +203,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
         isPastingRef.current = false;
       }, 0);
     }
-  }, [saveToUndoHistory, triggerYamlRefresh, pasteSelection, addMemberLink, isPastingRef]);
+  }, [pasteCopiedLinkTemplate, saveToUndoHistory, pasteSelection, isPastingRef]);
 
   const onCopy = useCallback((event: ClipboardEvent) => {
     const target = event.target as HTMLElement;

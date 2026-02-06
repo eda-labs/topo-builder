@@ -56,45 +56,37 @@ export default function EsiLagEdge({
 
   const sourceWidth = sourceNode.measured?.width || DEFAULT_NODE_WIDTH;
   const sourceHeight = sourceNode.measured?.height || DEFAULT_NODE_HEIGHT;
-  let sourceX: number;
-  let sourceY: number;
+  const sourceAnchorPoints: Record<Position, { x: number; y: number }> = {
+    [Position.Top]: {
+      x: sourceNode.position.x + sourceWidth / 2,
+      y: sourceNode.position.y,
+    },
+    [Position.Bottom]: {
+      x: sourceNode.position.x + sourceWidth / 2,
+      y: sourceNode.position.y + sourceHeight,
+    },
+    [Position.Left]: {
+      x: sourceNode.position.x,
+      y: sourceNode.position.y + sourceHeight / 2,
+    },
+    [Position.Right]: {
+      x: sourceNode.position.x + sourceWidth,
+      y: sourceNode.position.y + sourceHeight / 2,
+    },
+  };
 
-  switch (sourcePosition) {
-    case Position.Top:
-      sourceX = sourceNode.position.x + sourceWidth / 2;
-      sourceY = sourceNode.position.y;
-      break;
-    case Position.Bottom:
-      sourceX = sourceNode.position.x + sourceWidth / 2;
-      sourceY = sourceNode.position.y + sourceHeight;
-      break;
-    case Position.Left:
-      sourceX = sourceNode.position.x;
-      sourceY = sourceNode.position.y + sourceHeight / 2;
-      break;
-    case Position.Right:
-      sourceX = sourceNode.position.x + sourceWidth;
-      sourceY = sourceNode.position.y + sourceHeight / 2;
-      break;
-  }
+  const { x: sourceX, y: sourceY } = sourceAnchorPoints[sourcePosition];
 
-  let stemX = sourceX;
-  let stemY = sourceY;
+  const stemDeltas: Record<Position, { dx: number; dy: number }> = {
+    [Position.Top]: { dx: 0, dy: -ESI_LAG_STEM_LENGTH },
+    [Position.Bottom]: { dx: 0, dy: ESI_LAG_STEM_LENGTH },
+    [Position.Left]: { dx: -ESI_LAG_STEM_LENGTH, dy: 0 },
+    [Position.Right]: { dx: ESI_LAG_STEM_LENGTH, dy: 0 },
+  };
 
-  switch (sourcePosition) {
-    case Position.Top:
-      stemY = sourceY - ESI_LAG_STEM_LENGTH;
-      break;
-    case Position.Bottom:
-      stemY = sourceY + ESI_LAG_STEM_LENGTH;
-      break;
-    case Position.Left:
-      stemX = sourceX - ESI_LAG_STEM_LENGTH;
-      break;
-    case Position.Right:
-      stemX = sourceX + ESI_LAG_STEM_LENGTH;
-      break;
-  }
+  const { dx, dy } = stemDeltas[sourcePosition];
+  const stemX = sourceX + dx;
+  const stemY = sourceY + dy;
 
   const createPath = (tgtX: number, tgtY: number, tgtPosition: Position): string => {
     const distance = Math.sqrt((tgtX - stemX) ** 2 + (tgtY - stemY) ** 2);

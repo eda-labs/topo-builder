@@ -9,6 +9,29 @@ import StandardEdge from './StandardEdge';
 import BundleEdge from './BundleEdge';
 import EsiLagEdge from './EsiLagEdge';
 
+function coalesce<T>(value: T | null | undefined, fallback: T): T {
+  if (value == null) return fallback;
+  return value;
+}
+
+function asArray<T>(value: T[] | undefined | null): T[] {
+  if (value) return value;
+  return [];
+}
+
+function isSimNodeEdgeFromIds(source: string, target: string): boolean {
+  if (source.startsWith('sim-')) return true;
+  if (target.startsWith('sim-')) return true;
+  return false;
+}
+
+function getEdgeNodes(edgeData: UIEdgeData | undefined, source: string, target: string) {
+  return {
+    edgeNodeA: coalesce(edgeData?.sourceNode, source),
+    edgeNodeB: coalesce(edgeData?.targetNode, target),
+  };
+}
+
 export default function LinkEdge({
   id,
   source,
@@ -17,13 +40,12 @@ export default function LinkEdge({
   selected,
 }: EdgeProps) {
   const edgeData = data as UIEdgeData | undefined;
-  const isSimNodeEdge = source?.startsWith('sim-') || target?.startsWith('sim-');
+  const isSimNodeEdge = isSimNodeEdgeFromIds(source, target);
 
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
 
-  const edgeNodeA = edgeData?.sourceNode ?? source;
-  const edgeNodeB = edgeData?.targetNode ?? target;
+  const { edgeNodeA, edgeNodeB } = getEdgeNodes(edgeData, source, target);
   const edgeTestId = topologyEdgeTestId(edgeNodeA, edgeNodeB);
 
   const expandedEdges = useTopologyStore(state => state.expandedEdges);
@@ -42,11 +64,65 @@ export default function LinkEdge({
 
   const isEsiLag = edgeData?.edgeType === 'esilag';
   const esiLeaves = edgeData?.esiLeaves;
-  const memberLinks = edgeData?.memberLinks || [];
-  const lagGroups = edgeData?.lagGroups || [];
+  const memberLinks = asArray(edgeData?.memberLinks);
+  const lagGroups = asArray(edgeData?.lagGroups);
   const linkCount = memberLinks.length;
   const isExpanded = expandedEdges.has(id);
-  const isSelected = selected ?? false;
+  const isSelected = Boolean(selected);
+
+  const renderEsiLagEdge = () => {
+    if (!isEsiLag || !esiLeaves?.length) return null;
+
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const leafNodes = new Map<string, { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }>();
+
+    for (const leaf of esiLeaves) {
+      const nodeInfo = nodeById.get(leaf.nodeId);
+      if (nodeInfo) leafNodes.set(leaf.nodeId, nodeInfo);
+    }
+
+    if (leafNodes.size < 1) return null;
+
+    return (
+      <EsiLagEdge
+        id={id}
+        testId={edgeTestId}
+        sourceNode={sourceNode}
+        isSelected={isSelected}
+        isSimNodeEdge={isSimNodeEdge}
+        esiLeaves={esiLeaves}
+        leafNodes={leafNodes}
+      />
+    );
+  };
+
+  const renderBundleEdge = () => {
+    if (!isExpanded || linkCount <= 0) return null;
+
+    return (
+      <BundleEdge
+        edgeNodeA={edgeNodeA}
+        edgeNodeB={edgeNodeB}
+        sourceX={sourceX}
+        sourceY={sourceY}
+        targetX={targetX}
+        targetY={targetY}
+        sourcePosition={sourcePosition}
+        targetPosition={targetPosition}
+        isSelected={isSelected}
+        isSimNodeEdge={isSimNodeEdge}
+        memberLinks={memberLinks}
+        lagGroups={lagGroups}
+        selectedMemberLinkIndices={selectedMemberLinkIndices}
+        selectedLagId={selectedLagId}
+        onDoubleClick={handleDoubleClick}
+        onMemberLinkClick={handleMemberLinkClick}
+        onMemberLinkContextMenu={handleMemberLinkContextMenu}
+        onLagClick={handleLagClick}
+        onLagContextMenu={handleLagContextMenu}
+      />
+    );
+  };
 
   const handleDoubleClick = () => {
     if (linkCount > 1) {
@@ -76,62 +152,11 @@ export default function LinkEdge({
     }
   };
 
-  if (isEsiLag && esiLeaves?.length) {
-    const findNodeInfo = (nodeId: string) => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) return node;
-      return null;
-    };
+  const esiLagEdgeElement = renderEsiLagEdge();
+  if (esiLagEdgeElement) return esiLagEdgeElement;
 
-    const leafNodes = new Map<string, { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }>();
-
-    for (const leaf of esiLeaves) {
-      const nodeInfo = findNodeInfo(leaf.nodeId);
-      if (nodeInfo) {
-        leafNodes.set(leaf.nodeId, nodeInfo);
-      }
-    }
-
-    if (leafNodes.size >= 1) {
-      return (
-        <EsiLagEdge
-          id={id}
-          testId={edgeTestId}
-          sourceNode={sourceNode}
-          isSelected={isSelected}
-          isSimNodeEdge={isSimNodeEdge}
-          esiLeaves={esiLeaves}
-          leafNodes={leafNodes}
-        />
-      );
-    }
-  }
-
-  if (isExpanded && linkCount > 0) {
-    return (
-      <BundleEdge
-        edgeNodeA={edgeNodeA}
-        edgeNodeB={edgeNodeB}
-        sourceX={sourceX}
-        sourceY={sourceY}
-        targetX={targetX}
-        targetY={targetY}
-        sourcePosition={sourcePosition}
-        targetPosition={targetPosition}
-        isSelected={isSelected}
-        isSimNodeEdge={isSimNodeEdge}
-        memberLinks={memberLinks}
-        lagGroups={lagGroups}
-        selectedMemberLinkIndices={selectedMemberLinkIndices}
-        selectedLagId={selectedLagId}
-        onDoubleClick={handleDoubleClick}
-        onMemberLinkClick={handleMemberLinkClick}
-        onMemberLinkContextMenu={handleMemberLinkContextMenu}
-        onLagClick={handleLagClick}
-        onLagContextMenu={handleLagContextMenu}
-      />
-    );
-  }
+  const bundleEdgeElement = renderBundleEdge();
+  if (bundleEdgeElement) return bundleEdgeElement;
 
   return (
     <StandardEdge

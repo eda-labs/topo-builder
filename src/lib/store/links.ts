@@ -39,6 +39,177 @@ export const setEdgeIdGenerator = (fn: () => string) => {
   generateEdgeId = fn;
 };
 
+function normalizeConnectionForSimNodes(connection: Connection): { sourceId: string; targetId: string } | null {
+  const source = connection.source;
+  const target = connection.target;
+  if (!source || !target) return null;
+
+  // Normalize: ensure SimNodes are always the source if one endpoint is a SimNode.
+  const sourceIsSimNode = source.startsWith('sim-');
+  const targetIsSimNode = target.startsWith('sim-');
+
+  if (targetIsSimNode && !sourceIsSimNode) {
+    return { sourceId: target, targetId: source };
+  }
+
+  return { sourceId: source, targetId: target };
+}
+
+function isSimNodeId(nodeId: string): boolean {
+  return nodeId.startsWith('sim-');
+}
+
+function isSimNodeConnection(sourceId: string, targetId: string): boolean {
+  if (isSimNodeId(sourceId)) return true;
+  return isSimNodeId(targetId);
+}
+
+function getNodeName(nodes: UINode[], nodeId: string): string {
+  const node = nodes.find(n => n.id === nodeId);
+  return node ? node.data.name : nodeId;
+}
+
+function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean): string {
+  if (!simConnection) return 'isl';
+  return linkTemplates.find(t => t.type === 'edge')?.name || 'edge';
+}
+
+function findExistingEdge(edges: UIEdge[], sourceId: string, targetId: string): UIEdge | undefined {
+  for (const edge of edges) {
+    if (edge.data?.edgeType === 'esilag') continue;
+    if (edge.source === sourceId && edge.target === targetId) return edge;
+    if (edge.source === targetId && edge.target === sourceId) return edge;
+  }
+  return undefined;
+}
+
+function getInterfacesForNodeInEdge(edge: UIEdge, nodeId: string): string[] {
+  const memberLinks = edge.data?.memberLinks;
+  if (!memberLinks || memberLinks.length === 0) return [];
+
+  if (edge.source === nodeId) return memberLinks.map(ml => ml.sourceInterface);
+  if (edge.target === nodeId) return memberLinks.map(ml => ml.targetInterface);
+
+  return [];
+}
+
+function getNextPortNumber(edges: UIEdge[], nodeId: string): number {
+  let maxPort = 0;
+
+  for (const edge of edges) {
+    const interfaces = getInterfacesForNodeInEdge(edge, nodeId);
+    for (const iface of interfaces) {
+      const port = extractPortNumber(iface);
+      if (port > maxPort) maxPort = port;
+    }
+  }
+
+  return maxPort + 1;
+}
+
+function formatInterface(isSimNode: boolean, portNumber: number): string {
+  if (isSimNode) return `eth${portNumber}`;
+  return `ethernet-1-${portNumber}`;
+}
+
+function getEdgePairKey(a: string, b: string): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
+}
+
+function getNextLinkNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
+  const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
+  let memberLinkCount = 0;
+
+  for (const edge of edges) {
+    const edgeSource = edge.data?.sourceNode;
+    const edgeTarget = edge.data?.targetNode;
+    if (!edgeSource || !edgeTarget) continue;
+    if (getEdgePairKey(edgeSource, edgeTarget) !== pairKey) continue;
+    memberLinkCount += edge.data?.memberLinks?.length ?? 0;
+  }
+
+  return memberLinkCount + 1;
+}
+
+function selectExistingEdgeWithNewMemberLink({
+  set,
+  get,
+  nodes,
+  edges,
+  existingEdge,
+  newMemberLink,
+}: {
+  set: Parameters<LinkSliceCreator>[0];
+  get: Parameters<LinkSliceCreator>[1];
+  nodes: UINode[];
+  edges: UIEdge[];
+  existingEdge: UIEdge;
+  newMemberLink: UIMemberLink;
+}) {
+  const existingMemberLinks = existingEdge.data?.memberLinks || [];
+  const updatedEdges = edges.map(e =>
+    e.id === existingEdge.id
+      ? { ...e, selected: true, data: { ...e.data, memberLinks: [...existingMemberLinks, newMemberLink] } as UIEdgeData }
+      : { ...e, selected: false },
+  );
+
+  set({
+    nodes: nodes.map(n => ({ ...n, selected: false })),
+    edges: updatedEdges,
+    selectedEdgeId: existingEdge.id,
+    selectedEdgeIds: [existingEdge.id],
+    selectedNodeId: null,
+    selectedSimNodeName: null,
+    selectedMemberLinkIndices: [existingMemberLinks.length],
+  } as Partial<LinkSlice>);
+
+  sessionStorage.setItem('topology-new-link-id', existingEdge.id);
+  get().triggerYamlRefresh();
+}
+
+function createEdgeAndSelect({
+  set,
+  get,
+  nodes,
+  edges,
+  id,
+  source,
+  target,
+  data,
+}: {
+  set: Parameters<LinkSliceCreator>[0];
+  get: Parameters<LinkSliceCreator>[1];
+  nodes: UINode[];
+  edges: UIEdge[];
+  id: string;
+  source: string;
+  target: string;
+  data: UIEdgeData;
+}) {
+  const newEdge: UIEdge = {
+    id,
+    type: 'linkEdge',
+    source,
+    target,
+    selected: true,
+    data,
+  };
+
+  set({
+    nodes: nodes.map(n => ({ ...n, selected: false })),
+    edges: [...edges.map(e => ({ ...e, selected: false })), newEdge],
+    selectedEdgeId: id,
+    selectedEdgeIds: [id],
+    selectedNodeId: null,
+    selectedSimNodeName: null,
+    selectedMemberLinkIndices: [],
+    selectedLagId: null,
+  } as Partial<LinkSlice>);
+
+  sessionStorage.setItem('topology-new-link-id', id);
+  get().triggerYamlRefresh();
+}
+
 export type LinkSliceCreator = StateCreator<
   LinkSlice & {
     nodes: UINode[];
@@ -64,120 +235,70 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
 
   addEdge: (connection: Connection) => {
     get().saveToUndoHistory();
-    const nodes = get().nodes;
-    const edges = get().edges;
-    const linkTemplates = get().linkTemplates;
+    const state = get();
+    const nodes = state.nodes;
+    const edges = state.edges;
+    const linkTemplates = state.linkTemplates;
 
-    // Normalize: ensure SimNodes are always the source if one endpoint is a SimNode
-    const origSourceIsSimNode = connection.source?.startsWith('sim-');
-    const origTargetIsSimNode = connection.target?.startsWith('sim-');
-    const needsSwap = origTargetIsSimNode && !origSourceIsSimNode;
+    const normalized = normalizeConnectionForSimNodes(connection);
+    if (!normalized) return;
 
-    const normalizedSource = needsSwap ? connection.target : connection.source;
-    const normalizedTarget = needsSwap ? connection.source : connection.target;
+    const sourceId = normalized.sourceId;
+    const targetId = normalized.targetId;
 
-    const sourceNodeName = nodes.find(n => n.id === normalizedSource)?.data.name || normalizedSource;
-    const targetNodeName = nodes.find(n => n.id === normalizedTarget)?.data.name || normalizedTarget;
+    const sourceNodeName = getNodeName(nodes, sourceId);
+    const targetNodeName = getNodeName(nodes, targetId);
 
-    const sourceIsSimNode = normalizedSource?.startsWith('sim-');
-    const targetIsSimNode = normalizedTarget?.startsWith('sim-');
-    const isSimNodeConnection = sourceIsSimNode || targetIsSimNode;
-    const defaultTemplate = isSimNodeConnection
-      ? linkTemplates.find(t => t.type === 'edge')?.name || 'edge'
-      : 'isl';
+    const sourceIsSimNode = isSimNodeId(sourceId);
+    const targetIsSimNode = isSimNodeId(targetId);
+    const simConnection = isSimNodeConnection(sourceId, targetId);
+    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection);
 
-    // Find existing edge between same node pair (ignoring handles since edges are now floating)
-    const existingEdge = edges.find(e => {
-      if (e.data?.edgeType === 'esilag') return false;
-      const sameDirection = e.source === normalizedSource && e.target === normalizedTarget;
-      const reversedDirection = e.source === normalizedTarget && e.target === normalizedSource;
-      return sameDirection || reversedDirection;
-    });
+    const nextSourcePort = getNextPortNumber(edges, sourceId);
+    const nextTargetPort = getNextPortNumber(edges, targetId);
 
-    const sourcePortNumbers = edges.flatMap(e => {
-      if (e.source === normalizedSource) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-      if (e.target === normalizedSource) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-      return [];
-    });
-    const nextSourcePort = Math.max(0, ...sourcePortNumbers) + 1;
+    const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
+    const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
 
-    const targetPortNumbers = edges.flatMap(e => {
-      if (e.source === normalizedTarget) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-      if (e.target === normalizedTarget) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-      return [];
-    });
-    const nextTargetPort = Math.max(0, ...targetPortNumbers) + 1;
+    const nextLinkNumber = getNextLinkNumberForPair(edges, sourceNodeName, targetNodeName);
+    const existingEdge = findExistingEdge(edges, sourceId, targetId);
 
-    const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-    const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+    const newMemberLink: UIMemberLink = {
+      name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
+      template: defaultTemplate,
+      sourceInterface,
+      targetInterface,
+    };
 
-    const sortedPair = [sourceNodeName, targetNodeName].sort().join('-');
-    const allLinksForPair = edges.flatMap(e => {
-      const edgePair = [e.data?.sourceNode, e.data?.targetNode].sort().join('-');
-      return edgePair === sortedPair ? e.data?.memberLinks || [] : [];
-    });
-    const nextLinkNumber = allLinksForPair.length + 1;
-
-    if (existingEdge && existingEdge.data) {
-      const existingMemberLinks = existingEdge.data.memberLinks || [];
-      const newMemberLink: UIMemberLink = {
-        name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
-        template: defaultTemplate,
-        sourceInterface,
-        targetInterface,
-      };
-      const updatedEdges = edges.map(e =>
-        e.id === existingEdge.id
-          ? { ...e, selected: true, data: { ...e.data, memberLinks: [...existingMemberLinks, newMemberLink] } as UIEdgeData }
-          : { ...e, selected: false },
-      );
-      set({
-        nodes: nodes.map(n => ({ ...n, selected: false })),
-        edges: updatedEdges,
-        selectedEdgeId: existingEdge.id,
-        selectedEdgeIds: [existingEdge.id],
-        selectedNodeId: null,
-        selectedSimNodeName: null,
-        selectedMemberLinkIndices: [existingMemberLinks.length],
-      } as Partial<LinkSlice>);
-      sessionStorage.setItem('topology-new-link-id', existingEdge.id);
-      get().triggerYamlRefresh();
+    if (existingEdge?.data) {
+      selectExistingEdgeWithNewMemberLink({
+        set,
+        get,
+        nodes,
+        edges,
+        existingEdge,
+        newMemberLink,
+      });
       return;
     }
 
     const id = generateEdgeId();
-    const newEdge: UIEdge = {
+    createEdgeAndSelect({
+      set,
+      get,
+      nodes,
+      edges,
       id,
-      type: 'linkEdge',
-      source: normalizedSource,
-      target: normalizedTarget,
-      selected: true,
+      source: sourceId,
+      target: targetId,
       data: {
         id,
         sourceNode: sourceNodeName,
         targetNode: targetNodeName,
         edgeType: 'normal',
-        memberLinks: [{
-          name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
-          template: defaultTemplate,
-          sourceInterface,
-          targetInterface,
-        }],
+        memberLinks: [newMemberLink],
       },
-    };
-
-    set({
-      nodes: nodes.map(n => ({ ...n, selected: false })),
-      edges: [...edges.map(e => ({ ...e, selected: false })), newEdge],
-      selectedEdgeId: id,
-      selectedEdgeIds: [id],
-      selectedNodeId: null,
-      selectedSimNodeName: null,
-      selectedMemberLinkIndices: [],
-      selectedLagId: null,
-    } as Partial<LinkSlice>);
-    sessionStorage.setItem('topology-new-link-id', id);
-    get().triggerYamlRefresh();
+    });
   },
 
   updateEdge: (id: string, data: Partial<UIEdgeData>) => {

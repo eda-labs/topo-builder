@@ -13,9 +13,12 @@ export interface BaseNodeProps {
   testId?: string;
 }
 
+type NodeLike = { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } };
+type EdgeLike = { source: string; target: string; data?: { esiLeaves?: Array<{ nodeId: string }> } };
+
 function getConnectedPosition(
-  thisNode: { position: { x: number; y: number }; measured?: { width?: number; height?: number } },
-  otherNode: { position: { x: number; y: number }; measured?: { width?: number; height?: number } },
+  thisNode: NodeLike,
+  otherNode: NodeLike,
 ): Position {
   const thisCenter = getNodeCenter(thisNode);
   const otherCenter = getNodeCenter(otherNode);
@@ -28,6 +31,65 @@ function getConnectedPosition(
   } else {
     return thisCenter.y > otherCenter.y ? Position.Top : Position.Bottom;
   }
+}
+
+function addEsiLagConnectedPositions(
+  positions: Set<Position>,
+  nodeId: string,
+  thisNode: NodeLike,
+  edge: EdgeLike,
+  nodesById: Map<string, NodeLike>,
+  esiLeaves: Array<{ nodeId: string }>,
+) {
+  // ESI-LAG edges connect the source node to many leaf nodes.
+  if (edge.source === nodeId) {
+    for (const leaf of esiLeaves) {
+      const leafNode = nodesById.get(leaf.nodeId);
+      if (leafNode) positions.add(getConnectedPosition(thisNode, leafNode));
+    }
+    return;
+  }
+
+  const leafIds = new Set(esiLeaves.map(l => l.nodeId));
+  if (!leafIds.has(nodeId)) return;
+
+  const sourceNode = nodesById.get(edge.source);
+  if (sourceNode) positions.add(getConnectedPosition(thisNode, sourceNode));
+}
+
+function addStandardConnectedPositions(
+  positions: Set<Position>,
+  nodeId: string,
+  thisNode: NodeLike,
+  edge: EdgeLike,
+  nodesById: Map<string, NodeLike>,
+) {
+  let otherNodeId: string | null = null;
+  if (edge.source === nodeId) otherNodeId = edge.target;
+  else if (edge.target === nodeId) otherNodeId = edge.source;
+  if (!otherNodeId) return;
+
+  const otherNode = nodesById.get(otherNodeId);
+  if (otherNode) positions.add(getConnectedPosition(thisNode, otherNode));
+}
+
+function computeConnectedPositions(nodeId: string, edges: EdgeLike[], nodes: NodeLike[]): Set<Position> {
+  const positions = new Set<Position>();
+
+  const nodesById = new Map(nodes.map(n => [n.id, n]));
+  const thisNode = nodesById.get(nodeId);
+  if (!thisNode) return positions;
+
+  for (const edge of edges) {
+    const esiLeaves = edge.data?.esiLeaves;
+    if (esiLeaves?.length) {
+      addEsiLagConnectedPositions(positions, nodeId, thisNode, edge, nodesById, esiLeaves);
+    } else {
+      addStandardConnectedPositions(positions, nodeId, thisNode, edge, nodesById);
+    }
+  }
+
+  return positions;
 }
 
 export default function BaseNode({
@@ -45,46 +107,7 @@ export default function BaseNode({
   const isConnecting = useStore(state => state.connection.inProgress);
 
   const connectedPositions = useMemo(() => {
-    const positions = new Set<Position>();
-    const thisNode = nodes.find(n => n.id === nodeId);
-    if (!thisNode) return positions;
-
-    for (const edge of edges) {
-      let otherNodeId: string | null = null;
-
-      if (edge.source === nodeId) {
-        otherNodeId = edge.target;
-      } else if (edge.target === nodeId) {
-        otherNodeId = edge.source;
-      }
-
-      const esiLeaves = edge.data?.esiLeaves;
-      if (esiLeaves) {
-        for (const leaf of esiLeaves) {
-          if (leaf.nodeId === nodeId) {
-            otherNodeId = edge.source;
-            break;
-          }
-        }
-        if (edge.source === nodeId) {
-          for (const leaf of esiLeaves) {
-            const leafNode = nodes.find(n => n.id === leaf.nodeId);
-            if (leafNode) {
-              positions.add(getConnectedPosition(thisNode, leafNode));
-            }
-          }
-        }
-      }
-
-      if (otherNodeId) {
-        const otherNode = nodes.find(n => n.id === otherNodeId);
-        if (otherNode) {
-          positions.add(getConnectedPosition(thisNode, otherNode));
-        }
-      }
-    }
-
-    return positions;
+    return computeConnectedPositions(nodeId, edges, nodes);
   }, [edges, nodes, nodeId]);
 
   const alwaysShowAll = selected || isConnecting;

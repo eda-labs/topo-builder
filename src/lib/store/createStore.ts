@@ -589,6 +589,12 @@ export const createTopologyStore = () => {
             selectedSimNodeNames,
             nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : (baseTemplate.nodeTemplates || []),
             linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : (baseTemplate.linkTemplates || []),
+            simulation: {
+              ...(persisted.simulation || currentState.simulation),
+              simNodeTemplates: persisted.simulation?.simNodeTemplates?.length
+                ? persisted.simulation.simNodeTemplates
+                : (baseTemplate.simulation?.simNodeTemplates || []),
+            },
           };
         },
         onRehydrateStorage: () => state => {

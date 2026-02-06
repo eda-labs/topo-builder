@@ -37,7 +37,7 @@ import {
 import { toSvg } from 'html-to-image';
 import { getNodesBounds } from '@xyflow/react';
 import { useTopologyStore } from '../lib/store/index';
-import { exportToYaml, downloadYaml } from '../lib/yaml-converter';
+import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
@@ -98,28 +98,31 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [error]);
 
-  const getYaml = (withTimestamp = false) => exportToYaml({
-    topologyName: withTimestamp ? `${topologyName}-${Date.now()}` : topologyName,
-    namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation,
+  const getExportYaml = () => exportToYaml({
+    topologyName: `${topologyName}-${Date.now()}`,
+    namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation,
   });
 
-  const handleDownload = () => { downloadYaml(getYaml(true), `${topologyName}-${Date.now()}.yaml`); };
+  const handleDownload = () => {
+    const yaml = getExportYaml();
+    downloadYaml(yaml, `${topologyName}-${Date.now()}.yaml`);
+  };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(getYaml(true));
+    await navigator.clipboard.writeText(getExportYaml());
     setCopied(true);
     setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleCopyKubectl = async () => {
-    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getYaml(true)}\nEOF`);
+    await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getExportYaml()}\nEOF`);
     setCopied(true);
     setTimeout(() => { setCopied(false); }, 2000);
   };
 
   const handleValidate = () => {
-    const yamlToValidate = getYaml();
-    setValidationResult(validateNetworkTopology(yamlToValidate));
+    const yaml = exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation });
+    setValidationResult(validateNetworkTopology(yaml));
     setValidationDialogOpen(true);
   };
 

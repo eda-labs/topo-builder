@@ -523,6 +523,22 @@ export function exportToYaml(options: UIToYamlOptions): string {
   });
 }
 
+// if nodes are negative, calculate an offset to make the node positive
+// and offset everything else by that so the topo layout stays the same.
+export function normalizeNodeCoordinates<T extends { position: { x: number; y: number }; data: { nodeType?: string } }>(nodes: T[]): T[] {
+  const topoNodes = nodes.filter(n => n.data.nodeType !== 'simnode');
+  if (topoNodes.length === 0) return nodes;
+
+  const minX = Math.min(...topoNodes.map(n => n.position.x));
+  const minY = Math.min(...topoNodes.map(n => n.position.y));
+  const offsetX = minX < 50 ? 50 - minX : 0;
+  const offsetY = minY < 50 ? 50 - minY : 0;
+
+  if (offsetX === 0 && offsetY === 0) return nodes;
+
+  return nodes.map(n => ({ ...n, position: { x: n.position.x + offsetX, y: n.position.y + offsetY } }));
+}
+
 /**
  * Build CRD object from UI state
  */

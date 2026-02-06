@@ -15,6 +15,23 @@ import {
 } from '../utils';
 import { DEFAULT_INTERFACE } from '../constants';
 
+function getEdgePairKey(a: string, b: string): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
+}
+
+function getNextLagNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
+  const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
+  let lagCount = 0;
+  for (const edge of edges) {
+    const edgeSource = edge.data?.sourceNode;
+    const edgeTarget = edge.data?.targetNode;
+    if (!edgeSource || !edgeTarget) continue;
+    if (getEdgePairKey(edgeSource, edgeTarget) !== pairKey) continue;
+    lagCount += edge.data?.lagGroups?.length ?? 0;
+  }
+  return lagCount + 1;
+}
+
 // LAG state is stored within edges (UIEdgeData.lagGroups)
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface LagState {}
@@ -53,7 +70,7 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
     const existingLagGroups = sourceEdge.data.lagGroups || [];
     if (indicesInExistingLag(validIndices, existingLagGroups)) return;
 
-    const lagGroupCount = existingLagGroups.length + 1;
+    const lagGroupCount = getNextLagNumberForPair(edges, sourceEdge.data.sourceNode, sourceEdge.data.targetNode);
     const firstMemberLink = allMemberLinks[validIndices[0]];
     const newLagGroup: UILagGroup = {
       id: generateLagId(edgeId, lagGroupCount),

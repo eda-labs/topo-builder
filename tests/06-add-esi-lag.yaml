@@ -46,7 +46,7 @@ spec:
       labels:
         eda.nokia.com/role: edge
   links:
-    - name: testman1-esi-lag
+    - name: testman1-esi-lag-1
       endpoints:
         - local:
             node: leaf1

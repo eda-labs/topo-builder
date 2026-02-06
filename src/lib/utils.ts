@@ -219,8 +219,8 @@ export const createEsiLeaf = (
   return { nodeId, nodeName };
 };
 
-export const generateEsiLagName = (commonNodeName: string): string => {
-  return `${commonNodeName}-esi-lag`;
+export const generateEsiLagName = (commonNodeName: string, count: number): string => {
+  return `${commonNodeName}-esi-lag-${count}`;
 };
 
 export const EMPTY_STRING_SET: Set<string> = new Set<string>();

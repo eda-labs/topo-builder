@@ -17,6 +17,15 @@ import {
 } from '../utils';
 import { DEFAULT_INTERFACE } from '../constants';
 
+function getNextEsiLagNumber(edges: UIEdge[], commonNodeName: string): number {
+  let count = 0;
+  for (const edge of edges) {
+    if (edge.data?.edgeType !== 'esilag') continue;
+    if (edge.data?.sourceNode === commonNodeName) count++;
+  }
+  return count + 1;
+}
+
 // ESI-LAG state is stored within edges (UIEdgeData.esiLeaves)
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface EsiLagState {}
@@ -128,7 +137,7 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
         edgeType: 'esilag',
         memberLinks: allMemberLinks,
         esiLeaves,
-        esiLagName: generateEsiLagName(commonNodeInfo.name),
+        esiLagName: generateEsiLagName(commonNodeInfo.name, getNextEsiLagNumber(edges, commonNodeInfo.name)),
       },
     };
 

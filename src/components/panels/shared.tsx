@@ -105,35 +105,6 @@ export function PanelCard({
   );
 }
 
-export function InheritedLabels({ labels }: { labels?: Record<string, string> }) {
-  const filteredLabels = Object.entries(labels || {});
-  if (filteredLabels.length === 0) return null;
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-      <Box sx={{ mb: '0.5rem' }}>
-        <Typography variant="body2" fontWeight={600}>
-          Inherited Labels
-        </Typography>
-        <Divider sx={{ mt: '0.25rem' }} />
-      </Box>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-        {filteredLabels.map(([key, value]) => (
-          <Chip
-            key={key}
-            label={`${key}=${value}`}
-            size="small"
-            variant="outlined"
-            sx={{
-              bgcolor: CARD_BG,
-              borderColor: CARD_BORDER,
-            }}
-          />
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
 export function EditableLabelsSection({
   labels,
   inheritedLabels,
@@ -167,28 +138,41 @@ export function EditableLabelsSection({
     onUpdate(newLabels);
   };
 
-  const hasVisibleInheritedLabels = Object.keys(inheritedLabels || {}).length > 0;
+  const inheritedEntries = Object.entries(inheritedLabels || {});
 
   return (
     <Box>
-      <InheritedLabels labels={inheritedLabels} />
-      <Box sx={{ mt: hasVisibleInheritedLabels ? '0.75rem' : 0 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: SPACE_BETWEEN,
-            alignItems: 'center',
-          }}
-        >
-          <Typography variant="body2" fontWeight={600}>
-            Labels
-          </Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
-            Add
-          </Button>
-        </Box>
-        <Divider sx={{ mt: '0.25rem', mb: '1rem' }} />
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: SPACE_BETWEEN,
+          alignItems: 'center',
+        }}
+      >
+        <Typography variant="body2" fontWeight={600}>
+          Labels
+        </Typography>
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
+          Add
+        </Button>
       </Box>
+      <Divider sx={{ mt: '0.25rem', mb: '1rem' }} />
+      {inheritedEntries.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', mb: '0.75rem' }}>
+          {inheritedEntries.map(([key, value]) => (
+            <Chip
+              key={key}
+              label={`${key}=${value}`}
+              size="small"
+              variant="outlined"
+              sx={{
+                bgcolor: CARD_BG,
+                borderColor: CARD_BORDER,
+              }}
+            />
+          ))}
+        </Box>
+      )}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {Object.entries(labels || {}).map(([key, value]) => (
           <LabelEditor

@@ -1,5 +1,6 @@
 import Ajv from 'ajv';
 import yaml from 'js-yaml';
+import { closest, distance } from 'fastest-levenshtein';
 
 import schemaJson from '../static/schema.json';
 import type { ValidationError, ValidationResult } from '../types/ui';
@@ -22,6 +23,82 @@ function getAjv(): Ajv {
   ajvInstance.addKeyword('x-kubernetes-preserve-unknown-fields');
 
   return ajvInstance;
+}
+
+interface SchemaNode {
+  type?: string;
+  properties?: Record<string, SchemaNode>;
+  items?: SchemaNode;
+  additionalProperties?: unknown;
+  'x-kubernetes-preserve-unknown-fields'?: boolean;
+}
+
+const MAX_SUGGEST_DISTANCE = 3;
+
+function validateUnknownProperties(value: unknown, schema: SchemaNode, path: string): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (!value || typeof value !== 'object') return errors;
+
+  if (schema.type === 'object' && schema.properties) {
+    // Skip objects that explicitly allow additional properties
+    if (schema.additionalProperties !== undefined || schema['x-kubernetes-preserve-unknown-fields']) {
+      return errors;
+    }
+
+    const validKeys = Object.keys(schema.properties);
+    const record = value as Record<string, unknown>;
+
+    for (const key of Object.keys(record)) {
+      if (key in schema.properties) {
+        // Recurse into known properties
+        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
+      } else {
+        // Unknown property — suggest the closest match
+        let message: string;
+        if (validKeys.length > 0) {
+          const match = closest(key, validKeys);
+          const dist = distance(key, match);
+          message = dist <= MAX_SUGGEST_DISTANCE
+            ? `Unknown field "${key}", did you mean "${match}"?`
+            : `Unknown field "${key}" is not a valid property`;
+        } else {
+          message = `Unknown field "${key}" is not a valid property`;
+        }
+        errors.push({ path: path || '/', message });
+      }
+    }
+    return errors;
+  }
+
+  if (schema.type === 'array' && schema.items && Array.isArray(value)) {
+    value.forEach((item, i) => {
+      errors.push(...validateUnknownProperties(item, schema.items!, `${path}/${i}`));
+    });
+    return errors;
+  }
+
+  // For objects without explicit type but with properties (nested schema)
+  if (schema.properties && !schema.type) {
+    if (schema.additionalProperties !== undefined || schema['x-kubernetes-preserve-unknown-fields']) {
+      return errors;
+    }
+    const validKeys = Object.keys(schema.properties);
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (key in schema.properties) {
+        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
+      } else if (validKeys.length > 0) {
+        const match = closest(key, validKeys);
+        const dist = distance(key, match);
+        const message = dist <= MAX_SUGGEST_DISTANCE
+          ? `Unknown field "${key}", did you mean "${match}"?`
+          : `Unknown field "${key}" is not a valid property`;
+        errors.push({ path: path || '/', message });
+      }
+    }
+  }
+
+  return errors;
 }
 
 export function validateNetworkTopology(yamlString: string): ValidationResult {
@@ -68,6 +145,9 @@ export function validateNetworkTopology(yamlString: string): ValidationResult {
         });
       }
     }
+
+    const unknownPropErrors = validateUnknownProperties(doc, schema as SchemaNode, '');
+    errors.push(...unknownPropErrors);
 
     const semanticErrors = validateCrossReferences(doc as Record<string, unknown>);
     errors.push(...semanticErrors);

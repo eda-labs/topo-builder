@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName } from '../lib/store';
-import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES } from '../lib/constants';
+import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES, CANVAS_ORIGIN } from '../lib/constants';
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
 
@@ -1133,7 +1133,7 @@ function TopologyEditorInner() {
             nodesDraggable
             nodeDragThreshold={2}
             elevateNodesOnSelect={false}
-            fitView
+            defaultViewport={{ x: -CANVAS_ORIGIN.x, y: -CANVAS_ORIGIN.y, zoom: 1 }}
             snapToGrid
             snapGrid={[15, 15]}
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}

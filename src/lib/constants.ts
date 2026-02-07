@@ -53,6 +53,7 @@ export const DEFAULT_NODE_WIDTH = 80;
 export const DEFAULT_NODE_HEIGHT = 80;
 export const ESI_LAG_STEM_LENGTH = 25;
 export const LINK_OFFSET_SPACING = 8;
+export const CANVAS_ORIGIN = { x: 1000, y: 1000 };
 
 export const PLATFORM_SUGGESTIONS = [
   '7220 IXR-D1',

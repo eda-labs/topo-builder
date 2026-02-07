@@ -25,7 +25,7 @@ import {
 import {
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
-  PlayArrow as ValidateIcon,
+  Check as ValidateIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   DarkMode as DarkModeIcon,

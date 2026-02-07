@@ -28,7 +28,7 @@ import { useRef, useEffect, useState, type ReactNode } from 'react';
 
 import type { NodeTemplate, SimNodeTemplate, LinkTemplate } from '../types/schema';
 import type { UIAnnotationInput, AnnotationShapeType } from '../types/ui';
-import { DEFAULT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_FILL_COLOR, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../lib/constants';
+import { DEFAULT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_FILL_COLOR, DEFAULT_TEXT_ANNOTATION_COLOR, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../lib/constants';
 
 const SUBMENU_CHEVRON_SX = { ml: 1, color: 'text.secondary' } as const;
 
@@ -168,7 +168,7 @@ function ContextMenuNoSelectionItems({
               type: 'text',
               text: 'Label',
               fontSize: 14,
-              fontColor: DEFAULT_ANNOTATION_COLOR,
+              fontColor: DEFAULT_TEXT_ANNOTATION_COLOR,
               position: flowPosition,
             });
             onClose();

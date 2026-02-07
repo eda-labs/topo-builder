@@ -50,12 +50,11 @@ function TextAnnotationFields({ annotation }: { annotation: UITextAnnotation }) 
         fullWidth
       />
 
-      <PanelSection title="Font">
+      <PanelSection title="Color">
         <ColorField
-          label="Color"
           value={annotation.fontColor}
           onChange={color => { updateAnnotation(annotation.id, { fontColor: color }); }}
-          columns={6}
+          columns={9}
         />
       </PanelSection>
     </>

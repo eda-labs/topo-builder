@@ -37,11 +37,11 @@ import {
   // DarkMode as DarkModeIcon,
   // LightMode as LightModeIcon,
   Terminal as TerminalIcon,
-  PhotoCameraOutlined as PhotoCameraIcon,
+  PhotoCameraBack as PhotoCameraIcon,
   Info,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
-import { exportToDrawio } from '../lib/drawioExport';
+import { toSvg } from 'html-to-image';
 
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
@@ -156,17 +156,56 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setValidationDialogOpen(true);
   };
 
-  const handleExportDrawio = () => {
-    const xml = exportToDrawio({ nodes, edges, annotations, nodeTemplates, topologyName });
-    const blob = new Blob([xml], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${topologyName}.drawio`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportSvg = async () => {
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewport) {
+      setError('Could not find canvas');
+      return;
+    }
+
+    if (nodes.length === 0) {
+      setError('No nodes to export');
+      return;
+    }
+
+    const padding = 100;
+    const nodeW = 80;
+    const nodeH = 80;
+    const xs = nodes.map(n => n.position?.x ?? 0);
+    const ys = nodes.map(n => n.position?.y ?? 0);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs) + nodeW;
+    const maxY = Math.max(...ys) + nodeH;
+    const boundsW = maxX - minX;
+    const boundsH = maxY - minY;
+    const imageWidth = Math.max(boundsW + padding * 2, 400);
+    const imageHeight = Math.max(boundsH + padding * 2, 400);
+
+    try {
+      const dataUrl = await toSvg(viewport, {
+        width: imageWidth,
+        height: imageHeight,
+        fontEmbedCSS: [
+          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Lt.woff2') format('woff2'); font-weight: normal; font-style: normal; }",
+          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Bd.woff2') format('woff2'); font-weight: bold; font-style: normal; }",
+        ].join('\n'),
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${-minX + padding}px, ${-minY + padding}px) scale(1)`,
+        },
+      });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${topologyName}-${Date.now()}.svg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('SVG export failed:', err);
+      setError('Failed to export SVG');
+    }
   };
 
   return (
@@ -204,8 +243,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Export to draw.io">
-                <IconButton size="small" onClick={handleExportDrawio} sx={{ color: 'white' }}>
+              <Tooltip title="Export SVG">
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>

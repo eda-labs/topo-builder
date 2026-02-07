@@ -7,7 +7,7 @@
 import type { StateCreator } from 'zustand';
 
 import type { NodeTemplate, LinkTemplate, SimNodeTemplate } from '../../types/schema';
-import type { UISimulation } from '../../types/ui';
+import type { UINode, UIEdge, UISimulation } from '../../types/ui';
 import { validateTemplateName } from '../utils';
 
 export interface TemplateState {
@@ -31,6 +31,8 @@ export type TemplateSlice = TemplateState & TemplateActions;
 
 export type TemplateSliceCreator = StateCreator<
   TemplateSlice & {
+    nodes: UINode[];
+    edges: UIEdge[];
     simulation: UISimulation;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
@@ -56,9 +58,10 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   updateNodeTemplate: (name: string, template: Partial<NodeTemplate>): boolean => {
-    if (template.name && template.name !== name) {
+    const newName = template.name;
+    if (newName && newName !== name) {
       const existingNames = get().nodeTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(template.name, existingNames);
+      const nameError = validateTemplateName(newName, existingNames);
       if (nameError) {
         get().setError(`Invalid template name: ${nameError}`);
         return false;
@@ -69,6 +72,14 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
         t.name === name ? { ...t, ...template } : t,
       ),
     });
+    if (newName && newName !== name) {
+      set({
+        nodes: get().nodes.map(n =>
+          n.data.nodeType !== 'simnode' && n.data.template === name
+            ? { ...n, data: { ...n.data, template: newName } } : n,
+        ),
+      });
+    }
     get().triggerYamlRefresh();
     return true;
   },
@@ -90,9 +101,10 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   updateLinkTemplate: (name: string, template: Partial<LinkTemplate>): boolean => {
-    if (template.name && template.name !== name) {
+    const newName = template.name;
+    if (newName && newName !== name) {
       const existingNames = get().linkTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(template.name, existingNames);
+      const nameError = validateTemplateName(newName, existingNames);
       if (nameError) {
         get().setError(`Invalid template name: ${nameError}`);
         return false;
@@ -103,6 +115,20 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
         t.name === name ? { ...t, ...template } : t,
       ),
     });
+    if (newName && newName !== name) {
+      set({
+        edges: get().edges.map(e => {
+          if (!e.data) return e;
+          const memberLinks = e.data.memberLinks?.map(m =>
+            m.template === name ? { ...m, template: newName } : m,
+          );
+          const lagGroups = e.data.lagGroups?.map(g =>
+            g.template === name ? { ...g, template: newName } : g,
+          );
+          return { ...e, data: { ...e.data, memberLinks, lagGroups } };
+        }),
+      });
+    }
     get().triggerYamlRefresh();
     return true;
   },
@@ -131,9 +157,10 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
 
   updateSimNodeTemplate: (name: string, template: Partial<SimNodeTemplate>): boolean => {
     const simulation = get().simulation;
-    if (template.name && template.name !== name) {
+    const newName = template.name;
+    if (newName && newName !== name) {
       const existingNames = simulation.simNodeTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(template.name, existingNames);
+      const nameError = validateTemplateName(newName, existingNames);
       if (nameError) {
         get().setError(`Invalid template name: ${nameError}`);
         return false;
@@ -147,6 +174,14 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
         ),
       },
     } as Partial<TemplateSlice>);
+    if (newName && newName !== name) {
+      set({
+        nodes: get().nodes.map(n =>
+          n.data.nodeType === 'simnode' && n.data.template === name
+            ? { ...n, data: { ...n.data, template: newName } } : n,
+        ),
+      });
+    }
     get().triggerYamlRefresh();
     return true;
   },

@@ -607,7 +607,7 @@ export const createTopologyStore = () => {
             expandedEdges,
             selectedSimNodeNames,
             selectedAnnotationIds: new Set<string>(),
-            annotations: persisted.annotations || (currentState as TopologyStore).annotations || [],
+            annotations: persisted.annotations || currentState.annotations || [],
             nodeTemplates: persisted.nodeTemplates?.length ? persisted.nodeTemplates : (baseTemplate.nodeTemplates || []),
             linkTemplates: persisted.linkTemplates?.length ? persisted.linkTemplates : (baseTemplate.linkTemplates || []),
             simulation: {

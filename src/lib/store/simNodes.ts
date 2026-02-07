@@ -89,6 +89,7 @@ export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
   },
 
   updateSimNode: (name: string, data: Partial<UINode['data']>) => {
+    get().saveToUndoHistory();
     const currentNode = get().nodes.find(n => n.data.nodeType === 'simnode' && n.data.name === name);
     if (!currentNode) return;
 
@@ -126,6 +127,7 @@ export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
         }),
       });
     }
+    get().triggerYamlRefresh();
   },
 
   deleteSimNode: (name: string) => {

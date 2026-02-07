@@ -172,7 +172,6 @@ export function SelectionPanel() {
         connectedEdges={allConnectedEdges}
         onUpdate={update => {
           updateSimNode(selectedSimNode.data.name, update);
-          triggerYamlRefresh();
         }}
       />
     );

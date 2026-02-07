@@ -41,7 +41,7 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
 
   if (schema.type === 'object' && schema.properties) {
     // Skip objects that explicitly allow additional properties
-    if (schema.additionalProperties !== undefined || schema['x-kubernetes-preserve-unknown-fields']) {
+    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
       return errors;
     }
 
@@ -81,7 +81,7 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
 
   // For objects without explicit type but with properties (nested schema)
   if (schema.properties && !schema.type) {
-    if (schema.additionalProperties !== undefined || schema['x-kubernetes-preserve-unknown-fields']) {
+    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
       return errors;
     }
     const validKeys = Object.keys(schema.properties);
@@ -97,6 +97,7 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
           : `Unknown field "${key}" is not a valid property`;
         const fieldPath = path ? `${path}/${key}` : `/${key}`;
         errors.push({ path: fieldPath, message });
+      }
     }
   }
 

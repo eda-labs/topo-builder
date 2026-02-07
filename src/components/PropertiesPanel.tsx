@@ -59,9 +59,6 @@ export function SelectionPanel() {
   );
   const updateNode = useTopologyStore(state => state.updateNode);
   const updateSimNode = useTopologyStore(state => state.updateSimNode);
-  const triggerYamlRefresh = useTopologyStore(
-    state => state.triggerYamlRefresh,
-  );
 
   // Ref for node name input to auto-focus and select
   const nodeNameInputRef = useRef<HTMLInputElement>(null);

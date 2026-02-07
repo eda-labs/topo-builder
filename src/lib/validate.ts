@@ -64,7 +64,8 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
         } else {
           message = `Unknown field "${key}" is not a valid property`;
         }
-        errors.push({ path: path || '/', message });
+        const fieldPath = path ? `${path}/${key}` : `/${key}`;
+        errors.push({ path: fieldPath, message });
       }
     }
     return errors;

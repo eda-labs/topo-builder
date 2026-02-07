@@ -30,7 +30,6 @@
     "ajv": "^8.17.1",
     "astro": "^5.16.11",
     "fastest-levenshtein": "^1.0.16",
-    "html-to-image": "^1.11.13",
     "js-yaml": "^4.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

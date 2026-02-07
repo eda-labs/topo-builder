@@ -251,7 +251,20 @@ export default function YamlEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yamlRefreshCounter]);
 
-  const handleEditorMount: OnMount = editor => {
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    const themeName = 'ntwfui-dark';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    monaco.editor.defineTheme(themeName, {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#1A222E',
+        'editorGutter.background': '#1A222E',
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    if (darkMode) monaco.editor.setTheme(themeName);
     editorRef.current = editor;
     editorInstance = editor;
   };
@@ -269,7 +282,7 @@ export default function YamlEditor() {
         <Editor
           height="100%"
           language="yaml"
-          theme={darkMode ? 'vs-dark' : 'light'}
+          theme={darkMode ? 'ntwfui-dark' : 'light'}
           defaultValue={getYamlFromState()}
           onMount={handleEditorMount}
           onChange={handleEditorChange}

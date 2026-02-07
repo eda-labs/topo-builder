@@ -46,7 +46,7 @@ function ShapeSvg({ shapeType, width, height, strokeColor, fillColor, strokeWidt
 
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0">
-      <rect x={half} y={half} width={width - sw} height={height - sw}
+      <rect x={half} y={half} width={width - sw} height={height - sw} rx={10}
         fill={fillColor} stroke={strokeColor} strokeWidth={sw} strokeDasharray={dashArray} />
     </svg>
   );

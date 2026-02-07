@@ -379,9 +379,8 @@ function SidePanel({
   onToggle: () => void;
 }) {
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const borderColor = isDark ? '#424242' : '#e0e0e0';
-  const contentBg = isDark ? '#121212' : '#ffffff';
+  const borderColor = theme.palette.divider;
+  const contentBg = theme.palette.background.paper;
 
   const [panelWidth, setPanelWidth] = useState(() => {
     const saved = localStorage.getItem('topology-panel-width');
@@ -482,7 +481,7 @@ function SidePanel({
           sx={{
             borderBottom: `1px solid ${borderColor}`,
             minHeight: 36,
-            bgcolor: isDark ? '#1e1e1e' : '#f5f5f5',
+            bgcolor: 'background.paper',
           }}
           variant="scrollable"
           scrollButtons="auto"

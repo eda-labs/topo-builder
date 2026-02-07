@@ -34,15 +34,14 @@ import {
   Check as ValidateIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
+  // DarkMode as DarkModeIcon,
+  // LightMode as LightModeIcon,
   Terminal as TerminalIcon,
   PhotoCameraOutlined as PhotoCameraIcon,
   Info,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
-import { toSvg } from 'html-to-image';
-import { useReactFlow, getNodesBounds } from '@xyflow/react';
+import { exportToDrawio } from '../lib/drawioExport';
 
 import { useTopologyStore } from '../lib/store';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
@@ -56,20 +55,33 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { getNodes } = useReactFlow();
   const darkMode = useTopologyStore(state => state.darkMode);
-  const setDarkMode = useTopologyStore(state => state.setDarkMode);
+  // const setDarkMode = useTopologyStore(state => state.setDarkMode);
 
   const theme = useMemo(() => createTheme({
     cssVariables: true,
     palette: {
       mode: darkMode ? 'dark' : 'light',
-      primary: { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
+      primary: darkMode
+        ? { main: '#005AFF', light: '#6098FF', dark: '#0A44AD' }
+        : { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
+      error: { main: darkMode ? '#FF6363' : '#d32f2f' },
+      warning: { main: darkMode ? '#FFAC0A' : '#ed6c02' },
+      success: { main: darkMode ? '#00A87E' : '#2e7d32' },
+      info: { main: darkMode ? '#90B7FF' : '#0288d1' },
+      background: darkMode
+        ? { default: '#1A222E', paper: '#101824' }
+        : { default: '#fafafa', paper: '#ffffff' },
+      text: darkMode
+        ? { primary: '#ffffff', secondary: '#C9CED6' }
+        : undefined,
+      divider: darkMode ? '#4A5361B2' : '#e0e0e0',
       card: {
-        bg: darkMode ? '#262626' : '#f5f5f5',
-        border: darkMode ? '#424242' : '#e0e0e0',
+        bg: darkMode ? '#101824' : '#f5f5f5',
+        border: darkMode ? '#4A5361B2' : '#e0e0e0',
       },
     },
+    shape: { borderRadius: 4 },
     typography: {
       fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
     },
@@ -144,44 +156,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setValidationDialogOpen(true);
   };
 
-  const handleExportSvg = async () => {
-    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
-    if (!viewport) {
-      setError('Could not find canvas');
-      return;
-    }
-
-    const padding = 100;
-    const nodesBounds = getNodesBounds(getNodes());
-    const imageWidth = Math.max(nodesBounds.width + padding * 2, 400);
-    const imageHeight = Math.max(nodesBounds.height + padding * 2, 400);
-
-    try {
-      const dataUrl = await toSvg(viewport, {
-        width: imageWidth,
-        height: imageHeight,
-        style: {
-          width: `${imageWidth}px`,
-          height: `${imageHeight}px`,
-          transform: `translate(${-nodesBounds.x + padding}px, ${-nodesBounds.y + padding}px) scale(1)`,
-        },
-      });
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `${topologyName}-${Date.now()}.svg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch {
-      setError('Failed to export SVG');
-    }
+  const handleExportDrawio = () => {
+    const xml = exportToDrawio({ nodes, edges, annotations, nodeTemplates, topologyName });
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${topologyName}.drawio`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
-        <AppBar position="static" elevation={1} sx={{ bgcolor: 'var(--color-primary)' }}>
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar variant="dense">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
               <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
@@ -212,8 +204,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Save as SVG">
-                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
+              <Tooltip title="Export to draw.io">
+                <IconButton size="small" onClick={handleExportDrawio} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -223,11 +215,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
+              {/* <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
                 <IconButton size="small" onClick={() => { setDarkMode(!darkMode); }} sx={{ color: 'white' }}>
                   {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
                 </IconButton>
-              </Tooltip>
+              </Tooltip> */}
               <Tooltip title="About">
                 <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
                   <Info fontSize="small" />

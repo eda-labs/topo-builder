@@ -36,6 +36,8 @@ export default function LinkEdge({
   id,
   source,
   target,
+  sourceHandleId,
+  targetHandleId,
   data,
   selected,
 }: EdgeProps) {
@@ -63,8 +65,8 @@ export default function LinkEdge({
     return null;
   }
 
-  const sourceCoords = getHandleCoordinates(sourceNode, edgeData?.sourceHandle ?? 'bottom');
-  const targetCoords = getHandleCoordinates(targetNode, edgeData?.targetHandle ?? 'bottom');
+  const sourceCoords = getHandleCoordinates(sourceNode, sourceHandleId ?? 'bottom');
+  const targetCoords = getHandleCoordinates(targetNode, targetHandleId ?? 'bottom');
   const sourceX = sourceCoords.x;
   const sourceY = sourceCoords.y;
   const sourcePosition = sourceCoords.position;

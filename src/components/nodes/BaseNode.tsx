@@ -14,7 +14,7 @@ export interface BaseNodeProps {
 }
 
 type NodeLike = { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } };
-type EdgeLike = { source: string; target: string; data?: { esiLeaves?: Array<{ nodeId: string }>; sourceHandle?: string; targetHandle?: string } };
+type EdgeLike = { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null; data?: { esiLeaves?: Array<{ nodeId: string }> } };
 
 function getConnectedPosition(
   thisNode: NodeLike,
@@ -68,7 +68,7 @@ function addStandardConnectedPositions(
   const isTarget = edge.target === nodeId;
   if (!isSource && !isTarget) return;
 
-  const storedHandle = isSource ? edge.data?.sourceHandle : edge.data?.targetHandle;
+  const storedHandle = isSource ? edge.sourceHandle : edge.targetHandle;
   if (storedHandle) {
     positions.add(parseHandlePosition(storedHandle));
     return;

@@ -338,13 +338,13 @@ function buildUnlaggedLinksForEdge(options: {
 
 // ============ ESI-LAG Processing ============
 
-function createAnnotations(edge: Pick<UIEdge, 'id' | 'data'>, memberIndex: number): Record<string, string> {
+function createAnnotations(edge: Pick<UIEdge, 'id' | 'data' | 'sourceHandle' | 'targetHandle'>, memberIndex: number): Record<string, string> {
   const annotations: Record<string, string> = {
     [ANNOTATION_EDGE_ID]: edge.id,
     [ANNOTATION_MEMBER_INDEX]: String(memberIndex),
   };
-  if (edge.data?.sourceHandle) annotations[ANNOTATION_SRC_HANDLE] = edge.data.sourceHandle;
-  if (edge.data?.targetHandle) annotations[ANNOTATION_DST_HANDLE] = edge.data.targetHandle;
+  if (edge.sourceHandle) annotations[ANNOTATION_SRC_HANDLE] = edge.sourceHandle;
+  if (edge.targetHandle) annotations[ANNOTATION_DST_HANDLE] = edge.targetHandle;
   return annotations;
 }
 

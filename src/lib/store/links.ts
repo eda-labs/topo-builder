@@ -39,6 +39,17 @@ export const setEdgeIdGenerator = (fn: () => string) => {
   generateEdgeId = fn;
 };
 
+function toSourceHandle(handle: string | null | undefined): string | undefined {
+  if (!handle) return undefined;
+  return handle.replace(/-target$/, '') || undefined;
+}
+
+function toTargetHandle(handle: string | null | undefined): string | undefined {
+  if (!handle) return undefined;
+  if (handle.endsWith('-target')) return handle;
+  return `${handle}-target`;
+}
+
 function normalizeConnectionForSimNodes(connection: Connection): {
   sourceId: string;
   targetId: string;
@@ -56,8 +67,8 @@ function normalizeConnectionForSimNodes(connection: Connection): {
     return {
       sourceId: target,
       targetId: source,
-      sourceHandle: connection.targetHandle ?? undefined,
-      targetHandle: connection.sourceHandle ?? undefined,
+      sourceHandle: toSourceHandle(connection.targetHandle),
+      targetHandle: toTargetHandle(connection.sourceHandle),
     };
   }
 
@@ -97,8 +108,8 @@ function findExistingEdge(
 ): UIEdge | undefined {
   for (const edge of edges) {
     if (edge.data?.edgeType === 'esilag') continue;
-    const edgeSrcHandle = edge.data?.sourceHandle;
-    const edgeTgtHandle = edge.data?.targetHandle;
+    const edgeSrcHandle = edge.sourceHandle;
+    const edgeTgtHandle = edge.targetHandle;
     if (edge.source === sourceId && edge.target === targetId) {
       if (edgeSrcHandle === sourceHandle && edgeTgtHandle === targetHandle) return edge;
     }
@@ -201,6 +212,8 @@ function createEdgeAndSelect({
   id,
   source,
   target,
+  sourceHandle,
+  targetHandle,
   data,
 }: {
   set: Parameters<LinkSliceCreator>[0];
@@ -210,6 +223,8 @@ function createEdgeAndSelect({
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
   data: UIEdgeData;
 }) {
   const newEdge: UIEdge = {
@@ -217,6 +232,8 @@ function createEdgeAndSelect({
     type: 'linkEdge',
     source,
     target,
+    sourceHandle: sourceHandle ?? null,
+    targetHandle: targetHandle ?? null,
     selected: true,
     data,
   };
@@ -317,12 +334,12 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       id,
       source: sourceId,
       target: targetId,
+      sourceHandle: normalized.sourceHandle,
+      targetHandle: normalized.targetHandle,
       data: {
         id,
         sourceNode: sourceNodeName,
         targetNode: targetNodeName,
-        sourceHandle: normalized.sourceHandle,
-        targetHandle: normalized.targetHandle,
         edgeType: 'normal',
         memberLinks: [newMemberLink],
       },

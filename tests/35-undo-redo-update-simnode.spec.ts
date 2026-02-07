@@ -102,9 +102,6 @@ test('Undo/redo update SimNode template', async ({ page }) => {
 
   // If we found and selected a template, verify the change
   if (targetTemplate) {
-    // Wait a bit for the update to propagate
-    await page.waitForTimeout(100);
-
     // Check YAML updated
     await page.getByRole('tab', { name: 'YAML' }).click();
     const updatedYaml = await getYamlContent(page);
@@ -115,9 +112,6 @@ test('Undo/redo update SimNode template', async ({ page }) => {
 
     // Undo the template change
     await undoViaContextMenu(page);
-    
-    // Wait a bit for undo to propagate
-    await page.waitForTimeout(100);
 
     // Check YAML reverted
     await page.getByRole('tab', { name: 'YAML' }).click();
@@ -129,9 +123,6 @@ test('Undo/redo update SimNode template', async ({ page }) => {
 
     // Redo the template change
     await redoViaContextMenu(page);
-    
-    // Wait a bit for redo to propagate
-    await page.waitForTimeout(100);
 
     // Check YAML has the change again
     await page.getByRole('tab', { name: 'YAML' }).click();

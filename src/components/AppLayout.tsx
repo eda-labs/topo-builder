@@ -21,6 +21,12 @@ import {
   createTheme,
   Snackbar,
   Link,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -33,6 +39,7 @@ import {
   Terminal as TerminalIcon,
   PhotoCameraOutlined as PhotoCameraIcon,
   Info,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 import { getNodesBounds } from '@xyflow/react';
@@ -41,6 +48,7 @@ import { useTopologyStore } from '../lib/store';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
+import type { Operation } from '../types/schema';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 
 interface AppLayoutProps {
@@ -84,6 +92,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const simulation = useTopologyStore(state => state.simulation);
+  const setTopologyName = useTopologyStore(state => state.setTopologyName);
+  const setNamespace = useTopologyStore(state => state.setNamespace);
+  const setOperation = useTopologyStore(state => state.setOperation);
   const error = useTopologyStore(state => state.error);
   const setError = useTopologyStore(state => state.setError);
 
@@ -92,6 +103,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [displayedError, setDisplayedError] = useState<string | null>(null);
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [localName, setLocalName] = useState(topologyName);
+  const [localNamespace, setLocalNamespace] = useState(namespace);
+  const [localOperation, setLocalOperation] = useState(operation);
 
   useEffect(() => {
     if (error) {
@@ -179,6 +194,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
                 <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
@@ -197,6 +213,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Tooltip title="Save as SVG">
                 <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
                   <PhotoCameraIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
+              <Tooltip title="Settings">
+                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: 'white' }}>
+                  <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
@@ -245,6 +267,50 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => { setValidationDialogOpen(false); }}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={settingsOpen} onClose={() => { setSettingsOpen(false); }} maxWidth="xs" fullWidth>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Topology Name"
+              size="small"
+              value={localName}
+              onChange={e => { setLocalName(e.target.value); }}
+              fullWidth
+              sx={{ mt: 1 }}
+            />
+            <TextField
+              label="Namespace"
+              size="small"
+              value={localNamespace}
+              onChange={e => { setLocalNamespace(e.target.value); }}
+              fullWidth
+            />
+            <FormControl size="small" fullWidth>
+              <InputLabel>Operation</InputLabel>
+              <Select
+                label="Operation"
+                value={localOperation}
+                onChange={e => { setLocalOperation(e.target.value as Operation); }}
+              >
+                <MenuItem value="create">create</MenuItem>
+                <MenuItem value="replace">replace</MenuItem>
+                <MenuItem value="replaceAll">replaceAll</MenuItem>
+                <MenuItem value="delete">delete</MenuItem>
+                <MenuItem value="deleteAll">deleteAll</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button variant="contained" onClick={() => {
+              setTopologyName(localName);
+              setNamespace(localNamespace);
+              setOperation(localOperation);
+              setSettingsOpen(false);
+            }}>Save</Button>
+            <Button onClick={() => { setSettingsOpen(false); }}>Cancel</Button>
           </DialogActions>
         </Dialog>
 

@@ -416,6 +416,7 @@ export const createTopologyStore = () => {
               return;
             }
             set({ topologyName: name });
+            get().triggerYamlRefresh();
           },
 
           setNamespace: (namespace: string) => {
@@ -425,9 +426,13 @@ export const createTopologyStore = () => {
               return;
             }
             set({ namespace });
+            get().triggerYamlRefresh();
           },
 
-          setOperation: (operation: Operation) => set({ operation }),
+          setOperation: (operation: Operation) => {
+            set({ operation });
+            get().triggerYamlRefresh();
+          },
           setDarkMode: (darkMode: boolean) => set({ darkMode }),
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),
           triggerYamlRefresh: () => set({ yamlRefreshCounter: get().yamlRefreshCounter + 1 }),

@@ -369,6 +369,29 @@ function SidePanel({
   const borderColor = isDark ? '#424242' : '#e0e0e0';
   const contentBg = isDark ? '#121212' : '#ffffff';
 
+  const [panelWidth, setPanelWidth] = useState(DRAWER_WIDTH);
+  const dragging = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(DRAWER_WIDTH, Math.min(window.innerWidth * 0.8, window.innerWidth - ev.clientX));
+      setPanelWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      dragging.current = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   return (
     <>
       <IconButton
@@ -376,7 +399,7 @@ function SidePanel({
         size="small"
         sx={{
           position: 'absolute',
-          right: open ? DRAWER_WIDTH : 0,
+          right: open ? panelWidth : 0,
           top: '50%',
           transform: 'translateY(-50%)',
           zIndex: theme.zIndex.drawer + 1,
@@ -387,7 +410,7 @@ function SidePanel({
           border: '1px solid',
           borderColor: 'divider',
           borderRight: 'none',
-          transition: theme.transitions.create('right', {
+          transition: dragging.current ? 'none' : theme.transitions.create('right', {
             easing: theme.transitions.easing.easeInOut,
             duration: DRAWER_TRANSITION_DURATION_MS,
           }),
@@ -403,18 +426,34 @@ function SidePanel({
         open={open}
         transitionDuration={DRAWER_TRANSITION_DURATION_MS}
         sx={{
-          width: open ? DRAWER_WIDTH : 0,
+          width: open ? panelWidth : 0,
           flexShrink: 0,
-          transition: theme.transitions.create('width', {
+          transition: dragging.current ? 'none' : theme.transitions.create('width', {
             easing: theme.transitions.easing.easeInOut,
             duration: DRAWER_TRANSITION_DURATION_MS,
           }),
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: panelWidth,
             boxSizing: 'border-box',
             position: 'relative',
             borderLeft: `1px solid ${borderColor}`,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: -3,
+              top: 0,
+              bottom: 0,
+              width: 6,
+              cursor: 'col-resize',
+              zIndex: 1,
+            },
           },
+        }}
+        onMouseDown={(e: React.MouseEvent) => {
+          const paper = (e.currentTarget as HTMLElement).querySelector('.MuiDrawer-paper');
+          if (!paper) return;
+          const rect = paper.getBoundingClientRect();
+          if (e.clientX <= rect.left + 3) handleMouseDown(e);
         }}
       >
         <Tabs

@@ -1,9 +1,9 @@
-import { type EdgeProps, useInternalNode } from '@xyflow/react';
+import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
 import type { UIEdgeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
-import { getHandleCoordinates } from '../../lib/edgeUtils';
+import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
 
 import StandardEdge from './StandardEdge';
 import BundleEdge from './BundleEdge';
@@ -65,14 +65,31 @@ export default function LinkEdge({
     return null;
   }
 
-  const sourceCoords = getHandleCoordinates(sourceNode, sourceHandleId ?? 'bottom');
-  const targetCoords = getHandleCoordinates(targetNode, targetHandleId ?? 'bottom');
-  const sourceX = sourceCoords.x;
-  const sourceY = sourceCoords.y;
-  const sourcePosition = sourceCoords.position;
-  const targetX = targetCoords.x;
-  const targetY = targetCoords.y;
-  const targetPosition = targetCoords.position;
+  let sourceX: number;
+  let sourceY: number;
+  let sourcePosition: Position;
+  let targetX: number;
+  let targetY: number;
+  let targetPosition: Position;
+
+  if (!sourceHandleId && !targetHandleId) {
+    const floating = getFloatingEdgeParams(sourceNode, targetNode);
+    sourceX = floating.sx;
+    sourceY = floating.sy;
+    sourcePosition = floating.sourcePos;
+    targetX = floating.tx;
+    targetY = floating.ty;
+    targetPosition = floating.targetPos;
+  } else {
+    const sourceCoords = getHandleCoordinates(sourceNode, sourceHandleId ?? 'bottom');
+    const targetCoords = getHandleCoordinates(targetNode, targetHandleId ?? 'bottom');
+    sourceX = sourceCoords.x;
+    sourceY = sourceCoords.y;
+    sourcePosition = sourceCoords.position;
+    targetX = targetCoords.x;
+    targetY = targetCoords.y;
+    targetPosition = targetCoords.position;
+  }
 
   const isEsiLag = edgeData?.edgeType === 'esilag';
   const esiLeaves = edgeData?.esiLeaves;

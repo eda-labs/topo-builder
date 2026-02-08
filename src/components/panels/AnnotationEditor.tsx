@@ -45,7 +45,8 @@ function TextAnnotationFields({ annotation }: { annotation: UITextAnnotation }) 
         label="Font Size"
         type="number"
         value={annotation.fontSize}
-        onChange={e => { updateAnnotation(annotation.id, { fontSize: Math.max(8, parseInt(e.target.value) || 14) }); }}
+        onChange={e => { updateAnnotation(annotation.id, { fontSize: parseInt(e.target.value) || annotation.fontSize }); }}
+        slotProps={{ htmlInput: { min: 1 } }}
         size="small"
         fullWidth
       />

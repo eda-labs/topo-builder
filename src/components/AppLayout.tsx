@@ -38,6 +38,7 @@ import {
   PhotoCameraBack as PhotoCameraIcon,
   Info,
   Settings as SettingsIcon,
+  Hub as AutoLinkIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 
@@ -99,6 +100,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const setOperation = useTopologyStore(state => state.setOperation);
   const error = useTopologyStore(state => state.error);
   const setError = useTopologyStore(state => state.setError);
+  const autoLink = useTopologyStore(state => state.autoLink);
 
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -227,7 +229,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+              <Tooltip title="AutoLink">
+                <IconButton size="small" onClick={autoLink} sx={{ color: 'white' }}>
+                  <AutoLinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
                 <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
                   <CopyIcon fontSize="small" />
@@ -248,7 +256,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)', my: 0.5 }} />
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="Settings">
                 <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: 'white' }}>
                   <SettingsIcon fontSize="small" />

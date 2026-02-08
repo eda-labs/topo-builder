@@ -9,8 +9,8 @@ import type { Edge, EdgeChange, Connection } from '@xyflow/react';
 import { applyEdgeChanges } from '@xyflow/react';
 
 import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
-import { extractPortNumber, getNameError } from '../utils';
-import type { LinkTemplate } from '../../types/schema';
+import { extractPortNumber, getNameError, getNodeRole } from '../utils';
+import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -28,6 +28,7 @@ export interface LinkActions {
   deleteMemberLink: (edgeId: string, index: number) => void;
   toggleEdgeExpanded: (edgeId: string) => void;
   toggleAllEdgesExpanded: () => void;
+  autoLink: () => void;
 }
 
 export type LinkSlice = LinkState & LinkActions;
@@ -153,6 +154,14 @@ function getEdgePairKey(a: string, b: string): string {
   return a < b ? `${a}-${b}` : `${b}-${a}`;
 }
 
+function hasAnyEdgeBetween(edges: UIEdge[], nodeIdA: string, nodeIdB: string): boolean {
+  for (const edge of edges) {
+    if (edge.source === nodeIdA && edge.target === nodeIdB) return true;
+    if (edge.source === nodeIdB && edge.target === nodeIdA) return true;
+  }
+  return false;
+}
+
 function getNextLinkNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
   const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
   let memberLinkCount = 0;
@@ -257,6 +266,7 @@ export type LinkSliceCreator = StateCreator<
   LinkSlice & {
     nodes: UINode[];
     linkTemplates: LinkTemplate[];
+    nodeTemplates: NodeTemplate[];
     selectedEdgeId: string | null;
     selectedEdgeIds: string[];
     selectedNodeId: string | null;
@@ -442,5 +452,105 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const multiLinkEdges = edges.filter(e => (e.data?.memberLinks?.length || 0) > 1);
     const anyExpanded = multiLinkEdges.some(e => current.has(e.id));
     set({ expandedEdges: anyExpanded ? new Set() : new Set(multiLinkEdges.map(e => e.id)) });
+  },
+
+  autoLink: () => {
+    const state = get();
+    const { nodes, edges, linkTemplates, nodeTemplates } = state;
+
+    const leafRoles = new Set(['leaf', 'borderleaf']);
+    const spineRoles = new Set(['spine', 'superspine']);
+
+    const leaves: UINode[] = [];
+    const spines: UINode[] = [];
+    const simNodes: UINode[] = [];
+    const topoNodes: UINode[] = [];
+
+    for (const node of nodes) {
+      if (isSimNodeId(node.id)) {
+        simNodes.push(node);
+        continue;
+      }
+      topoNodes.push(node);
+      const templateLabels = nodeTemplates.find(t => t.name === node.data.template)?.labels;
+      const role = getNodeRole(node.data, templateLabels);
+      if (role && leafRoles.has(role)) leaves.push(node);
+      else if (role && spineRoles.has(role)) spines.push(node);
+    }
+
+    const islTemplate = linkTemplates.find(t => t.type === 'interSwitch')?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === 'edge')?.name;
+
+    const newEdges: UIEdge[] = [];
+    const currentEdges = [...edges];
+
+    const createLink = (sourceNode: UINode, targetNode: UINode, template: string) => {
+      if (hasAnyEdgeBetween(currentEdges, sourceNode.id, targetNode.id)) return;
+
+      const sourceIsSimNode = isSimNodeId(sourceNode.id);
+      const targetIsSimNode = isSimNodeId(targetNode.id);
+
+      const nextSourcePort = getNextPortNumber(currentEdges, sourceNode.id);
+      const nextTargetPort = getNextPortNumber(currentEdges, targetNode.id);
+      const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
+      const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
+
+      const sourceName = sourceNode.data.name;
+      const targetName = targetNode.data.name;
+      const nextLinkNumber = getNextLinkNumberForPair(currentEdges, sourceName, targetName);
+
+      const id = generateEdgeId();
+      const newEdge: UIEdge = {
+        id,
+        type: 'linkEdge',
+        source: sourceNode.id,
+        target: targetNode.id,
+        sourceHandle: null,
+        targetHandle: null,
+        selected: false,
+        data: {
+          id,
+          sourceNode: sourceName,
+          targetNode: targetName,
+          edgeType: 'normal',
+          memberLinks: [{
+            name: `${targetName}-${sourceName}-${nextLinkNumber}`,
+            template,
+            sourceInterface,
+            targetInterface,
+          }],
+        },
+      };
+
+      newEdges.push(newEdge);
+      currentEdges.push(newEdge);
+    };
+
+    if (islTemplate) {
+      for (const leaf of leaves) {
+        for (const spine of spines) {
+          createLink(leaf, spine, islTemplate);
+        }
+      }
+    }
+
+    if (edgeTemplate) {
+      for (const simNode of simNodes) {
+        for (const topoNode of topoNodes) {
+          createLink(simNode, topoNode, edgeTemplate);
+        }
+      }
+    }
+
+    if (newEdges.length === 0) return;
+
+    get().saveToUndoHistory();
+    set({
+      edges: [...edges, ...newEdges],
+      selectedEdgeId: null,
+      selectedNodeId: null,
+      selectedSimNodeName: null,
+    } as Partial<LinkSlice>);
+    get().triggerYamlRefresh();
   },
 });

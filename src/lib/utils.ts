@@ -231,7 +231,7 @@ export const createEmptySelectionState = (): SelectionState => ({
   selectedEdgeId: null,
   selectedEdgeIds: [],
   selectedSimNodeName: null,
-  selectedSimNodeNames: EMPTY_STRING_SET,
+  selectedSimNodeNames: new Set<string>(),
   selectedMemberLinkIndices: [],
   selectedLagId: null,
 });

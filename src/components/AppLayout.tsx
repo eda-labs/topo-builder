@@ -34,8 +34,6 @@ import {
   Check as ValidateIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
-  // DarkMode as DarkModeIcon,
-  // LightMode as LightModeIcon,
   Terminal as TerminalIcon,
   PhotoCameraBack as PhotoCameraIcon,
   Info,
@@ -55,31 +53,19 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const darkMode = useTopologyStore(state => state.darkMode);
-  // const setDarkMode = useTopologyStore(state => state.setDarkMode);
-
   const theme = useMemo(() => createTheme({
     cssVariables: true,
     palette: {
-      mode: darkMode ? 'dark' : 'light',
-      primary: darkMode
-        ? { main: '#005AFF', light: '#6098FF', dark: '#0A44AD' }
-        : { main: '#7d33f2', light: '#9a5ff5', dark: '#5c1fd4' },
-      error: { main: darkMode ? '#FF6363' : '#d32f2f' },
-      warning: { main: darkMode ? '#FFAC0A' : '#ed6c02' },
-      success: { main: darkMode ? '#00A87E' : '#2e7d32' },
-      info: { main: darkMode ? '#90B7FF' : '#0288d1' },
-      background: darkMode
-        ? { default: '#1A222E', paper: '#101824' }
-        : { default: '#fafafa', paper: '#ffffff' },
-      text: darkMode
-        ? { primary: '#ffffff', secondary: '#C9CED6' }
-        : undefined,
-      divider: darkMode ? '#4A5361B2' : '#e0e0e0',
-      card: {
-        bg: darkMode ? '#101824' : '#f5f5f5',
-        border: darkMode ? '#4A5361B2' : '#e0e0e0',
-      },
+      mode: 'dark',
+      primary: { main: '#005AFF', light: '#6098FF', dark: '#0A44AD' },
+      error: { main: '#FF6363' },
+      warning: { main: '#FFAC0A' },
+      success: { main: '#00A87E' },
+      info: { main: '#90B7FF' },
+      background: { default: '#1A222E', paper: '#101824' },
+      text: { primary: '#ffffff', secondary: '#C9CED6' },
+      divider: '#4A5361B2',
+      card: { bg: '#101824', border: '#4A5361B2' },
     },
     shape: { borderRadius: 4 },
     typography: {
@@ -95,7 +81,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         },
       },
     },
-  }), [darkMode]);
+  }), []);
 
   const topologyName = useTopologyStore(state => state.topologyName);
   const namespace = useTopologyStore(state => state.namespace);
@@ -254,11 +240,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              {/* <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
-                <IconButton size="small" onClick={() => { setDarkMode(!darkMode); }} sx={{ color: 'white' }}>
-                  {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-                </IconButton>
-              </Tooltip> */}
               <Tooltip title="About">
                 <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
                   <Info fontSize="small" />

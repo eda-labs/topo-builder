@@ -168,7 +168,6 @@ export interface UIState {
   selectedLagId: string | null;
   expandedEdges: Set<string>;
   showSimNodes: boolean;
-  darkMode: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;

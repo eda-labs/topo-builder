@@ -70,7 +70,6 @@ interface CoreState {
   namespace: string;
   operation: Operation;
   showSimNodes: boolean;
-  darkMode: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;
@@ -81,7 +80,6 @@ interface CoreActions {
   setTopologyName: (name: string) => void;
   setNamespace: (namespace: string) => void;
   setOperation: (operation: Operation) => void;
-  setDarkMode: (darkMode: boolean) => void;
   setShowSimNodes: (show: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
@@ -139,7 +137,6 @@ const initialCoreState: CoreState = {
   namespace: baseTemplate.namespace || 'eda',
   operation: baseTemplate.operation || 'replaceAll',
   showSimNodes: true,
-  darkMode: true,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   error: null,
@@ -436,7 +433,6 @@ export const createTopologyStore = () => {
             set({ operation });
             get().triggerYamlRefresh();
           },
-          setDarkMode: (darkMode: boolean) => set({ darkMode }),
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),
           triggerYamlRefresh: () => set({ yamlRefreshCounter: get().yamlRefreshCounter + 1 }),
 
@@ -480,7 +476,7 @@ export const createTopologyStore = () => {
             nodeIdCounter = 1;
             edgeIdCounter = 1;
             setAnnotationIdCounter(1);
-            const { darkMode, showSimNodes, yamlRefreshCounter } = get();
+            const { showSimNodes, yamlRefreshCounter } = get();
             set({
               ...initialCoreState,
               nodes: [],
@@ -500,7 +496,6 @@ export const createTopologyStore = () => {
               selectedLagId: null,
               selectedAnnotationId: null,
               selectedAnnotationIds: new Set<string>(),
-              darkMode,
               showSimNodes,
               yamlRefreshCounter: yamlRefreshCounter + 1,
             });

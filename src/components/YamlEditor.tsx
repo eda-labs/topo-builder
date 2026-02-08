@@ -231,7 +231,7 @@ export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,
     nodeTemplates, linkTemplates, simulation, annotations,
-    importFromYaml, yamlRefreshCounter, darkMode,
+    importFromYaml, yamlRefreshCounter,
   } = useTopologyStore();
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -264,7 +264,7 @@ export default function YamlEditor() {
       },
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    if (darkMode) monaco.editor.setTheme(themeName);
+    monaco.editor.setTheme(themeName);
     editorRef.current = editor;
     editorInstance = editor;
   };
@@ -282,7 +282,7 @@ export default function YamlEditor() {
         <Editor
           height="100%"
           language="yaml"
-          theme={darkMode ? 'ntwfui-dark' : 'light'}
+          theme="ntwfui-dark"
           defaultValue={getYamlFromState()}
           onMount={handleEditorMount}
           onChange={handleEditorChange}

@@ -592,7 +592,6 @@ function TopologyEditorInner() {
     clearAll,
     layoutVersion,
     triggerYamlRefresh,
-    darkMode,
     nodeTemplates,
     linkTemplates,
     createLagFromMemberLinks,
@@ -1137,7 +1136,7 @@ function TopologyEditorInner() {
             snapToGrid
             snapGrid={[15, 15]}
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
-            colorMode={darkMode ? 'dark' : 'light'}
+            colorMode="dark"
             deleteKeyCode={null}
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"

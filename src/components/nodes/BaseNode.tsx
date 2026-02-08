@@ -106,7 +106,6 @@ export default function BaseNode({
   className = '',
   testId,
 }: BaseNodeProps) {
-  const darkMode = useTopologyStore(state => state.darkMode);
   const edges = useTopologyStore(state => state.edges);
   const nodes = useTopologyStore(state => state.nodes);
 
@@ -138,7 +137,7 @@ export default function BaseNode({
       data-testid={testId}
       className={`group relative w-20 h-20 bg-(--color-node-bg) border rounded-lg flex flex-col items-center justify-center gap-0.5 ${
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
-      } ${darkMode ? 'dark' : ''} ${className || 'border-solid'}`}
+      } ${className || 'border-solid'}`}
     >
       <Handle type="source" position={Position.Top} id="top" className={getHandleClassName(Position.Top)} />
       <Handle type="target" position={Position.Top} id="top-target" className="!opacity-0 !w-2.5 !h-2.5" />

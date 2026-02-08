@@ -53,31 +53,22 @@
 }
 
 :root {
-  --color-primary: #7d33f2;
-  --color-primary-light: #9a5ff5;
-  --color-primary-dark: #5c1fd4;
-  --color-link-stroke: #6872824C;
+  --color-primary: #005AFF;
+  --color-primary-light: #6098FF;
+  --color-primary-dark: #0A44AD;
+  --color-link-stroke: #8994a37f;
   --color-link-stroke-selected: #6098FF;
   --color-link-stroke-highlight: #6098FF;
-  --color-node-border: #6872824C;
+  --color-node-border: #8994a37f;
   --color-node-border-selected: #6098FF;
-  --color-node-bg: #F7F9FD;
-  --color-node-text: #2b2b2b;
-  --color-handle-bg: white;
+  --color-node-bg: #000000;
+  --color-node-text: #ffffff;
+  --color-handle-bg: #1e1e1e;
   --color-icon-bg: #707070;
   --color-icon-fg: white;
 }
 
-.dark {
-  --color-link-stroke: #8994a37f;
-  --color-link-stroke-highlight: #6098FF;
-  --color-node-border: #8994a37f;
-  --color-node-bg: #000000;
-  --color-node-text: #ffffff;
-  --color-handle-bg: #1e1e1e;
-}
-
-.react-flow.dark {
+.react-flow {
   --xy-background-color: #101824;
 }
 

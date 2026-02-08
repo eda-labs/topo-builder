@@ -18,6 +18,7 @@ import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
   ANNOTATION_NAME_PREFIX,
+  SESSION_NEW_LINK_ID,
 } from '../lib/constants';
 import type {
   NodeTemplate,
@@ -107,10 +108,10 @@ export function SelectionPanel() {
 
   // Auto-focus source interface when a new link is created
   useEffect(() => {
-    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    const newLinkId = sessionStorage.getItem(SESSION_NEW_LINK_ID);
     if (selectedEdgeId && selectedEdgeId === newLinkId) {
       setTimeout(() => { focusAtEnd(sourceInterfaceRef.current); }, 100);
-      sessionStorage.removeItem('topology-new-link-id');
+      sessionStorage.removeItem(SESSION_NEW_LINK_ID);
     }
     prevSelectedEdgeIdRef.current = selectedEdgeId;
   }, [selectedEdgeId]);

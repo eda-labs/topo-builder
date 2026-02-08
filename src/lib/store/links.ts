@@ -11,6 +11,7 @@ import { applyEdgeChanges } from '@xyflow/react';
 import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { extractPortNumber, getNameError, getNodeRole } from '../utils';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
+import { SESSION_NEW_LINK_ID } from '../constants';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -209,7 +210,7 @@ function selectExistingEdgeWithNewMemberLink({
     selectedMemberLinkIndices: [existingMemberLinks.length],
   } as Partial<LinkSlice>);
 
-  sessionStorage.setItem('topology-new-link-id', existingEdge.id);
+  sessionStorage.setItem(SESSION_NEW_LINK_ID, existingEdge.id);
   get().triggerYamlRefresh();
 }
 
@@ -259,7 +260,7 @@ function createEdgeAndSelect({
     _skipNextSelectionSync: true,
   } as Partial<LinkSlice>);
 
-  sessionStorage.setItem('topology-new-link-id', id);
+  sessionStorage.setItem(SESSION_NEW_LINK_ID, id);
   get().triggerYamlRefresh();
 }
 

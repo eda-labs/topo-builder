@@ -3,6 +3,7 @@ export const ERROR_DISPLAY_DURATION_MS = 10000;
 export const DRAWER_WIDTH = 500;
 export const DRAWER_TRANSITION_DURATION_MS = 225;
 export const EDGE_INTERACTION_WIDTH = 10;
+export const SESSION_NEW_LINK_ID = 'topology-new-link-id';
 
 export const ANNOTATION_POS_X = 'topobuilder.eda.labs/x';
 export const ANNOTATION_POS_Y = 'topobuilder.eda.labs/y';

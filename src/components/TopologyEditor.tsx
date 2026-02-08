@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName } from '../lib/store';
-import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES } from '../lib/constants';
+import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES, SESSION_NEW_LINK_ID } from '../lib/constants';
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
 
@@ -642,7 +642,7 @@ function TopologyEditorInner() {
   }, [activeTab]);
 
   useEffect(() => {
-    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    const newLinkId = sessionStorage.getItem(SESSION_NEW_LINK_ID);
     if (newLinkId && selectedEdgeId === newLinkId) {
       setActiveTab(1);
     }
@@ -795,9 +795,9 @@ function TopologyEditorInner() {
   }, [handleUndo, handleRedo, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, deleteAnnotation, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
-    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    const newLinkId = sessionStorage.getItem(SESSION_NEW_LINK_ID);
     if (newLinkId) {
-      sessionStorage.removeItem('topology-new-link-id');
+      sessionStorage.removeItem(SESSION_NEW_LINK_ID);
       return;
     }
     selectNode(null);

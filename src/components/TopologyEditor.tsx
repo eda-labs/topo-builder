@@ -664,7 +664,6 @@ function TopologyEditorInner() {
     flowPosition: { x: 0, y: 0 },
   });
 
-  const justConnectedRef = useRef(false);
   const isPastingRef = useRef(false);
 
   const { handleCopy, handlePaste, hasClipboardData } = useCopyPaste({
@@ -673,11 +672,7 @@ function TopologyEditorInner() {
   });
 
   const handleConnect = useCallback((connection: Connection) => {
-    justConnectedRef.current = true;
     onConnect(connection);
-    setTimeout(() => {
-      justConnectedRef.current = false;
-    }, 100);
   }, [onConnect]);
 
   useEffect(() => {
@@ -800,7 +795,9 @@ function TopologyEditorInner() {
   }, [handleUndo, handleRedo, deleteMemberLink, clearMemberLinkSelection, deleteNode, deleteEdge, deleteSimNode, deleteAnnotation, triggerYamlRefresh, selectSimNodes]);
 
   const handlePaneClick = useCallback(() => {
-    if (justConnectedRef.current) {
+    const newLinkId = sessionStorage.getItem('topology-new-link-id');
+    if (newLinkId) {
+      sessionStorage.removeItem('topology-new-link-id');
       return;
     }
     selectNode(null);

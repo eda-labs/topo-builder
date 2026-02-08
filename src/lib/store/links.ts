@@ -256,6 +256,7 @@ function createEdgeAndSelect({
     selectedSimNodeName: null,
     selectedMemberLinkIndices: [],
     selectedLagId: null,
+    _skipNextSelectionSync: true,
   } as Partial<LinkSlice>);
 
   sessionStorage.setItem('topology-new-link-id', id);

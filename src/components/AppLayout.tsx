@@ -60,7 +60,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     cssVariables: true,
     palette: {
       mode: 'dark',
-      primary: { main: '#005AFF', light: '#6098FF', dark: '#0A44AD' },
+      primary: { main: '#6098FF' },
       error: { main: '#FF6363' },
       warning: { main: '#FFAC0A' },
       success: { main: '#00A87E' },

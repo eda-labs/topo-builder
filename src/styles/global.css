@@ -53,9 +53,6 @@
 }
 
 :root {
-  --color-primary: #005AFF;
-  --color-primary-light: #6098FF;
-  --color-primary-dark: #0A44AD;
   --color-link-stroke: #8994a37f;
   --color-link-stroke-selected: #6098FF;
   --color-link-stroke-highlight: #6098FF;

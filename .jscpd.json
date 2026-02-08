@@ -1,0 +1,6 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": ["**/node_modules/**", "**/dist/**", "**/types/schema.ts"],
+  "absolute": true
+}

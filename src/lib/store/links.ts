@@ -257,7 +257,7 @@ function createEdgeAndSelect({
     selectedSimNodeName: null,
     selectedMemberLinkIndices: [],
     selectedLagId: null,
-    _skipNextSelectionSync: true,
+    _selectionSyncLockedUntil: Date.now() + 200,
   } as Partial<LinkSlice>);
 
   sessionStorage.setItem(SESSION_NEW_LINK_ID, id);
@@ -275,6 +275,7 @@ export type LinkSliceCreator = StateCreator<
     selectedSimNodeName: string | null;
     selectedMemberLinkIndices: number[];
     selectedLagId: string | null;
+    _selectionSyncLockedUntil: number;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
     saveToUndoHistory: () => void;
@@ -425,10 +426,11 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   onEdgesChange: (changes: EdgeChange<Edge<UIEdgeData>>[]) => {
     const currentEdges = get().edges;
     const esiLagEdgeIds = new Set(currentEdges.filter(e => e.data?.edgeType === 'esilag').map(e => e.id));
+    const locked = Date.now() < get()._selectionSyncLockedUntil;
 
-    // Only filter ESI-LAG removal - let ReactFlow handle all selection
     const allowedChanges = changes.filter(c => {
       if (c.type === 'remove' && esiLagEdgeIds.has(c.id)) return false;
+      if (c.type === 'select' && locked && !c.selected) return false;
       return true;
     });
 

@@ -19,7 +19,7 @@ export interface SelectionActions {
   clearMemberLinkSelection: () => void;
   clearEdgeSelection: () => void;
   syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => void;
-  _skipNextSelectionSync: boolean;
+  _selectionSyncLockedUntil: number;
 }
 
 export type SelectionSlice = SelectionState & SelectionActions;
@@ -43,7 +43,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
   selectedSimNodeNames: EMPTY_STRING_SET,
   selectedMemberLinkIndices: [],
   selectedLagId: null,
-  _skipNextSelectionSync: false,
+  _selectionSyncLockedUntil: 0,
 
   selectNode: (id: string | null, addToSelection?: boolean) => {
     if (id === null) {
@@ -136,10 +136,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
   },
 
   syncSelectionFromReactFlow: (nodeIds: string[], edgeIds: string[]) => {
-    if (get()._skipNextSelectionSync) {
-      set({ _skipNextSelectionSync: false });
-      return;
-    }
+    if (Date.now() < get()._selectionSyncLockedUntil) return;
 
     const nodes = get().nodes;
     const lastNodeId = nodeIds.length > 0 ? nodeIds[nodeIds.length - 1] : null;
@@ -177,7 +174,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
     set({
       edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
       nodes: get().nodes.map(n => ({ ...n, selected: false })),
-      _skipNextSelectionSync: true,
+      _selectionSyncLockedUntil: Date.now() + 200,
       selectedEdgeId: edgeId,
       selectedEdgeIds: [edgeId],
       selectedNodeId: null,
@@ -193,7 +190,7 @@ export const createSelectionSlice: SelectionSliceCreator = (set, get) => ({
     set({
       edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
       nodes: get().nodes.map(n => ({ ...n, selected: false })),
-      _skipNextSelectionSync: true,
+      _selectionSyncLockedUntil: Date.now() + 200,
       selectedEdgeId: edgeId,
       selectedEdgeIds: [edgeId],
       selectedNodeId: null,

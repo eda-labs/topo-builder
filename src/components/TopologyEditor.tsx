@@ -654,6 +654,8 @@ function TopologyEditorInner() {
     }
   }, [selectedNodeId, selectedEdgeId, selectedSimNodeName, selectedAnnotationId]);
 
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
     position: { x: number; y: number };
@@ -688,6 +690,18 @@ function TopologyEditorInner() {
     jumpToMemberLinkInEditor(target.edgeId, target.memberIndex);
   }, [activeTab, selectedEdgeId, selectedMemberLinkIndices, edges, expandedEdges]);
 
+  const handleAnnotationEditComplete = useCallback((id: string, newText: string) => {
+    const ann = annotations.find(a => a.id === id);
+    if (ann && ann.type === 'text' && newText !== ann.text) {
+      updateAnnotation(id, { text: newText });
+    }
+    setEditingAnnotationId(null);
+  }, [annotations, updateAnnotation]);
+
+  const handleAnnotationEditCancel = useCallback(() => {
+    setEditingAnnotationId(null);
+  }, []);
+
   const annotationNodes = useMemo(() => {
     return annotations.map(ann => {
       const base = {
@@ -705,6 +719,9 @@ function TopologyEditorInner() {
             text: ann.text,
             fontSize: ann.fontSize,
             fontColor: ann.fontColor,
+            isEditing: editingAnnotationId === ann.id,
+            onEditComplete: handleAnnotationEditComplete,
+            onEditCancel: handleAnnotationEditCancel,
           },
         };
       }
@@ -724,7 +741,7 @@ function TopologyEditorInner() {
         },
       };
     });
-  }, [annotations, selectedAnnotationIds]);
+  }, [annotations, selectedAnnotationIds, editingAnnotationId, handleAnnotationEditComplete, handleAnnotationEditCancel]);
 
   const visibleNodes = useMemo(() => {
     const topoNodes = showSimNodes ? nodes : nodes.filter(n => n.data.nodeType !== 'simnode');
@@ -889,6 +906,12 @@ function TopologyEditorInner() {
       jumpToLinkInEditor(edge.data.sourceNode, edge.data.targetNode);
     }
   }, [activeTab]);
+
+  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.type === 'textAnnotation') {
+      setEditingAnnotationId(node.id);
+    }
+  }, []);
 
   const handleEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge<UIEdgeData>) => {
     const linkCount = edge.data?.memberLinks?.length || 0;
@@ -1118,6 +1141,7 @@ function TopologyEditorInner() {
             onPaneClick={handlePaneClick}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
             onPaneContextMenu={handlePaneContextMenu}
             onNodeContextMenu={handleNodeContextMenu}

@@ -4,7 +4,7 @@ metadata:
   name: my-topology
   namespace: eda
   annotations:
-    topobuilder.eda.labs/drawing: '[{"type":"shape","shapeType":"rectangle","position":{"x":60,"y":60},"width":200,"height":100,"strokeColor":"#314354","fillColor":"#1A222E","strokeWidth":2,"strokeStyle":"solid","id":"a1"}]'
+    topobuilder.eda.labs/drawing: '[{"type":"shape","shapeType":"rectangle","position":{"x":60,"y":60},"width":200,"height":100,"strokeColor":"#314354","fillColor":"#1A222E","strokeWidth":1,"strokeStyle":"solid","id":"a1"}]'
 spec:
   operation: replaceAll
   nodeTemplates:

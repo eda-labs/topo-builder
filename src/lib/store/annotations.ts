@@ -22,7 +22,7 @@ let annotationIdCounter = 1;
 
 export const setAnnotationIdCounter = (n: number) => { annotationIdCounter = n; };
 
-function generateAnnotationId(): string {
+export function generateAnnotationId(): string {
   return `a${annotationIdCounter++}`;
 }
 

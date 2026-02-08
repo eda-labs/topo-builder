@@ -160,12 +160,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const padding = 100;
     const nodeW = 80;
     const nodeH = 80;
-    const xs = nodes.map(n => n.position?.x ?? 0);
-    const ys = nodes.map(n => n.position?.y ?? 0);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    const maxX = Math.max(...xs) + nodeW;
-    const maxY = Math.max(...ys) + nodeH;
+    const rects = nodes.map(n => ({
+      x: n.position?.x ?? 0,
+      y: n.position?.y ?? 0,
+      w: nodeW,
+      h: nodeH,
+    }));
+    for (const ann of annotations) {
+      const x = ann.position.x;
+      const y = ann.position.y;
+      const w = ann.type === 'shape' ? ann.width : 200;
+      const h = ann.type === 'shape' ? ann.height : ann.fontSize * 2;
+      rects.push({ x, y, w, h });
+    }
+    const minX = Math.min(...rects.map(r => r.x));
+    const minY = Math.min(...rects.map(r => r.y));
+    const maxX = Math.max(...rects.map(r => r.x + r.w));
+    const maxY = Math.max(...rects.map(r => r.y + r.h));
     const boundsW = maxX - minX;
     const boundsH = maxY - minY;
     const imageWidth = Math.max(boundsW + padding * 2, 400);

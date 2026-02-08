@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { useReactFlow, type Node, type Edge } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
+import { generateAnnotationId } from '../lib/store/annotations';
 import type { UINodeData, UIEdgeData, UIClipboard, UIAnnotation } from '../types/ui';
 
 // Use UIClipboard but with React Flow node types for the nodes/edges arrays
@@ -203,16 +204,22 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     pasteSelection(copiedNodes, copiedEdges, offset, copiedSimNodes, cursorPos);
 
     if (hasAnnotations) {
-      const { addAnnotation } = useTopologyStore.getState();
-      for (const ann of copiedAnnotations) {
-        const { type, position } = ann;
-        const offsetPos = { x: position.x + offset.x, y: position.y + offset.y };
-        if (type === 'text') {
-          addAnnotation({ type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor });
-        } else {
-          addAnnotation({ type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, fillColor: ann.fillColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle });
+      const newAnnotations: UIAnnotation[] = copiedAnnotations.map(ann => {
+        const id = generateAnnotationId();
+        const offsetPos = { x: ann.position.x + offset.x, y: ann.position.y + offset.y };
+        if (ann.type === 'text') {
+          return { id, type: ann.type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor } as UIAnnotation;
         }
-      }
+        return { id, type: ann.type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, fillColor: ann.fillColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle } as UIAnnotation;
+      });
+      const newIds = new Set(newAnnotations.map(a => a.id));
+      const currentAnnotations = useTopologyStore.getState().annotations;
+      useTopologyStore.setState({
+        annotations: [...currentAnnotations, ...newAnnotations],
+        selectedAnnotationId: newAnnotations[newAnnotations.length - 1]?.id ?? null,
+        selectedAnnotationIds: newIds,
+      });
+      triggerYamlRefresh();
     }
 
     // Clear pasting flag after a tick to allow React state to settle
@@ -221,7 +228,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
         isPastingRef.current = false;
       }, 0);
     }
-  }, [pasteCopiedLinkTemplate, saveToUndoHistory, pasteSelection, isPastingRef]);
+  }, [pasteCopiedLinkTemplate, saveToUndoHistory, pasteSelection, isPastingRef, triggerYamlRefresh]);
 
   const onCopy = useCallback((event: ClipboardEvent) => {
     const target = event.target as HTMLElement;

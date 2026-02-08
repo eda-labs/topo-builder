@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import { canvasPane, getEdgeCount } from './utils';
 import {
@@ -13,7 +14,7 @@ import {
  * Connect from sourceLabel's LEFT handle to targetLabel's RIGHT handle.
  * This is the reverse direction of connectNodes (which goes right→left).
  */
-async function connectNodesReverse(page: import('@playwright/test').Page, sourceLabel: string, targetLabel: string) {
+async function connectNodesReverse(page: Page, sourceLabel: string, targetLabel: string) {
   const source = nodeByLabel(page, sourceLabel);
   const target = nodeByLabel(page, targetLabel);
   const sourceBox = await source.boundingBox();

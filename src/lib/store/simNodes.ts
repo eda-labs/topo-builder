@@ -55,10 +55,18 @@ export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
   },
 
   addSimNode: (params: { name: string; template?: string; position: { x: number; y: number } }) => {
+    const { name, template, position } = params;
+    const nodes = get().nodes;
+
+    // Validate the new sim node name before creating the node
+    const validationError = (validateSimNodeName as any)(name, nodes);
+    if (validationError) {
+      get().setError(validationError);
+      return;
+    }
+
     get().saveToUndoHistory();
     const id = generateSimNodeId();
-    const nodes = get().nodes;
-    const { name, template, position } = params;
 
     const newNode: UINode = {
       id,

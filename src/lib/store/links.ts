@@ -196,22 +196,32 @@ function selectExistingEdgeWithNewMemberLink({
   const existingMemberLinks = existingEdge.data?.memberLinks || [];
   const updatedEdges = edges.map(e =>
     e.id === existingEdge.id
-      ? { ...e, selected: true, data: { ...e.data, memberLinks: [...existingMemberLinks, newMemberLink] } as UIEdgeData }
+      ? { ...e, selected: false, data: { ...e.data, memberLinks: [...existingMemberLinks, newMemberLink] } as UIEdgeData }
       : { ...e, selected: false },
   );
 
   set({
     nodes: nodes.map(n => ({ ...n, selected: false })),
     edges: updatedEdges,
-    selectedEdgeId: existingEdge.id,
-    selectedEdgeIds: [existingEdge.id],
     selectedNodeId: null,
     selectedSimNodeName: null,
-    selectedMemberLinkIndices: [existingMemberLinks.length],
   } as Partial<LinkSlice>);
 
   sessionStorage.setItem(SESSION_NEW_LINK_ID, existingEdge.id);
   get().triggerYamlRefresh();
+
+  const edgeId = existingEdge.id;
+  const memberIndex = existingMemberLinks.length;
+  setTimeout(() => {
+    set({
+      edges: get().edges.map(e => ({ ...e, selected: e.id === edgeId })),
+      nodes: get().nodes.map(n => ({ ...n, selected: false })),
+      selectedEdgeId: edgeId,
+      selectedEdgeIds: [edgeId],
+      selectedMemberLinkIndices: [memberIndex],
+      _selectionSyncLockedUntil: Date.now() + 200,
+    } as Partial<LinkSlice>);
+  }, 50);
 }
 
 function createEdgeAndSelect({
@@ -244,24 +254,31 @@ function createEdgeAndSelect({
     target,
     sourceHandle: sourceHandle ?? null,
     targetHandle: targetHandle ?? null,
-    selected: true,
+    selected: false,
     data,
   };
 
   set({
     nodes: nodes.map(n => ({ ...n, selected: false })),
     edges: [...edges.map(e => ({ ...e, selected: false })), newEdge],
-    selectedEdgeId: id,
-    selectedEdgeIds: [id],
     selectedNodeId: null,
     selectedSimNodeName: null,
-    selectedMemberLinkIndices: [],
-    selectedLagId: null,
-    _selectionSyncLockedUntil: Date.now() + 200,
   } as Partial<LinkSlice>);
 
   sessionStorage.setItem(SESSION_NEW_LINK_ID, id);
   get().triggerYamlRefresh();
+
+  setTimeout(() => {
+    set({
+      edges: get().edges.map(e => ({ ...e, selected: e.id === id })),
+      nodes: get().nodes.map(n => ({ ...n, selected: false })),
+      selectedEdgeId: id,
+      selectedEdgeIds: [id],
+      selectedMemberLinkIndices: [],
+      selectedLagId: null,
+      _selectionSyncLockedUntil: Date.now() + 200,
+    } as Partial<LinkSlice>);
+  }, 50);
 }
 
 export type LinkSliceCreator = StateCreator<

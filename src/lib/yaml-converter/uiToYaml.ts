@@ -624,30 +624,19 @@ function buildLagLinkForTopoOnly(options: {
 }): Link {
   const { edge, lag, lagMemberLinks, firstMemberIndex, sourceName, targetName } = options;
 
-  const endpoints: Endpoint[] = [];
-
-  for (const member of lagMemberLinks) {
-    endpoints.push({
+  return {
+    name: lag.name,
+    annotations: createAnnotations(edge, firstMemberIndex),
+    endpoints: lagMemberLinks.map(member => ({
       local: {
         node: sourceName,
         interface: fallbackIfEmptyString(member.sourceInterface, DEFAULT_INTERFACE),
       },
-    });
-  }
-
-  for (const member of lagMemberLinks) {
-    endpoints.push({
-      local: {
+      remote: {
         node: targetName,
         interface: fallbackIfEmptyString(member.targetInterface, DEFAULT_INTERFACE),
       },
-    });
-  }
-
-  return {
-    name: lag.name,
-    annotations: createAnnotations(edge, firstMemberIndex),
-    endpoints,
+    })),
   };
 }
 

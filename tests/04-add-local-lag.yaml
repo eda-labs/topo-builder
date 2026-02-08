@@ -56,13 +56,13 @@ spec:
         - local:
             node: leaf2
             interface: ethernet-1-1
-        - local:
-            node: leaf2
-            interface: ethernet-1-2
-        - local:
+          remote:
             node: leaf1
             interface: ethernet-1-1
         - local:
+            node: leaf2
+            interface: ethernet-1-2
+          remote:
             node: leaf1
             interface: ethernet-1-2
       template: isl

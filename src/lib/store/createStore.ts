@@ -49,6 +49,7 @@ import {
   canRedo as historyCanRedo,
   clearHistory,
 } from './history';
+import type { UndoState } from './history';
 
 // ID counters
 let nodeIdCounter = 1;
@@ -85,16 +86,18 @@ interface CoreActions {
   saveToUndoHistory: () => void;
   importFromYaml: (yaml: string) => boolean;
   clearAll: () => void;
-  pasteSelection: (
-    copiedNodes: Node<UINodeData>[],
-    copiedEdges: Edge<UIEdgeData>[],
-    offset: { x: number; y: number },
-    copiedSimNodes?: UISimNode[],
-    cursorPos?: { x: number; y: number },
-  ) => void;
+  pasteSelection: PasteSelectionFn;
 }
 
 type CoreSlice = CoreState & CoreActions;
+
+type PasteSelectionFn = (
+  copiedNodes: Node<UINodeData>[],
+  copiedEdges: Edge<UIEdgeData>[],
+  offset: { x: number; y: number },
+  copiedSimNodes?: UISimNode[],
+  cursorPos?: { x: number; y: number },
+) => void;
 
 // Combined store type
 export type TopologyStore =
@@ -403,6 +406,47 @@ export const createTopologyStore = () => {
   return create<TopologyStore>()(
     persist(
       (set, get, api) => {
+        const pasteSelection: PasteSelectionFn = (...args: Parameters<PasteSelectionFn>) => {
+          const [copiedNodes, copiedEdges, offset, copiedSimNodes, cursorPos] = args;
+
+          if (copiedNodes.length === 0 && (!copiedSimNodes || copiedSimNodes.length === 0)) return;
+          get().saveToUndoHistory();
+
+          const state = get();
+          const existingNodes = state.nodes;
+          const existingEdges = state.edges;
+          const allNames = existingNodes.map(n => n.data.name);
+
+          const idMap = new Map<string, string>();
+          const nameMap = new Map<string, string>();
+
+          const newNodes = buildPastedNodes({ copiedNodes, offset, allNames, idMap, nameMap });
+
+          // Process simNodes first so their IDs are in idMap for edge filtering.
+          const { newSimNodeNodes, newSimNodeNames } = buildPastedSimNodeNodes({
+            copiedSimNodes,
+            offset,
+            cursorPos,
+            allNames,
+            idMap,
+            nameMap,
+          });
+
+          // Now filter edges - both regular node IDs and simNode IDs are in idMap.
+          const newEdges = buildPastedEdges({ copiedEdges, idMap, nameMap });
+
+          applyPasteSelectionToStore({
+            set: set as StoreSetFn,
+            existingNodes,
+            existingEdges,
+            newNodes: [...newNodes, ...newSimNodeNodes],
+            newEdges,
+            newSimNodeNames,
+          });
+
+          state.triggerYamlRefresh();
+        };
+
         // Create core slice
         const coreSlice: CoreSlice = {
           ...initialCoreState,
@@ -499,51 +543,7 @@ export const createTopologyStore = () => {
               yamlRefreshCounter: yamlRefreshCounter + 1,
             });
           },
-
-          pasteSelection: (
-            copiedNodes: Node<UINodeData>[],
-            copiedEdges: Edge<UIEdgeData>[],
-            offset: { x: number; y: number },
-            copiedSimNodes?: UISimNode[],
-            cursorPos?: { x: number; y: number },
-          ) => {
-            if (copiedNodes.length === 0 && (!copiedSimNodes || copiedSimNodes.length === 0)) return;
-            get().saveToUndoHistory();
-
-            const state = get();
-            const existingNodes = state.nodes;
-            const existingEdges = state.edges;
-            const allNames = existingNodes.map(n => n.data.name);
-
-            const idMap = new Map<string, string>();
-            const nameMap = new Map<string, string>();
-
-            const newNodes = buildPastedNodes({ copiedNodes, offset, allNames, idMap, nameMap });
-
-            // Process simNodes first so their IDs are in idMap for edge filtering.
-            const { newSimNodeNodes, newSimNodeNames } = buildPastedSimNodeNodes({
-              copiedSimNodes,
-              offset,
-              cursorPos,
-              allNames,
-              idMap,
-              nameMap,
-            });
-
-            // Now filter edges - both regular node IDs and simNode IDs are in idMap.
-            const newEdges = buildPastedEdges({ copiedEdges, idMap, nameMap });
-
-            applyPasteSelectionToStore({
-              set: set as StoreSetFn,
-              existingNodes,
-              existingEdges,
-              newNodes: [...newNodes, ...newSimNodeNodes],
-              newEdges,
-              newSimNodeNames,
-            });
-
-            state.triggerYamlRefresh();
-          },
+          pasteSelection,
         };
 
         // Compose all slices
@@ -655,39 +655,7 @@ export const saveToUndoHistory = () => {
   pushToUndoHistory(captureState(state));
 };
 
-export const undo = () => {
-  if (!historyCanUndo()) return;
-  const previousState = popFromUndoHistory();
-  if (!previousState) return;
-  const state = useTopologyStore.getState();
-  pushToRedoHistory(captureState(state));
-  useTopologyStore.setState({
-    nodes: previousState.nodes,
-    edges: previousState.edges,
-    simulation: previousState.simulation,
-    nodeTemplates: previousState.nodeTemplates,
-    linkTemplates: previousState.linkTemplates,
-    topologyName: previousState.topologyName,
-    namespace: previousState.namespace,
-    annotations: previousState.annotations,
-    selectedNodeId: null,
-    selectedNodeIds: [],
-    selectedEdgeId: null,
-    selectedEdgeIds: [],
-    selectedSimNodeName: null,
-    selectedMemberLinkIndices: [],
-    selectedLagId: null,
-    selectedAnnotationId: null,
-    selectedAnnotationIds: new Set<string>(),
-  });
-};
-
-export const redo = () => {
-  if (!historyCanRedo()) return;
-  const nextState = popFromRedoHistory();
-  if (!nextState) return;
-  const state = useTopologyStore.getState();
-  pushToUndoHistoryForRedo(captureState(state));
+const restoreHistoryState = (nextState: UndoState) => {
   useTopologyStore.setState({
     nodes: nextState.nodes,
     edges: nextState.edges,
@@ -707,6 +675,24 @@ export const redo = () => {
     selectedAnnotationId: null,
     selectedAnnotationIds: new Set<string>(),
   });
+};
+
+export const undo = () => {
+  if (!historyCanUndo()) return;
+  const previousState = popFromUndoHistory();
+  if (!previousState) return;
+  const state = useTopologyStore.getState();
+  pushToRedoHistory(captureState(state));
+  restoreHistoryState(previousState);
+};
+
+export const redo = () => {
+  if (!historyCanRedo()) return;
+  const nextState = popFromRedoHistory();
+  if (!nextState) return;
+  const state = useTopologyStore.getState();
+  pushToUndoHistoryForRedo(captureState(state));
+  restoreHistoryState(nextState);
 };
 
 export const canUndo = historyCanUndo;

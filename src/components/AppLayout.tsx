@@ -43,6 +43,7 @@ import {
 import { toSvg } from 'html-to-image';
 
 import { useTopologyStore } from '../lib/store';
+import { useTopologyData } from '../hooks/useTopologyData';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
@@ -89,12 +90,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const topologyName = useTopologyStore(state => state.topologyName);
   const namespace = useTopologyStore(state => state.namespace);
   const operation = useTopologyStore(state => state.operation);
-  const nodes = useTopologyStore(state => state.nodes);
-  const edges = useTopologyStore(state => state.edges);
-  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
-  const linkTemplates = useTopologyStore(state => state.linkTemplates);
-  const simulation = useTopologyStore(state => state.simulation);
-  const annotations = useTopologyStore(state => state.annotations);
+  const { nodes, edges, nodeTemplates, linkTemplates, simulation, annotations } = useTopologyData();
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);

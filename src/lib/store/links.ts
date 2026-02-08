@@ -12,6 +12,8 @@ import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { extractPortNumber, getNameError, getNodeRole } from '../utils';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 
+import { countForEdgePair } from './edgePairUtils';
+
 export interface LinkState {
   edges: UIEdge[];
   expandedEdges: Set<string>;
@@ -150,10 +152,6 @@ function formatInterface(isSimNode: boolean, portNumber: number): string {
   return `ethernet-1-${portNumber}`;
 }
 
-function getEdgePairKey(a: string, b: string): string {
-  return a < b ? `${a}-${b}` : `${b}-${a}`;
-}
-
 function hasAnyEdgeBetween(edges: UIEdge[], nodeIdA: string, nodeIdB: string): boolean {
   for (const edge of edges) {
     if (edge.source === nodeIdA && edge.target === nodeIdB) return true;
@@ -163,18 +161,12 @@ function hasAnyEdgeBetween(edges: UIEdge[], nodeIdA: string, nodeIdB: string): b
 }
 
 function getNextLinkNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
-  const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
-  let memberLinkCount = 0;
-
-  for (const edge of edges) {
-    const edgeSource = edge.data?.sourceNode;
-    const edgeTarget = edge.data?.targetNode;
-    if (!edgeSource || !edgeTarget) continue;
-    if (getEdgePairKey(edgeSource, edgeTarget) !== pairKey) continue;
-    memberLinkCount += edge.data?.memberLinks?.length ?? 0;
-  }
-
-  return memberLinkCount + 1;
+  return countForEdgePair(
+    edges,
+    sourceNodeName,
+    targetNodeName,
+    edge => edge.data?.memberLinks?.length ?? 0,
+  ) + 1;
 }
 
 function selectExistingEdgeWithNewMemberLink({

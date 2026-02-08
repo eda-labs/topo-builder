@@ -15,21 +15,32 @@ import {
 } from '../utils';
 import { DEFAULT_INTERFACE } from '../constants';
 
-function getEdgePairKey(a: string, b: string): string {
-  return a < b ? `${a}-${b}` : `${b}-${a}`;
-}
+import { countForEdgePair } from './edgePairUtils';
 
 function getNextLagNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
-  const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
-  let lagCount = 0;
-  for (const edge of edges) {
-    const edgeSource = edge.data?.sourceNode;
-    const edgeTarget = edge.data?.targetNode;
-    if (!edgeSource || !edgeTarget) continue;
-    if (getEdgePairKey(edgeSource, edgeTarget) !== pairKey) continue;
-    lagCount += edge.data?.lagGroups?.length ?? 0;
-  }
-  return lagCount + 1;
+  return countForEdgePair(
+    edges,
+    sourceNodeName,
+    targetNodeName,
+    edge => edge.data?.lagGroups?.length ?? 0,
+  ) + 1;
+}
+
+function getEdgeLagContext(
+  edges: UIEdge[],
+  edgeId: string,
+  lagId: string,
+): { lagGroups: UILagGroup[]; lag: UILagGroup; memberLinks: UIMemberLink[] } | null {
+  const edge = edges.find(e => e.id === edgeId);
+  if (!edge?.data) return null;
+
+  const lagGroups = edge.data.lagGroups || [];
+  const lag = lagGroups.find(l => l.id === lagId);
+  if (!lag) return null;
+
+  const memberLinks = edge.data.memberLinks || [];
+
+  return { lagGroups, lag, memberLinks };
 }
 
 // LAG state is stored within edges (UIEdgeData.lagGroups)
@@ -93,14 +104,10 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
 
   addLinkToLag: (edgeId: string, lagId: string) => {
     const edges = get().edges;
-    const edge = edges.find(e => e.id === edgeId);
-    if (!edge || !edge.data) return;
+    const context = getEdgeLagContext(edges, edgeId, lagId);
+    if (!context) return;
 
-    const lagGroups = edge.data.lagGroups || [];
-    const lag = lagGroups.find(l => l.id === lagId);
-    if (!lag) return;
-
-    const memberLinks = edge.data.memberLinks || [];
+    const { lagGroups, lag, memberLinks } = context;
     const lagMemberLinks = lag.memberLinkIndices.map(i => memberLinks[i]).filter(Boolean);
     const lastLagLink = lagMemberLinks[lagMemberLinks.length - 1];
 
@@ -135,12 +142,10 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
 
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => {
     const edges = get().edges;
-    const edge = edges.find(e => e.id === edgeId);
-    if (!edge || !edge.data) return;
+    const context = getEdgeLagContext(edges, edgeId, lagId);
+    if (!context) return;
 
-    const lagGroups = edge.data.lagGroups || [];
-    const lag = lagGroups.find(l => l.id === lagId);
-    if (!lag) return;
+    const { lagGroups, lag } = context;
 
     if (lag.memberLinkIndices.length <= 2) {
       // Remove the LAG entirely if only 2 members remain

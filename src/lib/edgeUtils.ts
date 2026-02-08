@@ -82,29 +82,12 @@ function getHandleCoordinatesFromPosition(
   const height = node.measured?.height || DEFAULT_NODE_HEIGHT;
   const position = parseHandlePosition(handle);
 
-  let x = node.position.x + width / 2;
-  let y = node.position.y + height / 2;
-
-  switch (position) {
-    case Position.Top:
-      x = node.position.x + width / 2;
-      y = node.position.y;
-      break;
-    case Position.Bottom:
-      x = node.position.x + width / 2;
-      y = node.position.y + height;
-      break;
-    case Position.Left:
-      x = node.position.x;
-      y = node.position.y + height / 2;
-      break;
-    case Position.Right:
-      x = node.position.x + width;
-      y = node.position.y + height / 2;
-      break;
-  }
-
-  return { x, y };
+  return getHandleCoordinatesForPosition({
+    nodePosition: node.position,
+    width,
+    height,
+    position,
+  });
 }
 
 // ============ Control Point and Path Utilities ============
@@ -193,6 +176,28 @@ export function parseHandlePosition(handle: string | null | undefined): Position
   return Position.Bottom;
 }
 
+function getHandleCoordinatesForPosition(options: {
+  nodePosition: { x: number; y: number };
+  width: number;
+  height: number;
+  position: Position;
+}): { x: number; y: number } {
+  const { nodePosition, width, height, position } = options;
+
+  switch (position) {
+    case Position.Top:
+      return { x: nodePosition.x + width / 2, y: nodePosition.y };
+    case Position.Bottom:
+      return { x: nodePosition.x + width / 2, y: nodePosition.y + height };
+    case Position.Left:
+      return { x: nodePosition.x, y: nodePosition.y + height / 2 };
+    case Position.Right:
+      return { x: nodePosition.x + width, y: nodePosition.y + height / 2 };
+  }
+
+  return { x: nodePosition.x + width / 2, y: nodePosition.y + height };
+}
+
 export function getHandleCoordinates(
   node: { position: { x: number; y: number }; measured?: { width?: number; height?: number } },
   handle: string | null | undefined,
@@ -201,27 +206,11 @@ export function getHandleCoordinates(
   const height = node.measured?.height || 50;
   const position = parseHandlePosition(handle);
 
-  let x = node.position.x + width / 2;
-  let y = node.position.y + height / 2;
-
-  switch (position) {
-    case Position.Top:
-      x = node.position.x + width / 2;
-      y = node.position.y;
-      break;
-    case Position.Bottom:
-      x = node.position.x + width / 2;
-      y = node.position.y + height;
-      break;
-    case Position.Left:
-      x = node.position.x;
-      y = node.position.y + height / 2;
-      break;
-    case Position.Right:
-      x = node.position.x + width;
-      y = node.position.y + height / 2;
-      break;
-  }
-
-  return { x, y, position };
+  const coords = getHandleCoordinatesForPosition({
+    nodePosition: node.position,
+    width,
+    height,
+    position,
+  });
+  return { ...coords, position };
 }

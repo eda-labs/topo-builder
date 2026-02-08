@@ -15,6 +15,11 @@ import {
   generateEsiLagName,
 } from '../utils';
 
+function findNodeInfoById(nodes: UINode[], id: string): { id: string; name: string; isSimNode: boolean } | null {
+  const node = nodes.find(n => n.id === id);
+  return node ? { id, name: node.data.name, isSimNode: id.startsWith('sim-') } : null;
+}
+
 function getNextEsiLagNumber(edges: UIEdge[], commonNodeName: string): number {
   let count = 0;
   for (const edge of edges) {
@@ -75,11 +80,6 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
       return;
     }
 
-    const findNodeById = (id: string) => {
-      const node = nodes.find(n => n.id === id);
-      return node ? { id, name: node.data.name, isSimNode: id.startsWith('sim-') } : null;
-    };
-
     const edgeNodes = selectedEdges.map(e => ({ source: e.source, target: e.target }));
     const commonNodeId = findCommonNode(edgeNodes);
     if (!commonNodeId) {
@@ -87,7 +87,7 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
       return;
     }
 
-    const commonNodeInfo = findNodeById(commonNodeId);
+    const commonNodeInfo = findNodeInfoById(nodes, commonNodeId);
     if (!commonNodeInfo) {
       get().setError('Could not find common node');
       return;
@@ -101,7 +101,7 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
 
     for (const edge of selectedEdges) {
       const leafId = edge.source === commonNodeId ? edge.target : edge.source;
-      const leafInfo = findNodeById(leafId);
+      const leafInfo = findNodeInfoById(nodes, leafId);
       if (!leafInfo) {
         get().setError('Could not find all leaf nodes');
         return;
@@ -197,17 +197,13 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
     }
 
     const commonNodeId = esiLagEdge.source;
-    const findNodeById = (id: string) => {
-      const node = nodes.find(n => n.id === id);
-      return node ? { id, name: node.data.name, isSimNode: id.startsWith('sim-') } : null;
-    };
 
     const newLeaves = [...currentLeaves];
     const newMemberLinks = [...currentMemberLinks];
 
     for (const edge of edgesToMerge) {
       const leafId = edge.source === commonNodeId ? edge.target : edge.source;
-      const leafInfo = findNodeById(leafId);
+      const leafInfo = findNodeInfoById(nodes, leafId);
       if (!leafInfo) continue;
 
       newLeaves.push(createEsiLeaf(leafId, leafInfo.name));

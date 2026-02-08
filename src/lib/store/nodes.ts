@@ -13,6 +13,9 @@ import { generateUniqueName, validateNodeName } from '../utils';
 import { ANNOTATION_NAME_PREFIX } from '../constants';
 import type { NodeTemplate } from '../../types/schema';
 
+import { deselectAllElements } from './storeUtils';
+import type { StoreSliceDeps } from './storeUtils';
+
 export interface NodeState {
   nodes: UINode[];
 }
@@ -34,16 +37,7 @@ export const setNodeIdGenerator = (fn: () => string) => {
 };
 
 export type NodeSliceCreator = StateCreator<
-  NodeSlice & {
-    nodeTemplates: NodeTemplate[];
-    edges: UIEdge[];
-    selectedNodeId: string | null;
-    selectedEdgeId: string | null;
-    selectedSimNodeName: string | null;
-    triggerYamlRefresh: () => void;
-    setError: (error: string | null) => void;
-    saveToUndoHistory: () => void;
-  },
+  NodeSlice & StoreSliceDeps & { nodeTemplates: NodeTemplate[] },
   [],
   [],
   NodeSlice
@@ -69,8 +63,10 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
       data: { id, name, template, isNew: true },
     };
 
-    const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
-    const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
+    const { nodes: deselectedNodes, edges: deselectedEdges } = deselectAllElements({
+      nodes: get().nodes,
+      edges: get().edges,
+    });
     set({
       nodes: [...deselectedNodes, newNode],
       edges: deselectedEdges,

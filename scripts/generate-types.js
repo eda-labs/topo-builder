@@ -14,10 +14,43 @@ const outputPath = path.join(__dirname, '../src/types/schema.ts');
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
-function extractEnum(schemaObj, propertyPath) {
+function decodeJsonPointerSegment(segment) {
+  return segment.replaceAll('~1', '/').replaceAll('~0', '~');
+}
+
+function resolveLocalRef(rootSchema, ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('#/')) return null;
+
+  const parts = ref.slice(2).split('/').map(decodeJsonPointerSegment);
+  let current = rootSchema;
+  for (const part of parts) {
+    if (!current || typeof current !== 'object') return null;
+    current = current[part];
+  }
+
+  return current || null;
+}
+
+function deref(rootSchema, node) {
+  const seen = new Set();
+  let current = node;
+
+  while (current && typeof current === 'object' && typeof current.$ref === 'string') {
+    if (seen.has(current.$ref)) break;
+    seen.add(current.$ref);
+    const resolved = resolveLocalRef(rootSchema, current.$ref);
+    if (!resolved) break;
+    current = resolved;
+  }
+
+  return current;
+}
+
+function extractEnum(schemaObj, propertyPath, rootSchema) {
   const parts = propertyPath.split('.');
   let current = schemaObj;
   for (const part of parts) {
+    current = deref(rootSchema, current);
     if (part === 'items') {
       current = current.items;
     } else if (current.properties) {
@@ -27,19 +60,20 @@ function extractEnum(schemaObj, propertyPath) {
     }
     if (!current) return null;
   }
+  current = deref(rootSchema, current);
   return current.enum || null;
 }
 
 const specSchema = schema.properties?.spec;
-const operationEnum = extractEnum(specSchema, 'operation');
-const linkTypeEnum = extractEnum(specSchema, 'links.items.endpoints.items.type') ||
-                     extractEnum(specSchema, 'linkTemplates.items.type');
-const linkSpeedEnum = extractEnum(specSchema, 'links.items.endpoints.items.speed') ||
-                      extractEnum(specSchema, 'linkTemplates.items.speed');
-const encapTypeEnum = extractEnum(specSchema, 'links.items.encapType') ||
-                      extractEnum(specSchema, 'linkTemplates.items.encapType');
-const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type') ||
-                        extractEnum(specSchema, 'simulation.simNodeTemplates.items.type');
+const operationEnum = extractEnum(specSchema, 'operation', schema);
+const linkTypeEnum = extractEnum(specSchema, 'links.items.endpoints.items.type', schema) ||
+                     extractEnum(specSchema, 'linkTemplates.items.type', schema);
+const linkSpeedEnum = extractEnum(specSchema, 'links.items.endpoints.items.speed', schema) ||
+                      extractEnum(specSchema, 'linkTemplates.items.speed', schema);
+const encapTypeEnum = extractEnum(specSchema, 'links.items.encapType', schema) ||
+                      extractEnum(specSchema, 'linkTemplates.items.encapType', schema);
+const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type', schema) ||
+                        extractEnum(specSchema, 'simulation.simNodeTemplates.items.type', schema);
 
 const yamlOutput = `// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js

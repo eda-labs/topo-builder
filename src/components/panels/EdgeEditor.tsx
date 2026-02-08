@@ -35,6 +35,34 @@ interface EdgeEditorProps {
   targetInterfaceRef?: RefObject<HTMLInputElement | null>;
 }
 
+function TemplateSelect({
+  templates,
+  value,
+  onChange,
+}: {
+  templates: LinkTemplate[];
+  value: string;
+  onChange: (templateName: string) => void;
+}) {
+  return (
+    <FormControl size="small" fullWidth>
+      <InputLabel>Template</InputLabel>
+      <Select
+        label="Template"
+        value={value}
+        onChange={e => { onChange(e.target.value); }}
+      >
+        <MenuItem value="">None</MenuItem>
+        {templates.map(t => (
+          <MenuItem key={t.name} value={t.name}>
+            {t.name}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+}
+
 export function EdgeEditor({
   edge,
   linkTemplates,
@@ -136,21 +164,11 @@ export function EdgeEditor({
             fullWidth
           />
 
-          <FormControl size="small" fullWidth>
-            <InputLabel>Template</InputLabel>
-            <Select
-              label="Template"
-              value={selectedLag.template || ''}
-              onChange={e => { handleUpdateLagGroup(selectedLag.id, { template: e.target.value }); }}
-            >
-              <MenuItem value="">None</MenuItem>
-              {linkTemplates.map(t => (
-                <MenuItem key={t.name} value={t.name}>
-                  {t.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <TemplateSelect
+            templates={linkTemplates}
+            value={selectedLag.template || ''}
+            onChange={templateName => { handleUpdateLagGroup(selectedLag.id, { template: templateName }); }}
+          />
           <EditableLabelsSection
             labels={selectedLag.labels}
             inheritedLabels={getInheritedLagLabels(selectedLag, linkTemplates)}
@@ -278,26 +296,15 @@ export function EdgeEditor({
             fullWidth
           />
 
-          <FormControl size="small" fullWidth>
-            <InputLabel>Template</InputLabel>
-            <Select
-              label="Template"
-              value={memberLinks[0]?.template || ''}
-              onChange={e => {
-                const newTemplate = e.target.value;
-                const newLinks = memberLinks.map(link => ({ ...link, template: newTemplate }));
-                updateEdge(edge.id, { memberLinks: newLinks });
-                triggerYamlRefresh();
-              }}
-            >
-              <MenuItem value="">None</MenuItem>
-              {linkTemplates.map(t => (
-                <MenuItem key={t.name} value={t.name}>
-                  {t.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <TemplateSelect
+            templates={linkTemplates}
+            value={memberLinks[0]?.template || ''}
+            onChange={templateName => {
+              const newLinks = memberLinks.map(link => ({ ...link, template: templateName }));
+              updateEdge(edge.id, { memberLinks: newLinks });
+              triggerYamlRefresh();
+            }}
+          />
           <EditableLabelsSection
             labels={memberLinks[0]?.labels}
             inheritedLabels={getInheritedLinkLabels(memberLinks[0], linkTemplates)}
@@ -517,21 +524,11 @@ export function EdgeEditor({
                     />
                   </Box>
 
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Template</InputLabel>
-                    <Select
-                      label="Template"
-                      value={link.template || ''}
-                      onChange={e => { handleUpdateLink(index, { template: e.target.value }); }}
-                    >
-                      <MenuItem value="">None</MenuItem>
-                      {linkTemplates.map(t => (
-                        <MenuItem key={t.name} value={t.name}>
-                          {t.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <TemplateSelect
+                    templates={linkTemplates}
+                    value={link.template || ''}
+                    onChange={templateName => { handleUpdateLink(index, { template: templateName }); }}
+                  />
                 </Box>
               </Paper>
             ))}
@@ -568,23 +565,11 @@ export function EdgeEditor({
                 fullWidth
               />
 
-              <FormControl size="small" fullWidth>
-                <InputLabel>Template</InputLabel>
-                <Select
-                  label="Template"
-                  value={link.template || ''}
-                  onChange={e =>
-                  { handleUpdateLink(index, { template: e.target.value }); }
-                  }
-                >
-                  <MenuItem value="">None</MenuItem>
-                  {linkTemplates.map(t => (
-                    <MenuItem key={t.name} value={t.name}>
-                      {t.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TemplateSelect
+                templates={linkTemplates}
+                value={link.template || ''}
+                onChange={templateName => { handleUpdateLink(index, { template: templateName }); }}
+              />
               <EditableLabelsSection
                 labels={link.labels}
                 inheritedLabels={getInheritedLinkLabels(link, linkTemplates)}

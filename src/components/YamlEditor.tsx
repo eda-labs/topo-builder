@@ -86,6 +86,18 @@ function linkStanzaMatches(stanzaText: string, sourceNode: string, targetNode: s
   return stanzaText.includes(`simNode: ${targetNode}`);
 }
 
+function revealAndSelectStanza(lines: string[], stanza: { start: number; end: number }): void {
+  if (!editorInstance) return;
+
+  editorInstance.revealLineInCenter(stanza.start + 1);
+  editorInstance.setSelection({
+    startLineNumber: stanza.start + 1,
+    startColumn: 1,
+    endLineNumber: stanza.end + 1,
+    endColumn: (lines[stanza.end] ?? '').length + 1,
+  });
+}
+
 function getYamlKeyValue(line: string, key: string): string | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
@@ -178,13 +190,7 @@ export function jumpToLinkInEditor(sourceNode: string, targetNode: string): void
     const stanzaText = lines.slice(stanza.start, stanza.end + 1).join('\n');
     if (!linkStanzaMatches(stanzaText, sourceNode, targetNode)) continue;
 
-    editorInstance.revealLineInCenter(stanza.start + 1);
-    editorInstance.setSelection({
-      startLineNumber: stanza.start + 1,
-      startColumn: 1,
-      endLineNumber: stanza.end + 1,
-      endColumn: (lines[stanza.end] ?? '').length + 1,
-    });
+    revealAndSelectStanza(lines, stanza);
     return;
   }
 }
@@ -216,13 +222,7 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
       continue;
     }
 
-    editorInstance.revealLineInCenter(stanza.start + 1);
-    editorInstance.setSelection({
-      startLineNumber: stanza.start + 1,
-      startColumn: 1,
-      endLineNumber: stanza.end + 1,
-      endColumn: (lines[stanza.end] ?? '').length + 1,
-    });
+    revealAndSelectStanza(lines, stanza);
     return;
   }
 }

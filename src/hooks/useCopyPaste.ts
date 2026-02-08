@@ -3,6 +3,7 @@ import { useReactFlow, type Node, type Edge } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
 import { generateAnnotationId } from '../lib/store/annotations';
+import { generateInterfaceName, getNextPortNumber } from '../lib/utils';
 import type { UINodeData, UIEdgeData, UIClipboard, UIAnnotation } from '../types/ui';
 
 // Use UIClipboard but with React Flow node types for the nodes/edges arrays
@@ -129,31 +130,11 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     const sourceIsSimNode = edge.source.startsWith('sim-');
     const targetIsSimNode = edge.target.startsWith('sim-');
 
-    const extractPortNumber = (iface: string): number => {
-      const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
-      if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+    const nextSourcePort = getNextPortNumber(edge.source, currentState.edges);
+    const nextTargetPort = getNextPortNumber(edge.target, currentState.edges);
 
-      const ethMatch = iface.match(/eth(\d+)/);
-      if (ethMatch) return parseInt(ethMatch[1], 10);
-
-      return 0;
-    };
-
-    const nextPortForNode = (nodeId: string): number => {
-      const portNumbers = currentState.edges.flatMap(e => {
-        if (e.source === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-        if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-        return [];
-      });
-
-      return Math.max(0, ...portNumbers) + 1;
-    };
-
-    const nextSourcePort = nextPortForNode(edge.source);
-    const nextTargetPort = nextPortForNode(edge.target);
-
-    const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-    const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+    const sourceInterface = generateInterfaceName(nextSourcePort, sourceIsSimNode);
+    const targetInterface = generateInterfaceName(nextTargetPort, targetIsSimNode);
 
     const memberLinks = edge.data.memberLinks || [];
     const nextLinkNumber = memberLinks.length + 1;

@@ -29,76 +29,134 @@ interface SchemaNode {
   type?: string;
   properties?: Record<string, SchemaNode>;
   items?: SchemaNode;
-  additionalProperties?: unknown;
+  additionalProperties?: boolean | SchemaNode;
   'x-kubernetes-preserve-unknown-fields'?: boolean;
+  $ref?: string;
+  definitions?: Record<string, SchemaNode>;
 }
 
 const MAX_SUGGEST_DISTANCE = 3;
 
-function validateUnknownProperties(value: unknown, schema: SchemaNode, path: string): ValidationError[] {
+function schemaAllowsUnknownProperties(schema: SchemaNode): boolean {
+  return (
+    (schema.additionalProperties !== undefined && schema.additionalProperties !== false)
+    || schema['x-kubernetes-preserve-unknown-fields'] === true
+  );
+}
+
+function buildUnknownFieldMessage(key: string, validKeys: string[]): string {
+  if (validKeys.length > 0) {
+    const match = closest(key, validKeys);
+    const dist = distance(key, match);
+    return dist <= MAX_SUGGEST_DISTANCE
+      ? `Unknown field "${key}", did you mean "${match}"?`
+      : `Unknown field "${key}" is not a valid property`;
+  }
+
+  return `Unknown field "${key}" is not a valid property`;
+}
+
+function validateUnknownPropertiesForObject(options: {
+  record: Record<string, unknown>;
+  properties: Record<string, SchemaNode>;
+  path: string;
+  requireKnownKeysToFlagUnknown: boolean;
+  rootSchema: SchemaNode;
+}): ValidationError[] {
+  const { record, properties, path, requireKnownKeysToFlagUnknown, rootSchema } = options;
+
+  const errors: ValidationError[] = [];
+  const validKeys = Object.keys(properties);
+
+  for (const key of Object.keys(record)) {
+    if (key in properties) {
+      errors.push(...validateUnknownProperties(record[key], properties[key], `${path}/${key}`, rootSchema));
+      continue;
+    }
+
+    // Some schema nodes omit an explicit type and only provide a partial structure;
+    // in that case we only flag unknown keys when we have known keys to compare against.
+    if (requireKnownKeysToFlagUnknown && validKeys.length === 0) continue;
+
+    const message = buildUnknownFieldMessage(key, validKeys);
+    const fieldPath = path ? `${path}/${key}` : `/${key}`;
+    errors.push({ path: fieldPath, message });
+  }
+
+  return errors;
+}
+
+function decodeJsonPointerSegment(segment: string): string {
+  return segment.replaceAll('~1', '/').replaceAll('~0', '~');
+}
+
+function resolveLocalRef(rootSchema: SchemaNode, ref: string): SchemaNode | null {
+  if (!ref.startsWith('#/')) return null;
+
+  const parts = ref.slice(2).split('/').map(decodeJsonPointerSegment);
+  let current: unknown = rootSchema;
+  for (const part of parts) {
+    if (!current || typeof current !== 'object') return null;
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  if (!current || typeof current !== 'object') return null;
+  return current as SchemaNode;
+}
+
+function derefSchemaNode(schema: SchemaNode, rootSchema: SchemaNode): SchemaNode {
+  const seen = new Set<string>();
+  let current = schema;
+
+  while (current.$ref) {
+    if (seen.has(current.$ref)) break;
+    seen.add(current.$ref);
+    const resolved = resolveLocalRef(rootSchema, current.$ref);
+    if (!resolved) break;
+    current = resolved;
+  }
+
+  return current;
+}
+
+function validateUnknownProperties(value: unknown, schema: SchemaNode, path: string, rootSchema: SchemaNode): ValidationError[] {
   const errors: ValidationError[] = [];
   if (!value || typeof value !== 'object') return errors;
 
-  if (schema.type === 'object' && schema.properties) {
+  const derefSchema = derefSchemaNode(schema, rootSchema);
+
+  if (derefSchema.type === 'object' && derefSchema.properties) {
     // Skip objects that explicitly allow additional properties
-    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
-      return errors;
-    }
+    if (schemaAllowsUnknownProperties(derefSchema)) return errors;
 
-    const validKeys = Object.keys(schema.properties);
-    const record = value as Record<string, unknown>;
-
-    for (const key of Object.keys(record)) {
-      if (key in schema.properties) {
-        // Recurse into known properties
-        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
-      } else {
-        // Unknown property — suggest the closest match
-        let message: string;
-        if (validKeys.length > 0) {
-          const match = closest(key, validKeys);
-          const dist = distance(key, match);
-          message = dist <= MAX_SUGGEST_DISTANCE
-            ? `Unknown field "${key}", did you mean "${match}"?`
-            : `Unknown field "${key}" is not a valid property`;
-        } else {
-          message = `Unknown field "${key}" is not a valid property`;
-        }
-        const fieldPath = path ? `${path}/${key}` : `/${key}`;
-        errors.push({ path: fieldPath, message });
-      }
-    }
-    return errors;
+    return validateUnknownPropertiesForObject({
+      record: value as Record<string, unknown>,
+      properties: derefSchema.properties,
+      path,
+      requireKnownKeysToFlagUnknown: false,
+      rootSchema,
+    });
   }
 
-  const { items } = schema;
-  if (schema.type === 'array' && items && Array.isArray(value)) {
+  const { items } = derefSchema;
+  if (derefSchema.type === 'array' && items && Array.isArray(value)) {
     value.forEach((item, i) => {
-      errors.push(...validateUnknownProperties(item, items, `${path}/${i}`));
+      errors.push(...validateUnknownProperties(item, items, `${path}/${i}`, rootSchema));
     });
     return errors;
   }
 
   // For objects without explicit type but with properties (nested schema)
-  if (schema.properties && !schema.type) {
-    if ((schema.additionalProperties && schema.additionalProperties !== false) || schema['x-kubernetes-preserve-unknown-fields']) {
-      return errors;
-    }
-    const validKeys = Object.keys(schema.properties);
-    const record = value as Record<string, unknown>;
-    for (const key of Object.keys(record)) {
-      if (key in schema.properties) {
-        errors.push(...validateUnknownProperties(record[key], schema.properties[key], `${path}/${key}`));
-      } else if (validKeys.length > 0) {
-        const match = closest(key, validKeys);
-        const dist = distance(key, match);
-        const message = dist <= MAX_SUGGEST_DISTANCE
-          ? `Unknown field "${key}", did you mean "${match}"?`
-          : `Unknown field "${key}" is not a valid property`;
-        const fieldPath = path ? `${path}/${key}` : `/${key}`;
-        errors.push({ path: fieldPath, message });
-      }
-    }
+  if (derefSchema.properties && !derefSchema.type) {
+    if (schemaAllowsUnknownProperties(derefSchema)) return errors;
+
+    errors.push(...validateUnknownPropertiesForObject({
+      record: value as Record<string, unknown>,
+      properties: derefSchema.properties,
+      path,
+      requireKnownKeysToFlagUnknown: true,
+      rootSchema,
+    }));
   }
 
   return errors;
@@ -149,7 +207,7 @@ export function validateNetworkTopology(yamlString: string): ValidationResult {
       }
     }
 
-    const unknownPropErrors = validateUnknownProperties(doc, schema as SchemaNode, '');
+    const unknownPropErrors = validateUnknownProperties(doc, schema as SchemaNode, '', schema as SchemaNode);
     errors.push(...unknownPropErrors);
 
     const semanticErrors = validateCrossReferences(doc as Record<string, unknown>);

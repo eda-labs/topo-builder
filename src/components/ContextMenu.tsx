@@ -34,6 +34,40 @@ const SUBMENU_CHEVRON_SX = { ml: 1, color: 'text.secondary' } as const;
 
 type TemplateLike = { name: string };
 
+function HoverSubmenu({
+  icon,
+  label,
+  minWidth,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  minWidth: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Box
+      onMouseEnter={() => { setOpen(true); }}
+      onMouseLeave={() => { setOpen(false); }}
+      sx={{ position: 'relative' }}
+    >
+      <MenuItem>
+        <ListItemIcon>{icon}</ListItemIcon>
+        <ListItemText>{label}</ListItemText>
+        <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
+      </MenuItem>
+
+      {open && (
+        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth }}>
+          {children}
+        </Paper>
+      )}
+    </Box>
+  );
+}
+
 function TemplateSubmenu({
   templates,
   currentTemplate,
@@ -45,35 +79,19 @@ function TemplateSubmenu({
   onChoose: (templateName: string) => void;
   onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Box
-      onMouseEnter={() => { setOpen(true); }}
-      onMouseLeave={() => { setOpen(false); }}
-      sx={{ position: 'relative' }}
-    >
-      <MenuItem>
-        <ListItemIcon><SwapIcon fontSize="small" /></ListItemIcon>
-        <ListItemText>Template</ListItemText>
-        <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
-      </MenuItem>
-
-      {open && (
-        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 140 }}>
-          {templates.map(template => (
-            <MenuItem
-              key={template.name}
-              disabled={template.name === currentTemplate}
-              onClick={() => { onChoose(template.name); onClose(); }}
-              sx={{ opacity: template.name === currentTemplate ? 0.5 : 1 }}
-            >
-              <ListItemText>{template.name}</ListItemText>
-            </MenuItem>
-          ))}
-        </Paper>
-      )}
-    </Box>
+    <HoverSubmenu icon={<SwapIcon fontSize="small" />} label="Template" minWidth={140}>
+      {templates.map(template => (
+        <MenuItem
+          key={template.name}
+          disabled={template.name === currentTemplate}
+          onClick={() => { onChoose(template.name); onClose(); }}
+          sx={{ opacity: template.name === currentTemplate ? 0.5 : 1 }}
+        >
+          <ListItemText>{template.name}</ListItemText>
+        </MenuItem>
+      ))}
+    </HoverSubmenu>
   );
 }
 
@@ -86,8 +104,6 @@ function ShapeSubmenu({
   flowPosition: { x: number; y: number };
   onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   const shapes: { label: string; shapeType: AnnotationShapeType }[] = [
     { label: 'Rectangle', shapeType: 'rectangle' },
     { label: 'Circle', shapeType: 'circle' },
@@ -109,27 +125,35 @@ function ShapeSubmenu({
   };
 
   return (
-    <Box
-      onMouseEnter={() => { setOpen(true); }}
-      onMouseLeave={() => { setOpen(false); }}
-      sx={{ position: 'relative' }}
-    >
-      <MenuItem>
-        <ListItemIcon><ShapeIcon fontSize="small" /></ListItemIcon>
-        <ListItemText>Add Shape</ListItemText>
-        <ChevronRightIcon fontSize="small" sx={SUBMENU_CHEVRON_SX} />
-      </MenuItem>
+    <HoverSubmenu icon={<ShapeIcon fontSize="small" />} label="Add Shape" minWidth={160}>
+      {shapes.map(s => (
+        <MenuItem key={s.shapeType} onClick={() => { handleAdd(s.shapeType); }}>
+          <ListItemText>{s.label}</ListItemText>
+        </MenuItem>
+      ))}
+    </HoverSubmenu>
+  );
+}
 
-      {open && (
-        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 160 }}>
-          {shapes.map(s => (
-            <MenuItem key={s.shapeType} onClick={() => { handleAdd(s.shapeType); }}>
-              <ListItemText>{s.label}</ListItemText>
-            </MenuItem>
-          ))}
-        </Paper>
-      )}
-    </Box>
+function MenuActionWithDivider({
+  icon,
+  text,
+  onAction,
+  onClose,
+}: {
+  icon: ReactNode;
+  text: string;
+  onAction: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <MenuItem onClick={() => { onAction(); onClose(); }}>
+        <ListItemIcon>{icon}</ListItemIcon>
+        <ListItemText>{text}</ListItemText>
+      </MenuItem>
+      <Divider />
+    </>
   );
 }
 
@@ -284,13 +308,12 @@ function ContextMenuEdgeSelectionItems({
       )}
 
       {selectedMemberLinkCount >= 2 && onCreateLag && (
-        <>
-          <MenuItem onClick={() => { onCreateLag(); onClose(); }}>
-            <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Create Local LAG</ListItemText>
-          </MenuItem>
-          <Divider />
-        </>
+        <MenuActionWithDivider
+          icon={<MergeIcon fontSize="small" />}
+          text="Create Local LAG"
+          onAction={onCreateLag}
+          onClose={onClose}
+        />
       )}
 
       {onDeleteEdge && (
@@ -319,13 +342,12 @@ function ContextMenuMultiEdgeSelectionItems({
   return (
     <>
       {canCreateEsiLag && onCreateEsiLag && (
-        <>
-          <MenuItem onClick={() => { onCreateEsiLag(); onClose(); }}>
-            <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>{isMergeIntoEsiLag ? 'Merge into ESI-LAG' : 'Create ESI-LAG'}</ListItemText>
-          </MenuItem>
-          <Divider />
-        </>
+        <MenuActionWithDivider
+          icon={<MergeIcon fontSize="small" />}
+          text={isMergeIntoEsiLag ? 'Merge into ESI-LAG' : 'Create ESI-LAG'}
+          onAction={onCreateEsiLag}
+          onClose={onClose}
+        />
       )}
 
       {onDeleteEdge && (
@@ -337,6 +359,34 @@ function ContextMenuMultiEdgeSelectionItems({
     </>
   );
 }
+
+type ContextMenuSelectionSectionProps = Pick<
+  ContextMenuProps,
+  | 'hasSelection'
+  | 'onClose'
+  | 'onAddNode'
+  | 'onAddSimNode'
+  | 'onDeleteNode'
+  | 'onDeleteSimNode'
+  | 'onDeleteEdge'
+  | 'onDeleteAnnotation'
+  | 'onChangeNodeTemplate'
+  | 'onChangeSimNodeTemplate'
+  | 'onChangeLinkTemplate'
+  | 'onCreateLag'
+  | 'onCreateEsiLag'
+  | 'onAddAnnotation'
+  | 'nodeTemplates'
+  | 'currentNodeTemplate'
+  | 'simNodeTemplates'
+  | 'currentSimNodeTemplate'
+  | 'linkTemplates'
+  | 'currentLinkTemplate'
+  | 'selectedMemberLinkCount'
+  | 'canCreateEsiLag'
+  | 'isMergeIntoEsiLag'
+  | 'contextMenuFlowPosition'
+>;
 
 function ContextMenuSelectionSection({
   hasSelection,
@@ -363,32 +413,15 @@ function ContextMenuSelectionSection({
   canCreateEsiLag,
   isMergeIntoEsiLag,
   contextMenuFlowPosition,
-}: {
-  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | 'annotation' | null;
-  onClose: () => void;
-  onAddNode: (templateName?: string) => void;
-  onAddSimNode?: () => void;
-  onDeleteNode?: () => void;
-  onDeleteSimNode?: () => void;
-  onDeleteEdge?: () => void;
-  onDeleteAnnotation?: () => void;
-  onChangeNodeTemplate?: (templateName: string) => void;
-  onChangeSimNodeTemplate?: (templateName: string) => void;
-  onChangeLinkTemplate?: (templateName: string) => void;
-  onCreateLag?: () => void;
-  onCreateEsiLag?: () => void;
-  onAddAnnotation?: (annotation: UIAnnotationInput) => void;
-  nodeTemplates: NodeTemplate[];
-  currentNodeTemplate?: string;
-  simNodeTemplates: SimNodeTemplate[];
-  currentSimNodeTemplate?: string;
-  linkTemplates: LinkTemplate[];
-  currentLinkTemplate?: string;
-  selectedMemberLinkCount: number;
-  canCreateEsiLag: boolean;
-  isMergeIntoEsiLag: boolean;
-  contextMenuFlowPosition: { x: number; y: number };
-}) {
+}: ContextMenuSelectionSectionProps) {
+  const nodeTemplatesList = nodeTemplates ?? [];
+  const simNodeTemplatesList = simNodeTemplates ?? [];
+  const linkTemplatesList = linkTemplates ?? [];
+  const selectedMemberLinkCountValue = selectedMemberLinkCount ?? 0;
+  const canCreateEsiLagValue = canCreateEsiLag ?? false;
+  const isMergeIntoEsiLagValue = isMergeIntoEsiLag ?? false;
+  const flowPosition = contextMenuFlowPosition ?? { x: 0, y: 0 };
+
   switch (hasSelection) {
     case null:
       return (
@@ -397,7 +430,7 @@ function ContextMenuSelectionSection({
           onAddNode={onAddNode}
           onAddSimNode={onAddSimNode}
           onAddAnnotation={onAddAnnotation}
-          flowPosition={contextMenuFlowPosition}
+          flowPosition={flowPosition}
         />
       );
     case 'annotation':
@@ -416,7 +449,7 @@ function ContextMenuSelectionSection({
         <ContextMenuNodeSelectionItems
           onClose={onClose}
           onChangeNodeTemplate={onChangeNodeTemplate}
-          nodeTemplates={nodeTemplates}
+          nodeTemplates={nodeTemplatesList}
           currentNodeTemplate={currentNodeTemplate}
           onDeleteNode={onDeleteNode}
         />
@@ -426,7 +459,7 @@ function ContextMenuSelectionSection({
         <ContextMenuSimNodeSelectionItems
           onClose={onClose}
           onChangeSimNodeTemplate={onChangeSimNodeTemplate}
-          simNodeTemplates={simNodeTemplates}
+          simNodeTemplates={simNodeTemplatesList}
           currentSimNodeTemplate={currentSimNodeTemplate}
           onDeleteSimNode={onDeleteSimNode}
         />
@@ -436,9 +469,9 @@ function ContextMenuSelectionSection({
         <ContextMenuEdgeSelectionItems
           onClose={onClose}
           onChangeLinkTemplate={onChangeLinkTemplate}
-          linkTemplates={linkTemplates}
+          linkTemplates={linkTemplatesList}
           currentLinkTemplate={currentLinkTemplate}
-          selectedMemberLinkCount={selectedMemberLinkCount}
+          selectedMemberLinkCount={selectedMemberLinkCountValue}
           onCreateLag={onCreateLag}
           onDeleteEdge={onDeleteEdge}
         />
@@ -447,8 +480,8 @@ function ContextMenuSelectionSection({
       return (
         <ContextMenuMultiEdgeSelectionItems
           onClose={onClose}
-          canCreateEsiLag={canCreateEsiLag}
-          isMergeIntoEsiLag={isMergeIntoEsiLag}
+          canCreateEsiLag={canCreateEsiLagValue}
+          isMergeIntoEsiLag={isMergeIntoEsiLagValue}
           onCreateEsiLag={onCreateEsiLag}
           onDeleteEdge={onDeleteEdge}
         />

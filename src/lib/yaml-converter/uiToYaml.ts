@@ -421,6 +421,15 @@ function getEsiLagLinkName(options: {
   };
 }
 
+function buildEsiLagLeafLocalEndpoint(leaf: UIEsiLeaf, member: UIMemberLink | undefined): Endpoint {
+  return {
+    local: {
+      node: leaf.nodeName,
+      interface: fallbackIfEmptyString(member?.targetInterface, DEFAULT_INTERFACE),
+    },
+  };
+}
+
 function buildEsiLagEndpointsForSimSource(options: {
   esiLeaves: UIEsiLeaf[];
   memberLinks: UIMemberLink[];
@@ -435,10 +444,7 @@ function buildEsiLagEndpointsForSimSource(options: {
     const member = memberLinks[i];
 
     endpoints.push({
-      local: {
-        node: leaf.nodeName,
-        interface: fallbackIfEmptyString(member?.targetInterface, DEFAULT_INTERFACE),
-      },
+      ...buildEsiLagLeafLocalEndpoint(leaf, member),
       sim: {
         simNode: simNodeName,
         simNodeInterface: fallbackIfEmptyString(member?.sourceInterface, `eth${i + 1}`),
@@ -468,12 +474,7 @@ function buildEsiLagEndpointsForTopoSource(options: {
   for (let i = 0; i < esiLeaves.length; i++) {
     const leaf = esiLeaves[i];
     const member = memberLinks[i];
-    endpoints.push({
-      local: {
-        node: leaf.nodeName,
-        interface: fallbackIfEmptyString(member?.targetInterface, DEFAULT_INTERFACE),
-      },
-    });
+    endpoints.push(buildEsiLagLeafLocalEndpoint(leaf, member));
   }
 
   return endpoints;

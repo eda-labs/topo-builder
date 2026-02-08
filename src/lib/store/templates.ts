@@ -42,6 +42,24 @@ export type TemplateSliceCreator = StateCreator<
   TemplateSlice
 >;
 
+function validateTemplateRename(options: {
+  newName: string | undefined;
+  oldName: string;
+  existingNames: string[];
+  setError: (error: string | null) => void;
+}): boolean {
+  const { newName, oldName, existingNames, setError } = options;
+  if (!newName || newName === oldName) return true;
+
+  const nameError = validateTemplateName(newName, existingNames);
+  if (nameError) {
+    setError(`Invalid template name: ${nameError}`);
+    return false;
+  }
+
+  return true;
+}
+
 export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   nodeTemplates: [],
   linkTemplates: [],
@@ -59,14 +77,12 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
 
   updateNodeTemplate: (name: string, template: Partial<NodeTemplate>): boolean => {
     const newName = template.name;
-    if (newName && newName !== name) {
-      const existingNames = get().nodeTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(newName, existingNames);
-      if (nameError) {
-        get().setError(`Invalid template name: ${nameError}`);
-        return false;
-      }
-    }
+    if (!validateTemplateRename({
+      newName,
+      oldName: name,
+      existingNames: get().nodeTemplates.filter(t => t.name !== name).map(t => t.name),
+      setError: get().setError,
+    })) return false;
     set({
       nodeTemplates: get().nodeTemplates.map(t =>
         t.name === name ? { ...t, ...template } : t,
@@ -102,14 +118,12 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
 
   updateLinkTemplate: (name: string, template: Partial<LinkTemplate>): boolean => {
     const newName = template.name;
-    if (newName && newName !== name) {
-      const existingNames = get().linkTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(newName, existingNames);
-      if (nameError) {
-        get().setError(`Invalid template name: ${nameError}`);
-        return false;
-      }
-    }
+    if (!validateTemplateRename({
+      newName,
+      oldName: name,
+      existingNames: get().linkTemplates.filter(t => t.name !== name).map(t => t.name),
+      setError: get().setError,
+    })) return false;
     set({
       linkTemplates: get().linkTemplates.map(t =>
         t.name === name ? { ...t, ...template } : t,
@@ -158,14 +172,12 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   updateSimNodeTemplate: (name: string, template: Partial<SimNodeTemplate>): boolean => {
     const simulation = get().simulation;
     const newName = template.name;
-    if (newName && newName !== name) {
-      const existingNames = simulation.simNodeTemplates.filter(t => t.name !== name).map(t => t.name);
-      const nameError = validateTemplateName(newName, existingNames);
-      if (nameError) {
-        get().setError(`Invalid template name: ${nameError}`);
-        return false;
-      }
-    }
+    if (!validateTemplateRename({
+      newName,
+      oldName: name,
+      existingNames: simulation.simNodeTemplates.filter(t => t.name !== name).map(t => t.name),
+      setError: get().setError,
+    })) return false;
     set({
       simulation: {
         ...simulation,

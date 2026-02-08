@@ -6,9 +6,12 @@
 
 import type { StateCreator } from 'zustand';
 
-import type { UINode, UIEdge } from '../../types/ui';
+import type { UINode } from '../../types/ui';
 import { validateSimNodeName } from '../utils';
 import type { SimNodeTemplate } from '../../types/schema';
+
+import { deselectAllElements } from './storeUtils';
+import type { StoreSliceDeps } from './storeUtils';
 
 export interface SimNodeState {
   simulation: {
@@ -33,16 +36,7 @@ export const setSimNodeIdGenerator = (fn: () => string) => {
 };
 
 export type SimNodeSliceCreator = StateCreator<
-  SimNodeSlice & {
-    nodes: UINode[];
-    edges: UIEdge[];
-    selectedNodeId: string | null;
-    selectedEdgeId: string | null;
-    selectedSimNodeName: string | null;
-    triggerYamlRefresh: () => void;
-    setError: (error: string | null) => void;
-    saveToUndoHistory: () => void;
-  },
+  SimNodeSlice & StoreSliceDeps,
   [],
   [],
   SimNodeSlice
@@ -85,8 +79,10 @@ export const createSimNodeSlice: SimNodeSliceCreator = (set, get) => ({
       },
     };
 
-    const deselectedNodes = nodes.map(n => ({ ...n, selected: false }));
-    const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
+    const { nodes: deselectedNodes, edges: deselectedEdges } = deselectAllElements({
+      nodes,
+      edges: get().edges,
+    });
     set({
       nodes: [...deselectedNodes, newNode],
       edges: deselectedEdges,

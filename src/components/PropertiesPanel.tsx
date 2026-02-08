@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +14,7 @@ import {
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 
 import { useTopologyStore } from '../lib/store';
+import { useTopologyData } from '../hooks/useTopologyData';
 import {
   NODE_PROFILE_SUGGESTIONS,
   PLATFORM_SUGGESTIONS,
@@ -47,14 +48,9 @@ export function SelectionPanel() {
   );
   const selectedLagId = useTopologyStore(state => state.selectedLagId);
   const expandedEdges = useTopologyStore(state => state.expandedEdges);
-  const nodes = useTopologyStore(state => state.nodes);
-  const edges = useTopologyStore(state => state.edges);
-  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
-  const linkTemplates = useTopologyStore(state => state.linkTemplates);
-  const simulation = useTopologyStore(state => state.simulation);
+  const { nodes, edges, nodeTemplates, linkTemplates, simulation, annotations } = useTopologyData();
 
   const selectedAnnotationId = useTopologyStore(state => state.selectedAnnotationId);
-  const annotations = useTopologyStore(state => state.annotations);
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
   const selectedEdge = edges.find(e => e.id === selectedEdgeId);
@@ -235,6 +231,194 @@ function createTemplateLabelHandlers(
   return { handleAddLabel, handleUpdateLabel, handleDeleteLabel };
 }
 
+function useTemplateNameField(options: {
+  templateName: string;
+  onUpdate: (name: string, update: { name: string }) => boolean;
+}) {
+  const { templateName, onUpdate } = options;
+
+  const [localName, setLocalName] = useState(templateName);
+
+  useEffect(() => {
+    setLocalName(templateName);
+  }, [templateName]);
+
+  const handleNameBlur = createNameBlurHandler(templateName, localName, setLocalName, onUpdate);
+
+  return { localName, setLocalName, handleNameBlur };
+}
+
+function TemplateNameRow({
+  value,
+  onChange,
+  onBlur,
+  onDelete,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        gap: '0.5rem',
+        alignItems: 'center',
+      }}
+    >
+      <TextField
+        label="Name"
+        size="small"
+        value={value}
+        onChange={e => { onChange(e.target.value); }}
+        onBlur={onBlur}
+        fullWidth
+      />
+      <IconButton size="small" onClick={onDelete}>
+        <DeleteIcon fontSize="small" color="error" />
+      </IconButton>
+    </Box>
+  );
+}
+
+function LabelsSection({
+  onAdd,
+  children,
+}: {
+  onAdd: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Box>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: '0.5rem',
+        }}
+      >
+        <Typography variant="body2" fontWeight={600}>
+          Labels
+        </Typography>
+        <Button size="small" startIcon={<AddIcon />} onClick={onAdd}>
+          Add
+        </Button>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
+function LabelEditorsList(options: {
+  entries: Array<[string, string]>;
+  onUpdateLabel: (oldKey: string, newKey: string, value: string) => void;
+  onDeleteLabel: (key: string) => void;
+  disableSuggestions?: boolean;
+}) {
+  const { entries, onUpdateLabel, onDeleteLabel, disableSuggestions } = options;
+
+  return (
+    <>
+      {entries.map(([key, value]) => (
+        <LabelEditor
+          key={key}
+          labelKey={key}
+          labelValue={value}
+          onUpdate={(newKey, newValue) => { onUpdateLabel(key, newKey, newValue); }}
+          onDelete={() => { onDeleteLabel(key); }}
+          disableSuggestions={disableSuggestions}
+        />
+      ))}
+    </>
+  );
+}
+
+function TemplatesPanelLayout<T>(options: {
+  title: string;
+  actions: ReactNode;
+  emptyText: string;
+  items: T[];
+  renderItem: (item: T) => ReactNode;
+}) {
+  const { title, actions, emptyText, items, renderItem } = options;
+
+  return (
+    <Box>
+      <PanelHeader title={title} actions={actions} />
+
+      {items.length === 0 ? (
+        <Typography color="text.secondary" textAlign="center" py="1rem">
+          {emptyText}
+        </Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {items.map(item => renderItem(item))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function TemplateEditorCard({
+  localName,
+  setLocalName,
+  handleNameBlur,
+  onDelete,
+  children,
+}: {
+  localName: string;
+  setLocalName: (value: string) => void;
+  handleNameBlur: () => void;
+  onDelete: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <PanelCard>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <TemplateNameRow
+          value={localName}
+          onChange={setLocalName}
+          onBlur={handleNameBlur}
+          onDelete={onDelete}
+        />
+        {children}
+      </Box>
+    </PanelCard>
+  );
+}
+
+function TypeSelectField<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T | '';
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <FormControl size="small" fullWidth>
+      <InputLabel>Type</InputLabel>
+      <Select
+        label="Type"
+        value={value}
+        onChange={e => { onChange(e.target.value as T); }}
+      >
+        {options.map(opt => (
+          <MenuItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+}
+
 // Individual template editor to maintain stable local state for text fields
 function NodeTemplateEditor({
   template,
@@ -249,7 +433,10 @@ function NodeTemplateEditor({
   existingNodeProfiles: string[];
   existingPlatforms: string[];
 }) {
-  const [localName, setLocalName] = useState(template.name);
+  const { localName, setLocalName, handleNameBlur } = useTemplateNameField({
+    templateName: template.name,
+    onUpdate,
+  });
   const [localNamePrefix, setLocalNamePrefix] = useState(template.annotations?.[ANNOTATION_NAME_PREFIX] || '');
   const [localPlatform, setLocalPlatform] = useState(template.platform || '');
   const [localNodeProfile, setLocalNodeProfile] = useState(
@@ -258,114 +445,70 @@ function NodeTemplateEditor({
 
   // Sync local state when template changes from external source
   useEffect(() => {
-    setLocalName(template.name);
     setLocalNamePrefix(template.annotations?.[ANNOTATION_NAME_PREFIX] || '');
     setLocalPlatform(template.platform || '');
     setLocalNodeProfile(template.nodeProfile || '');
   }, [template]);
 
-  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
   const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
-    <PanelCard>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: '0.5rem',
-            alignItems: 'center',
-          }}
-        >
-          <TextField
-            label="Name"
-            size="small"
-            value={localName}
-            onChange={e => { setLocalName(e.target.value); }}
-            onBlur={handleNameBlur}
-            fullWidth
-          />
-          <IconButton size="small" onClick={() => { onDelete(template.name); }}>
-            <DeleteIcon fontSize="small" color="error" />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-          <Autocomplete
-            freeSolo
-            size="small"
-            options={existingPlatforms}
-            value={localPlatform}
-            onInputChange={(_, value) => { setLocalPlatform(value); }}
-            onBlur={() => onUpdate(template.name, { platform: localPlatform })}
-            renderInput={params => <TextField {...params} label="Platform" />}
-          />
-          <Autocomplete
-            freeSolo
-            size="small"
-            options={existingNodeProfiles}
-            value={localNodeProfile}
-            onInputChange={(_, value) => { setLocalNodeProfile(value); }}
-            onBlur={() =>
-              onUpdate(template.name, { nodeProfile: localNodeProfile })
-            }
-            renderInput={params => (
-              <TextField {...params} label="Node Profile" />
-            )}
-          />
-        </Box>
-
-        <TextField
-          label="Name Prefix"
+    <TemplateEditorCard
+      localName={localName}
+      setLocalName={setLocalName}
+      handleNameBlur={handleNameBlur}
+      onDelete={() => { onDelete(template.name); }}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+        <Autocomplete
+          freeSolo
           size="small"
-          value={localNamePrefix}
-          onChange={e => { setLocalNamePrefix(e.target.value); }}
-          onBlur={() => {
-            const existing = Object.entries(template.annotations ?? {}).filter(
-              ([k]) => k !== ANNOTATION_NAME_PREFIX,
-            );
-            const annotations = Object.fromEntries(
-              localNamePrefix ? [...existing, [ANNOTATION_NAME_PREFIX, localNamePrefix]] : existing,
-            );
-            onUpdate(template.name, { annotations: Object.keys(annotations).length > 0 ? annotations : undefined });
-          }}
-          fullWidth
+          options={existingPlatforms}
+          value={localPlatform}
+          onInputChange={(_, value) => { setLocalPlatform(value); }}
+          onBlur={() => onUpdate(template.name, { platform: localPlatform })}
+          renderInput={params => <TextField {...params} label="Platform" />}
         />
-
-        {/* Labels Section */}
-        <Box>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: '0.5rem',
-            }}
-          >
-            <Typography variant="body2" fontWeight={600}>
-              Labels
-            </Typography>
-            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
-              Add
-            </Button>
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {Object.entries(template.labels || {}).map(([key, value]) => (
-              <LabelEditor
-                key={key}
-                labelKey={key}
-                labelValue={value}
-                onUpdate={(newKey, newValue) =>
-                { handleUpdateLabel(key, newKey, newValue); }
-                }
-                onDelete={() => { handleDeleteLabel(key); }}
-              />
-            ))}
-          </Box>
-        </Box>
+        <Autocomplete
+          freeSolo
+          size="small"
+          options={existingNodeProfiles}
+          value={localNodeProfile}
+          onInputChange={(_, value) => { setLocalNodeProfile(value); }}
+          onBlur={() =>
+            onUpdate(template.name, { nodeProfile: localNodeProfile })
+          }
+          renderInput={params => (
+            <TextField {...params} label="Node Profile" />
+          )}
+        />
       </Box>
-    </PanelCard>
+
+      <TextField
+        label="Name Prefix"
+        size="small"
+        value={localNamePrefix}
+        onChange={e => { setLocalNamePrefix(e.target.value); }}
+        onBlur={() => {
+          const existing = Object.entries(template.annotations ?? {}).filter(
+            ([k]) => k !== ANNOTATION_NAME_PREFIX,
+          );
+          const annotations = Object.fromEntries(
+            localNamePrefix ? [...existing, [ANNOTATION_NAME_PREFIX, localNamePrefix]] : existing,
+          );
+          onUpdate(template.name, { annotations: Object.keys(annotations).length > 0 ? annotations : undefined });
+        }}
+        fullWidth
+      />
+
+      <LabelsSection onAdd={handleAddLabel}>
+        <LabelEditorsList
+          entries={Object.entries(template.labels ?? {})}
+          onUpdateLabel={handleUpdateLabel}
+          onDeleteLabel={handleDeleteLabel}
+        />
+      </LabelsSection>
+    </TemplateEditorCard>
   );
 }
 
@@ -424,35 +567,26 @@ export function NodeTemplatesPanel() {
   };
 
   return (
-    <Box>
-      <PanelHeader
-        title="Node Templates"
-        actions={
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
-            Add
-          </Button>
-        }
-      />
-
-      {nodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
-          No templates
-        </Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {nodeTemplates.map(t => (
-            <NodeTemplateEditor
-              key={t.name}
-              template={t}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              existingNodeProfiles={existingNodeProfiles}
-              existingPlatforms={existingPlatforms}
-            />
-          ))}
-        </Box>
+    <TemplatesPanelLayout
+      title="Node Templates"
+      actions={(
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
+          Add
+        </Button>
       )}
-    </Box>
+      emptyText="No templates"
+      items={nodeTemplates}
+      renderItem={t => (
+        <NodeTemplateEditor
+          key={t.name}
+          template={t}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          existingNodeProfiles={existingNodeProfiles}
+          existingPlatforms={existingPlatforms}
+        />
+      )}
+    />
   );
 }
 
@@ -466,140 +600,90 @@ function LinkTemplateEditor({
   onUpdate: (name: string, update: Partial<LinkTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
-  const [localName, setLocalName] = useState(template.name);
-
-  // Sync local state when template changes from external source
-  useEffect(() => {
-    setLocalName(template.name);
-  }, [template.name]);
-
-  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
+  const { localName, setLocalName, handleNameBlur } = useTemplateNameField({
+    templateName: template.name,
+    onUpdate,
+  });
   const { handleAddLabel, handleUpdateLabel, handleDeleteLabel } = createTemplateLabelHandlers(template, onUpdate);
 
   return (
-    <PanelCard>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: '0.5rem',
-            alignItems: 'center',
-          }}
-        >
+    <TemplateEditorCard
+      localName={localName}
+      setLocalName={setLocalName}
+      handleNameBlur={handleNameBlur}
+      onDelete={() => { onDelete(template.name); }}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+        <TypeSelectField<LinkType>
+          value={template.type || 'interSwitch'}
+          options={[
+            { value: 'interSwitch', label: 'interSwitch' },
+            { value: 'edge', label: 'edge' },
+          ]}
+          onChange={value => { onUpdate(template.name, { type: value }); }}
+        />
+        <FormControl size="small" fullWidth>
+          <InputLabel>Speed</InputLabel>
+          <Select
+            label="Speed"
+            value={template.speed || ''}
+            onChange={e =>
+              onUpdate(template.name, { speed: e.target.value as LinkSpeed })
+            }
+          >
+            <MenuItem value="">None</MenuItem>
+            <MenuItem value="400G">400G</MenuItem>
+            <MenuItem value="100G">100G</MenuItem>
+            <MenuItem value="25G">25G</MenuItem>
+            <MenuItem value="10G">10G</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Encap</InputLabel>
+          <Select
+            label="Encap"
+            value={template.encapType || ''}
+            onChange={e =>
+              onUpdate(template.name, {
+                encapType: e.target.value as EncapType,
+              })
+            }
+          >
+            <MenuItem value="">None</MenuItem>
+            <MenuItem value="null">null</MenuItem>
+            <MenuItem value="dot1q">dot1q</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      <LabelsSection onAdd={handleAddLabel}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '65fr 35fr auto', gap: '0.5rem', alignItems: 'center' }}>
           <TextField
-            label="Name"
             size="small"
-            value={localName}
-            onChange={e => { setLocalName(e.target.value); }}
-            onBlur={handleNameBlur}
+            label="Key"
+            value="eda.nokia.com/role"
+            disabled
             fullWidth
           />
-          <IconButton size="small" onClick={() => { onDelete(template.name); }}>
-            <DeleteIcon fontSize="small" color="error" />
-          </IconButton>
+          <TextField
+            size="small"
+            label="Value"
+            value={template.type || 'interSwitch'}
+            disabled
+            fullWidth
+          />
+          <Box sx={{ width: 32 }} />
         </Box>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Type</InputLabel>
-            <Select
-              label="Type"
-              value={template.type || 'interSwitch'}
-              onChange={e =>
-                onUpdate(template.name, { type: e.target.value as LinkType })
-              }
-            >
-              <MenuItem value="interSwitch">interSwitch</MenuItem>
-              <MenuItem value="edge">edge</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Speed</InputLabel>
-            <Select
-              label="Speed"
-              value={template.speed || ''}
-              onChange={e =>
-                onUpdate(template.name, { speed: e.target.value as LinkSpeed })
-              }
-            >
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="400G">400G</MenuItem>
-              <MenuItem value="100G">100G</MenuItem>
-              <MenuItem value="25G">25G</MenuItem>
-              <MenuItem value="10G">10G</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Encap</InputLabel>
-            <Select
-              label="Encap"
-              value={template.encapType || ''}
-              onChange={e =>
-                onUpdate(template.name, {
-                  encapType: e.target.value as EncapType,
-                })
-              }
-            >
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="null">null</MenuItem>
-              <MenuItem value="dot1q">dot1q</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-
-        <Box>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: '0.5rem',
-            }}
-          >
-            <Typography variant="body2" fontWeight={600}>
-              Labels
-            </Typography>
-            <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
-              Add
-            </Button>
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '65fr 35fr auto', gap: '0.5rem', alignItems: 'center' }}>
-              <TextField
-                size="small"
-                label="Key"
-                value="eda.nokia.com/role"
-                disabled
-                fullWidth
-              />
-              <TextField
-                size="small"
-                label="Value"
-                value={template.type || 'interSwitch'}
-                disabled
-                fullWidth
-              />
-              <Box sx={{ width: 32 }} />
-            </Box>
-            {Object.entries(template.labels || {})
-              .filter(([key]) => key !== 'eda.nokia.com/role')
-              .map(([key, value]) => (
-                <LabelEditor
-                  key={key}
-                  labelKey={key}
-                  labelValue={value}
-                  onUpdate={(newKey, newValue) =>
-                  { handleUpdateLabel(key, newKey, newValue); }
-                  }
-                  onDelete={() => { handleDeleteLabel(key); }}
-                  disableSuggestions
-                />
-              ))}
-          </Box>
-        </Box>
-      </Box>
-    </PanelCard>
+        <LabelEditorsList
+          entries={Object.entries(template.labels ?? {}).filter(
+            ([key]) => key !== 'eda.nokia.com/role',
+          )}
+          onUpdateLabel={handleUpdateLabel}
+          onDeleteLabel={handleDeleteLabel}
+          disableSuggestions
+        />
+      </LabelsSection>
+    </TemplateEditorCard>
   );
 }
 
@@ -637,33 +721,24 @@ export function LinkTemplatesPanel() {
   };
 
   return (
-    <Box>
-      <PanelHeader
-        title="Link Templates"
-        actions={
-          <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
-            Add
-          </Button>
-        }
-      />
-
-      {linkTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
-          No templates
-        </Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {linkTemplates.map(t => (
-            <LinkTemplateEditor
-              key={t.name}
-              template={t}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-            />
-          ))}
-        </Box>
+    <TemplatesPanelLayout
+      title="Link Templates"
+      actions={(
+        <Button size="small" startIcon={<AddIcon />} onClick={handleAdd}>
+          Add
+        </Button>
       )}
-    </Box>
+      emptyText="No templates"
+      items={linkTemplates}
+      renderItem={t => (
+        <LinkTemplateEditor
+          key={t.name}
+          template={t}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
+      )}
+    />
   );
 }
 
@@ -677,85 +752,62 @@ function SimNodeTemplateEditor({
   onUpdate: (name: string, update: Partial<SimNodeTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
-  const [localName, setLocalName] = useState(template.name);
+  const { localName, setLocalName, handleNameBlur } = useTemplateNameField({
+    templateName: template.name,
+    onUpdate,
+  });
   const [localImage, setLocalImage] = useState(template.image || '');
   const [localImagePullSecret, setLocalImagePullSecret] = useState(
     template.imagePullSecret || '',
   );
 
   useEffect(() => {
-    setLocalName(template.name);
     setLocalImage(template.image || '');
     setLocalImagePullSecret(template.imagePullSecret || '');
   }, [template]);
 
-  const handleNameBlur = createNameBlurHandler(template.name, localName, setLocalName, onUpdate);
-
   return (
-    <PanelCard>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: '0.5rem',
-            alignItems: 'center',
-          }}
-        >
-          <TextField
-            label="Name"
-            size="small"
-            value={localName}
-            onChange={e => { setLocalName(e.target.value); }}
-            onBlur={handleNameBlur}
-            fullWidth
-          />
-          <IconButton size="small" onClick={() => { onDelete(template.name); }}>
-            <DeleteIcon fontSize="small" color="error" />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem' }}>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Type</InputLabel>
-            <Select
-              label="Type"
-              value={template.type}
-              onChange={e =>
-                onUpdate(template.name, { type: e.target.value as SimNodeType })
-              }
-            >
-              <MenuItem value="Linux">Linux</MenuItem>
-              <MenuItem value="TestMan">TestMan</MenuItem>
-              <MenuItem value="SrlTest">SrlTest</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField
-            label="Image"
-            size="small"
-            value={localImage}
-            onChange={e => { setLocalImage(e.target.value); }}
-            onBlur={() =>
-              onUpdate(template.name, { image: localImage || undefined })
-            }
-            fullWidth
-          />
-        </Box>
-
+    <TemplateEditorCard
+      localName={localName}
+      setLocalName={setLocalName}
+      handleNameBlur={handleNameBlur}
+      onDelete={() => { onDelete(template.name); }}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem' }}>
+        <TypeSelectField<SimNodeType>
+          value={template.type || ''}
+          options={[
+            { value: 'Linux', label: 'Linux' },
+            { value: 'TestMan', label: 'TestMan' },
+            { value: 'SrlTest', label: 'SrlTest' },
+          ]}
+          onChange={value => { onUpdate(template.name, { type: value }); }}
+        />
         <TextField
-          label="Image Pull Secret"
+          label="Image"
           size="small"
-          value={localImagePullSecret}
-          onChange={e => { setLocalImagePullSecret(e.target.value); }}
+          value={localImage}
+          onChange={e => { setLocalImage(e.target.value); }}
           onBlur={() =>
-            onUpdate(template.name, {
-              imagePullSecret: localImagePullSecret || undefined,
-            })
+            onUpdate(template.name, { image: localImage || undefined })
           }
           fullWidth
         />
       </Box>
-    </PanelCard>
+
+      <TextField
+        label="Image Pull Secret"
+        size="small"
+        value={localImagePullSecret}
+        onChange={e => { setLocalImagePullSecret(e.target.value); }}
+        onBlur={() =>
+          onUpdate(template.name, {
+            imagePullSecret: localImagePullSecret || undefined,
+          })
+        }
+        fullWidth
+      />
+    </TemplateEditorCard>
   );
 }
 
@@ -795,46 +847,37 @@ export function SimNodeTemplatesPanel() {
   };
 
   return (
-    <Box>
-      <PanelHeader
-        title="SimNode Templates"
-        actions={
-          <Box>
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={handleAddLinux}
-              sx={{ mr: '0.25rem' }}
-            >
-              Linux
-            </Button>
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={handleAddTestMan}
-            >
-              TestMan
-            </Button>
-          </Box>
-        }
-      />
-
-      {simNodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
-          No sim templates
-        </Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {simNodeTemplates.map(t => (
-            <SimNodeTemplateEditor
-              key={t.name}
-              template={t}
-              onUpdate={handleUpdateTemplate}
-              onDelete={handleDeleteTemplate}
-            />
-          ))}
+    <TemplatesPanelLayout
+      title="SimNode Templates"
+      actions={(
+        <Box>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleAddLinux}
+            sx={{ mr: '0.25rem' }}
+          >
+            Linux
+          </Button>
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleAddTestMan}
+          >
+            TestMan
+          </Button>
         </Box>
       )}
-    </Box>
+      emptyText="No sim templates"
+      items={simNodeTemplates}
+      renderItem={t => (
+        <SimNodeTemplateEditor
+          key={t.name}
+          template={t}
+          onUpdate={handleUpdateTemplate}
+          onDelete={handleDeleteTemplate}
+        />
+      )}
+    />
   );
 }

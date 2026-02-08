@@ -1,5 +1,88 @@
 {
   "description": "NetworkTopology is the Schema for the topology API",
+  "definitions": {
+    "LinkEndpointSide": {
+      "properties": {
+        "interface": {
+          "description": "Normalized name of the interface/port, e.g. ethernet-1-1.",
+          "type": "string"
+        },
+        "interfaceResource": {
+          "description": "Reference to a Interface.",
+          "type": "string"
+        },
+        "node": {
+          "description": "Reference to a TopoNode.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "type": "object"
+    },
+    "LinkSpeed": {
+      "description": "Speed of the link.",
+      "enum": [
+        "800G",
+        "400G",
+        "200G",
+        "100G",
+        "50G",
+        "40G",
+        "25G",
+        "10G",
+        "2.5G",
+        "1G",
+        "100M"
+      ],
+      "type": "string"
+    },
+    "LinkType": {
+      "description": "Specify the type of link.\nIf type is set to edge, topology information for the remote device can be set; when doing so the Remote Node can be set as the hostname of the remote device and Remote Interface as the remote interface name in the device specific format, e.g. eth0.",
+      "enum": [
+        "edge",
+        "interSwitch",
+        "loopback"
+      ],
+      "type": "string"
+    },
+    "NodeComponentList": {
+      "description": "List of components within the TopoNode.\nUsed to define the type and location of linecards, fabrics (SFM), media adapter cards (MDA) and control cards (CPM).",
+      "items": {
+        "properties": {
+          "kind": {
+            "description": "The kind of Component, e.g. lineCard.",
+            "enum": [
+              "controlCard",
+              "lineCard",
+              "fabric",
+              "mda",
+              "connector",
+              "xiom",
+              "powerShelf",
+              "powerModule"
+            ],
+            "type": "string"
+          },
+          "slot": {
+            "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "type"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
   "properties": {
     "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
@@ -195,30 +278,10 @@
                 "type": "string"
               },
               "speed": {
-                "description": "Speed of the link.",
-                "enum": [
-                  "800G",
-                  "400G",
-                  "200G",
-                  "100G",
-                  "50G",
-                  "40G",
-                  "25G",
-                  "10G",
-                  "2.5G",
-                  "1G",
-                  "100M"
-                ],
-                "type": "string"
+                "$ref": "#/definitions/LinkSpeed"
               },
               "type": {
-                "description": "Specify the type of link.\nIf type is set to edge, topology information for the remote device can be set; when doing so the Remote Node can be set as the hostname of the remote device and Remote Interface as the remote interface name in the device specific format, e.g. eth0.",
-                "enum": [
-                  "edge",
-                  "interSwitch",
-                  "loopback"
-                ],
-                "type": "string"
+                "$ref": "#/definitions/LinkType"
               }
             },
             "required": [
@@ -253,46 +316,10 @@
                 "items": {
                   "properties": {
                     "local": {
-                      "description": "Local, or \"A\" endpoint of the link.",
-                      "properties": {
-                        "interface": {
-                          "description": "Normalized name of the interface/port, e.g. ethernet-1-1.",
-                          "type": "string"
-                        },
-                        "interfaceResource": {
-                          "description": "Reference to a Interface.",
-                          "type": "string"
-                        },
-                        "node": {
-                          "description": "Reference to a TopoNode.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "node"
-                      ],
-                      "type": "object"
+                      "$ref": "#/definitions/LinkEndpointSide"
                     },
                     "remote": {
-                      "description": "Remote, or \"B\" endpoint of the link.",
-                      "properties": {
-                        "interface": {
-                          "description": "Normalized name of the interface/port, e.g. ethernet-1-1.",
-                          "type": "string"
-                        },
-                        "interfaceResource": {
-                          "description": "Reference to a Interface.",
-                          "type": "string"
-                        },
-                        "node": {
-                          "description": "Reference to a TopoNode.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "node"
-                      ],
-                      "type": "object"
+                      "$ref": "#/definitions/LinkEndpointSide"
                     },
                     "sim": {
                       "description": "Sim endpoint of the link.",
@@ -309,30 +336,10 @@
                       "type": "object"
                     },
                     "speed": {
-                      "description": "Speed of the link.",
-                      "enum": [
-                        "800G",
-                        "400G",
-                        "200G",
-                        "100G",
-                        "50G",
-                        "40G",
-                        "25G",
-                        "10G",
-                        "2.5G",
-                        "1G",
-                        "100M"
-                      ],
-                      "type": "string"
+                      "$ref": "#/definitions/LinkSpeed"
                     },
                     "type": {
-                      "description": "Specify the type of link.\nIf type is set to edge, topology information for the remote device can be set; when doing so the Remote Node can be set as the hostname of the remote device and Remote Interface as the remote interface name in the device specific format, e.g. eth0.",
-                      "enum": [
-                        "edge",
-                        "interSwitch",
-                        "loopback"
-                      ],
-                      "type": "string"
+                      "$ref": "#/definitions/LinkType"
                     }
                   },
                   "required": [
@@ -372,6 +379,9 @@
           "description": "Define the node parameters that are meant to be inherited by the topology nodes referencing the template. These parameters can be overridden at the node level.",
           "items": {
             "properties": {
+              "component": {
+                "$ref": "#/definitions/NodeComponentList"
+              },
               "annotations": {
                 "additionalProperties": {
                   "type": "string"
@@ -379,41 +389,6 @@
                 "description": "Annotations to assign to the TopoNode.",
                 "type": "object",
                 "x-kubernetes-preserve-unknown-fields": true
-              },
-              "component": {
-                "description": "List of components within the TopoNode.\nUsed to define the type and location of linecards, fabrics (SFM), media adapter cards (MDA) and control cards (CPM).",
-                "items": {
-                  "properties": {
-                    "kind": {
-                      "description": "The kind of Component, e.g. lineCard.",
-                      "enum": [
-                        "controlCard",
-                        "lineCard",
-                        "fabric",
-                        "mda",
-                        "connector",
-                        "xiom",
-                        "powerShelf",
-                        "powerModule"
-                      ],
-                      "type": "string"
-                    },
-                    "slot": {
-                      "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "type"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
               },
               "labels": {
                 "additionalProperties": {
@@ -460,39 +435,7 @@
                 "x-kubernetes-preserve-unknown-fields": true
               },
               "component": {
-                "description": "List of components within the TopoNode.\nUsed to define the type and location of linecards, fabrics (SFM), media adapter cards (MDA) and control cards (CPM).",
-                "items": {
-                  "properties": {
-                    "kind": {
-                      "description": "The kind of Component, e.g. lineCard.",
-                      "enum": [
-                        "controlCard",
-                        "lineCard",
-                        "fabric",
-                        "mda",
-                        "connector",
-                        "xiom",
-                        "powerShelf",
-                        "powerModule"
-                      ],
-                      "type": "string"
-                    },
-                    "slot": {
-                      "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "type"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
+                "$ref": "#/definitions/NodeComponentList"
               },
               "labels": {
                 "additionalProperties": {

@@ -24,16 +24,7 @@ export interface UndoState {
 const undoHistory: UndoState[] = [];
 const redoHistory: UndoState[] = [];
 
-export const captureState = (state: {
-  nodes: Node<UINodeData>[];
-  edges: Edge<UIEdgeData>[];
-  simulation: UISimulation;
-  nodeTemplates: NodeTemplate[];
-  linkTemplates: LinkTemplate[];
-  topologyName: string;
-  namespace: string;
-  annotations: UIAnnotation[];
-}): UndoState => ({
+export const captureState = (state: UndoState): UndoState => ({
   nodes: JSON.parse(JSON.stringify(state.nodes)) as Node<UINodeData>[],
   edges: JSON.parse(JSON.stringify(state.edges)) as Edge<UIEdgeData>[],
   simulation: JSON.parse(JSON.stringify(state.simulation)) as UISimulation,

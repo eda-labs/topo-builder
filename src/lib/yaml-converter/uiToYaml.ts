@@ -629,12 +629,12 @@ function buildLagLinkForTopoOnly(options: {
     annotations: createAnnotations(edge, firstMemberIndex),
     endpoints: lagMemberLinks.map(member => ({
       local: {
-        node: sourceName,
-        interface: fallbackIfEmptyString(member.sourceInterface, DEFAULT_INTERFACE),
-      },
-      remote: {
         node: targetName,
         interface: fallbackIfEmptyString(member.targetInterface, DEFAULT_INTERFACE),
+      },
+      remote: {
+        node: sourceName,
+        interface: fallbackIfEmptyString(member.sourceInterface, DEFAULT_INTERFACE),
       },
     })),
   };
@@ -782,12 +782,12 @@ function buildIslMemberLink(options: {
     endpoints: [
       {
         local: {
-          node: sourceName,
-          interface: fallbackIfEmptyString(member.sourceInterface, DEFAULT_INTERFACE),
-        },
-        remote: {
           node: targetName,
           interface: fallbackIfEmptyString(member.targetInterface, DEFAULT_INTERFACE),
+        },
+        remote: {
+          node: sourceName,
+          interface: fallbackIfEmptyString(member.sourceInterface, DEFAULT_INTERFACE),
         },
       },
     ],

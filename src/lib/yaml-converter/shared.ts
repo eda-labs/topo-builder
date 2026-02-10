@@ -108,10 +108,10 @@ export function parseYamlEndpoint(ep: Endpoint): ParsedEndpoint | null {
   const remoteNode = ep.remote?.node;
   if (remoteNode) {
     return {
-      sourceName: localNode,
-      targetName: remoteNode,
-      sourceInterface: fallbackIfEmptyString(ep.local?.interface, DEFAULT_INTERFACE),
-      targetInterface: fallbackIfEmptyString(ep.remote?.interface, DEFAULT_INTERFACE),
+      sourceName: remoteNode,
+      targetName: localNode,
+      sourceInterface: fallbackIfEmptyString(ep.remote?.interface, DEFAULT_INTERFACE),
+      targetInterface: fallbackIfEmptyString(ep.local?.interface, DEFAULT_INTERFACE),
     };
   }
 

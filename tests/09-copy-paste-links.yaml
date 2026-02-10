@@ -54,10 +54,10 @@ spec:
         topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
-            node: leaf2
+            node: leaf1
             interface: ethernet-1-1
           remote:
-            node: leaf1
+            node: leaf2
             interface: ethernet-1-1
       template: isl
     - name: leaf1-leaf2-2
@@ -68,10 +68,10 @@ spec:
         topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
-            node: leaf2
+            node: leaf1
             interface: ethernet-1-2
           remote:
-            node: leaf1
+            node: leaf2
             interface: ethernet-1-2
       template: isl
   simulation:

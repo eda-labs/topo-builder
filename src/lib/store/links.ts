@@ -480,10 +480,12 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const { nodes, edges, linkTemplates, nodeTemplates } = state;
 
     const leafRoles = new Set(['leaf', 'borderleaf']);
-    const spineRoles = new Set(['spine', 'superspine']);
+    const spineRoles = new Set(['spine']);
+    const superspineRoles = new Set(['superspine']);
 
     const leaves: UINode[] = [];
     const spines: UINode[] = [];
+    const superspines: UINode[] = [];
     const simNodes: UINode[] = [];
     const topoNodes: UINode[] = [];
 
@@ -497,6 +499,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       const role = getNodeRole(node.data, templateLabels);
       if (role && leafRoles.has(role)) leaves.push(node);
       else if (role && spineRoles.has(role)) spines.push(node);
+      else if (role && superspineRoles.has(role)) superspines.push(node);
     }
 
     const islTemplate = linkTemplates.find(t => t.type === 'interSwitch')?.name;
@@ -551,6 +554,11 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       for (const leaf of leaves) {
         for (const spine of spines) {
           createLink(leaf, spine, islTemplate);
+        }
+      }
+      for (const spine of spines) {
+        for (const superspine of superspines) {
+          createLink(spine, superspine, islTemplate);
         }
       }
     }

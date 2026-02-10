@@ -54,10 +54,10 @@ spec:
         topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
-            node: leaf2
+            node: leaf1
             interface: ethernet-1-1
           remote:
-            node: leaf1
+            node: leaf2
             interface: ethernet-1-1
       template: backbone
   simulation:

@@ -82,3 +82,6 @@ spec:
     simNodes:
       - name: testman1
         template: testman
+        annotations:
+          topobuilder.eda.labs/x: "420"
+          topobuilder.eda.labs/y: "120"

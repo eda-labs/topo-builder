@@ -36,7 +36,7 @@ spec:
       annotations:
         topobuilder.eda.labs/x: "195"
         topobuilder.eda.labs/y: "300"
-    - name: leaf1-copy
+    - name: leaf2
       template: leaf
       annotations:
         topobuilder.eda.labs/x: "75"

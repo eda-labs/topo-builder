@@ -11,8 +11,9 @@ import type { Node, Edge } from '@xyflow/react';
 
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
-import type { Operation } from '../../types/schema';
-import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
+import type { Operation, NodeTemplate } from '../../types/schema';
+import { EMPTY_STRING_SET, generateUniqueName, extractNamePrefix, getNameError } from '../utils';
+import { ANNOTATION_NAME_PREFIX } from '../constants';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
 
 import {
@@ -150,18 +151,22 @@ function buildPastedNodes({
   allNames,
   idMap,
   nameMap,
+  nodeTemplates,
 }: {
   copiedNodes: Node<UINodeData>[];
   offset: { x: number; y: number };
   allNames: string[];
   idMap: Map<string, string>;
   nameMap: Map<string, string>;
+  nodeTemplates: NodeTemplate[];
 }): Node<UINodeData>[] {
   return copiedNodes.map(node => {
     const newId = generateNodeId();
     idMap.set(node.id, newId);
 
-    const newName = generateCopyName(node.data.name, allNames);
+    const templateObj = nodeTemplates.find(t => t.name === node.data.template);
+    const namePrefix = templateObj?.annotations?.[ANNOTATION_NAME_PREFIX] || extractNamePrefix(node.data.name);
+    const newName = generateUniqueName(namePrefix, allNames);
     allNames.push(newName);
     nameMap.set(node.data.name, newName);
 
@@ -205,7 +210,8 @@ function buildPastedSimNodeNodes({
   if (!copiedSimNodes || copiedSimNodes.length === 0) return { newSimNodeNodes, newSimNodeNames };
 
   for (const simNode of copiedSimNodes) {
-    const newName = generateCopyName(simNode.name, allNames);
+    const namePrefix = extractNamePrefix(simNode.name);
+    const newName = generateUniqueName(namePrefix, allNames);
     allNames.push(newName);
     newSimNodeNames.push(newName);
 
@@ -518,7 +524,7 @@ export const createTopologyStore = () => {
             const idMap = new Map<string, string>();
             const nameMap = new Map<string, string>();
 
-            const newNodes = buildPastedNodes({ copiedNodes, offset, allNames, idMap, nameMap });
+            const newNodes = buildPastedNodes({ copiedNodes, offset, allNames, idMap, nameMap, nodeTemplates: state.nodeTemplates });
 
             // Process simNodes first so their IDs are in idMap for edge filtering.
             const { newSimNodeNodes, newSimNodeNames } = buildPastedSimNodeNodes({

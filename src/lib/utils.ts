@@ -99,6 +99,11 @@ export const generateCopyName = (originalName: string, existingNames: string[]):
   return newName;
 };
 
+export const extractNamePrefix = (name: string): string => {
+  const match = name.match(/^(.*?)(\d+)$/);
+  return match ? match[1] : name;
+};
+
 export const formatName = (value: string): string => value.replace(/\s+/g, '-').toLowerCase();
 
 export const ROLE_ICONS: Record<string, string> = {

@@ -22,6 +22,14 @@ spec:
         topobuilder.eda.labs/name-prefix: spine
       nodeProfile: srlinux-ghcr-25.10.1
       platform: 7220 IXR-D5
+    - name: superspine
+      labels:
+        eda.nokia.com/role: superspine
+        eda.nokia.com/security-profile: managed
+      annotations:
+        topobuilder.eda.labs/name-prefix: superspine
+      nodeProfile: srlinux-ghcr-25.10.1
+      platform: 7220 IXR-H5-64D
   nodes: []
   linkTemplates:
     - name: isl

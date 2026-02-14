@@ -2,7 +2,12 @@
 import './styles.css';
 
 export { default as TopologyEditor, type TopologyEditorProps } from './components/TopologyEditor';
-export { default as AppLayout } from './components/AppLayout';
+export {
+  default as AppLayout,
+  createTopologyTheme,
+  defaultTopologyThemeOptions,
+  type TopologyThemingProps,
+} from './components/AppLayout';
 export { default as ContextMenu } from './components/ContextMenu';
 export {
   default as YamlEditor,

@@ -18,7 +18,6 @@ import {
   ListItemText,
   CssBaseline,
   ThemeProvider,
-  createTheme,
   Snackbar,
   Link,
   TextField,
@@ -28,6 +27,7 @@ import {
   MenuItem,
   Divider,
 } from '@mui/material';
+import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
 import {
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
@@ -51,40 +51,59 @@ import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 
 import { getEditorContent } from './YamlEditor';
 
-interface AppLayoutProps {
+export interface TopologyThemingProps {
+  theme?: Theme;
+  themeOptions?: ThemeOptions;
+  disableCssBaseline?: boolean;
+  styleVariables?: Record<string, string>;
+}
+
+interface AppLayoutProps extends TopologyThemingProps {
   children: React.ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
-  const theme = useMemo(() => createTheme({
-    cssVariables: true,
-    palette: {
-      mode: 'dark',
-      primary: { main: '#6098FF' },
-      error: { main: '#FF6363' },
-      warning: { main: '#FFAC0A' },
-      success: { main: '#00A87E' },
-      info: { main: '#90B7FF' },
-      background: { default: '#1A222E', paper: '#101824' },
-      text: { primary: '#ffffff', secondary: '#C9CED6' },
-      divider: '#4A5361B2',
-      card: { bg: '#101824', border: '#4A5361B2' },
-    },
-    shape: { borderRadius: 4 },
-    typography: {
-      fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
-    },
-    components: {
-      MuiPaper: {
-        styleOverrides: {
-          outlined: {
-            backgroundColor: 'var(--mui-palette-card-bg)',
-            borderColor: 'var(--mui-palette-card-border)',
-          },
+export const defaultTopologyThemeOptions: ThemeOptions = {
+  cssVariables: true,
+  palette: {
+    mode: 'dark',
+    primary: { main: '#6098FF' },
+    error: { main: '#FF6363' },
+    warning: { main: '#FFAC0A' },
+    success: { main: '#00A87E' },
+    info: { main: '#90B7FF' },
+    background: { default: '#1A222E', paper: '#101824' },
+    text: { primary: '#ffffff', secondary: '#C9CED6' },
+    divider: '#4A5361B2',
+    card: { bg: '#101824', border: '#4A5361B2' },
+  },
+  shape: { borderRadius: 4 },
+  typography: {
+    fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        outlined: {
+          backgroundColor: 'var(--mui-palette-card-bg)',
+          borderColor: 'var(--mui-palette-card-border)',
         },
       },
     },
-  }), []);
+  },
+};
+
+export function createTopologyTheme(themeOptions?: ThemeOptions): Theme {
+  return createTheme(defaultTopologyThemeOptions, themeOptions ?? {});
+}
+
+export default function AppLayout({
+  children,
+  theme: providedTheme,
+  themeOptions,
+  disableCssBaseline = false,
+  styleVariables,
+}: AppLayoutProps) {
+  const theme = useMemo(() => providedTheme ?? createTopologyTheme(themeOptions), [providedTheme, themeOptions]);
 
   const topologyName = useTopologyStore(state => state.topologyName);
   const namespace = useTopologyStore(state => state.namespace);
@@ -112,6 +131,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
   const commitSha = typeof __COMMIT_SHA__ === 'string' ? __COMMIT_SHA__ : 'unknown';
+  const toolbarTextColor = 'text.primary';
 
   useEffect(() => {
     if (error) {
@@ -213,58 +233,61 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+      {!disableCssBaseline && <CssBaseline />}
+      <Box
+        sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}
+        style={styleVariables}
+      >
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar variant="dense">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
               <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
-              <Typography variant="h6" sx={{ fontWeight: 200, color: 'white' }}>
+              <Typography variant="h6" sx={{ fontWeight: 200, color: toolbarTextColor }}>
                 {TITLE}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Tooltip title="Validate against schema">
-                <IconButton size="small" onClick={handleValidate} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={handleValidate} sx={{ color: toolbarTextColor }}>
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="AutoLink">
-                <IconButton size="small" onClick={autoLink} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={autoLink} sx={{ color: toolbarTextColor }}>
                   <AutoLinkIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
-                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: toolbarTextColor }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Copy as kubectl apply">
-                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: toolbarTextColor }}>
                   <TerminalIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Download YAML">
-                <IconButton size="small" onClick={handleDownload} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={handleDownload} sx={{ color: toolbarTextColor }}>
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export SVG">
-                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: toolbarTextColor }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="Settings">
-                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: toolbarTextColor }}>
                   <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="About">
-                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: toolbarTextColor }}>
                   <Info fontSize="small" />
                 </IconButton>
               </Tooltip>

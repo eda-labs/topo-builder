@@ -33,7 +33,7 @@ import { useCopyPaste } from '../hooks/useCopyPaste';
 
 import { TopoNode, SimNode, TextAnnotation, ShapeAnnotation } from './nodes';
 import { LinkEdge } from './edges';
-import AppLayout from './AppLayout';
+import AppLayout, { type TopologyThemingProps } from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
 import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
 import ContextMenu from './ContextMenu';
@@ -49,8 +49,20 @@ const edgeTypes: EdgeTypes = {
   linkEdge: LinkEdge,
 };
 
-export interface TopologyEditorProps {
+export interface TopologyEditorProps extends TopologyThemingProps {
   renderYamlPanel?: () => ReactNode;
+  reactFlowColorMode?: 'light' | 'dark';
+}
+
+function resolveReactFlowColorMode({
+  reactFlowColorMode,
+  theme,
+  themeOptions,
+}: Pick<TopologyEditorProps, 'reactFlowColorMode' | 'theme' | 'themeOptions'>): 'light' | 'dark' {
+  if (reactFlowColorMode) return reactFlowColorMode;
+  if (theme?.palette.mode === 'light') return 'light';
+  if (themeOptions?.palette?.mode === 'light') return 'light';
+  return 'dark';
 }
 
 function areSameIndexSet(a: number[], b: number[]): boolean {
@@ -562,7 +574,15 @@ function EmptyCanvasHint({ show }: { show: boolean }) {
   );
 }
 
-function TopologyEditorInner({ renderYamlPanel }: TopologyEditorProps) {
+function TopologyEditorInner({
+  renderYamlPanel,
+  theme,
+  themeOptions,
+  disableCssBaseline,
+  styleVariables,
+  reactFlowColorMode,
+}: TopologyEditorProps) {
+  const flowColorMode = resolveReactFlowColorMode({ reactFlowColorMode, theme, themeOptions });
   const {
     nodes,
     edges,
@@ -1124,7 +1144,12 @@ function TopologyEditorInner({ renderYamlPanel }: TopologyEditorProps) {
   })();
 
   return (
-    <AppLayout>
+    <AppLayout
+      theme={theme}
+      themeOptions={themeOptions}
+      disableCssBaseline={disableCssBaseline}
+      styleVariables={styleVariables}
+    >
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Box
           onContextMenu={e => { e.preventDefault(); }}
@@ -1163,7 +1188,7 @@ function TopologyEditorInner({ renderYamlPanel }: TopologyEditorProps) {
             snapToGrid
             snapGrid={[15, 15]}
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
-            colorMode="dark"
+            colorMode={flowColorMode}
             deleteKeyCode={null}
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
@@ -1235,10 +1260,24 @@ function TopologyEditorInner({ renderYamlPanel }: TopologyEditorProps) {
   );
 }
 
-export default function TopologyEditor({ renderYamlPanel }: TopologyEditorProps = {}) {
+export default function TopologyEditor({
+  renderYamlPanel,
+  theme,
+  themeOptions,
+  disableCssBaseline,
+  styleVariables,
+  reactFlowColorMode,
+}: TopologyEditorProps = {}) {
   return (
     <ReactFlowProvider>
-      <TopologyEditorInner renderYamlPanel={renderYamlPanel} />
+      <TopologyEditorInner
+        renderYamlPanel={renderYamlPanel}
+        theme={theme}
+        themeOptions={themeOptions}
+        disableCssBaseline={disableCssBaseline}
+        styleVariables={styleVariables}
+        reactFlowColorMode={reactFlowColorMode}
+      />
     </ReactFlowProvider>
   );
 }

@@ -111,6 +111,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [localName, setLocalName] = useState(topologyName);
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
+  const commitSha = typeof __COMMIT_SHA__ === 'string' ? __COMMIT_SHA__ : 'unknown';
 
   useEffect(() => {
     if (error) {
@@ -351,7 +352,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </Dialog>
 
         <Dialog open={aboutDialogOpen} onClose={() => { setAboutDialogOpen(false); }} maxWidth="xs" fullWidth>
-          <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({__COMMIT_SHA__})</Typography></DialogTitle>
+          <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({commitSha})</Typography></DialogTitle>
           <DialogContent sx={{ pb: 0 }}>
             <Container sx={{ textAlign: 'center' }}>
               <Typography variant="body1">

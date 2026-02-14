@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef, type ReactNode, type SyntheticEvent } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -48,6 +48,10 @@ const nodeTypes: NodeTypes = {
 const edgeTypes: EdgeTypes = {
   linkEdge: LinkEdge,
 };
+
+export interface TopologyEditorProps {
+  renderYamlPanel?: () => ReactNode;
+}
 
 function areSameIndexSet(a: number[], b: number[]): boolean {
   if (a.length !== b.length) return false;
@@ -372,11 +376,13 @@ function SidePanel({
   onTabChange,
   open,
   onToggle,
+  renderYamlPanel,
 }: {
   activeTab: number;
   onTabChange: (tab: number) => void;
   open: boolean;
   onToggle: () => void;
+  renderYamlPanel?: () => ReactNode;
 }) {
   const theme = useTheme();
   const borderColor = theme.palette.divider;
@@ -493,7 +499,7 @@ function SidePanel({
           <Tab label="Sim Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
         </Tabs>
         <Box sx={{ flex: 1, overflow: 'auto', p: activeTab === 0 ? 0 : 1.5, bgcolor: contentBg }}>
-          {activeTab === 0 && <YamlEditor />}
+          {activeTab === 0 && (renderYamlPanel ? renderYamlPanel() : <YamlEditor />)}
           {activeTab === 1 && <SelectionPanel />}
           {activeTab === 2 && <NodeTemplatesPanel />}
           {activeTab === 3 && <LinkTemplatesPanel />}
@@ -556,7 +562,7 @@ function EmptyCanvasHint({ show }: { show: boolean }) {
   );
 }
 
-function TopologyEditorInner() {
+function TopologyEditorInner({ renderYamlPanel }: TopologyEditorProps) {
   const {
     nodes,
     edges,
@@ -1183,6 +1189,7 @@ function TopologyEditorInner() {
           onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 0) triggerYamlRefresh(); }}
           open={panelOpen}
           onToggle={() => { setPanelOpen(!panelOpen); }}
+          renderYamlPanel={renderYamlPanel}
         />
       </Box>
 
@@ -1228,10 +1235,10 @@ function TopologyEditorInner() {
   );
 }
 
-export default function TopologyEditor() {
+export default function TopologyEditor({ renderYamlPanel }: TopologyEditorProps = {}) {
   return (
     <ReactFlowProvider>
-      <TopologyEditorInner />
+      <TopologyEditorInner renderYamlPanel={renderYamlPanel} />
     </ReactFlowProvider>
   );
 }

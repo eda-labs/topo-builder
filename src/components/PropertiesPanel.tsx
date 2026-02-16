@@ -384,20 +384,21 @@ export function NodeTemplatesPanel() {
     state => state.triggerYamlRefresh,
   );
 
+  const isStandalone = typeof __APP_MODE__ === 'undefined' || __APP_MODE__ === 'standalone';
   const edaStatus = useTopologyStore(state => state.edaStatus);
   const edaNodeProfiles = useTopologyStore(state => state.edaNodeProfiles);
   const fetchNodeProfiles = useTopologyStore(state => state.fetchNodeProfiles);
 
   // Fetch node profiles from EDA when connected
   useEffect(() => {
-    if (edaStatus === 'connected' && namespace) {
+    if (isStandalone && edaStatus === 'connected' && namespace) {
       void fetchNodeProfiles(namespace);
     }
-  }, [edaStatus, namespace, fetchNodeProfiles]);
+  }, [isStandalone, edaStatus, namespace, fetchNodeProfiles]);
 
   const existingNodeProfiles = [
     ...new Set([
-      ...edaNodeProfiles,
+      ...(isStandalone ? edaNodeProfiles : []),
       ...NODE_PROFILE_SUGGESTIONS,
       ...nodeTemplates
         .map(t => t.nodeProfile)

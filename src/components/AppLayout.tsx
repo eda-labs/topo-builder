@@ -133,6 +133,8 @@ export default function AppLayout({
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
 
+  const isStandalone = typeof __APP_MODE__ === 'undefined' || __APP_MODE__ === 'standalone';
+
   const edaStatus = useTopologyStore(state => state.edaStatus);
   const edaUrl = useTopologyStore(state => state.edaUrl);
   const edaInit = useTopologyStore(state => state.edaInit);
@@ -149,8 +151,8 @@ export default function AppLayout({
   }, [error]);
 
   useEffect(() => {
-    void edaInit();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isStandalone) void edaInit();
+  }, [isStandalone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
@@ -293,18 +295,22 @@ export default function AppLayout({
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
-              <Tooltip title={edaStatus === 'connected' ? 'EDA Connected' : 'EDA Connection'}>
-                <IconButton size="small" onClick={() => { setEdaDialogOpen(true); }} sx={{ color: toolbarTextColor }}>
-                  <Badge
-                    variant="dot"
-                    invisible={edaStatus !== 'connected'}
-                    sx={{ '& .MuiBadge-badge': { bgcolor: 'success.main' } }}
-                  >
-                    <EdaIcon fontSize="small" />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
+              {isStandalone && (
+                <>
+                  <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+                  <Tooltip title={edaStatus === 'connected' ? 'EDA Connected' : 'EDA Connection'}>
+                    <IconButton size="small" onClick={() => { setEdaDialogOpen(true); }} sx={{ color: toolbarTextColor }}>
+                      <Badge
+                        variant="dot"
+                        invisible={edaStatus !== 'connected'}
+                        sx={{ '& .MuiBadge-badge': { bgcolor: 'success.main' } }}
+                      >
+                        <EdaIcon fontSize="small" />
+                      </Badge>
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="Settings">
                 <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: toolbarTextColor }}>
@@ -433,22 +439,24 @@ export default function AppLayout({
           </DialogActions>
         </Dialog>
 
-        <Dialog open={edaDialogOpen} onClose={() => { setEdaDialogOpen(false); }} maxWidth="xs" fullWidth>
-          <DialogTitle>EDA Connection</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            {edaStatus === 'connected' ? (
-              <Alert severity="success" sx={{ mt: 1 }}>Connected to EDA{edaUrl ? ` — ${edaUrl}` : ''}</Alert>
-            ) : (
-              <Alert severity="warning" sx={{ mt: 1 }}>Not connected to EDA</Alert>
-            )}
-            <Typography variant="body2" color="text.secondary">
-              Use the <Link href="https://github.com/eda-labs/browser-extension" target="_blank" rel="noopener">EDA Browser Extension</Link> to connect.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => { setEdaDialogOpen(false); }}>Close</Button>
-          </DialogActions>
-        </Dialog>
+        {isStandalone && (
+          <Dialog open={edaDialogOpen} onClose={() => { setEdaDialogOpen(false); }} maxWidth="xs" fullWidth>
+            <DialogTitle>EDA Connection</DialogTitle>
+            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              {edaStatus === 'connected' ? (
+                <Alert severity="success" sx={{ mt: 1 }}>Connected to EDA{edaUrl ? ` — ${edaUrl}` : ''}</Alert>
+              ) : (
+                <Alert severity="warning" sx={{ mt: 1 }}>Not connected to EDA</Alert>
+              )}
+              <Typography variant="body2" color="text.secondary">
+                Use the <Link href="https://github.com/eda-labs/browser-extension" target="_blank" rel="noopener">EDA Browser Extension</Link> to connect.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => { setEdaDialogOpen(false); }}>Close</Button>
+            </DialogActions>
+          </Dialog>
+        )}
 
         <Snackbar
           open={!!error}

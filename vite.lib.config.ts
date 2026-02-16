@@ -30,6 +30,9 @@ function isExternalDependency(id: string): boolean {
 
 export default defineConfig({
   plugins: [tailwindcss()],
+  define: {
+    __APP_MODE__: JSON.stringify('package'),
+  },
   build: {
     lib: {
       entry: resolve(rootDir, 'src/index.ts'),

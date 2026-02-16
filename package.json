@@ -1,10 +1,32 @@
 {
-  "name": "ntwfui",
+  "name": "@eda-labs/topo-builder",
   "type": "module",
   "version": "0.0.1",
+  "description": "EDA Topology Builder app and reusable React library.",
+  "main": "./dist/lib/index.js",
+  "module": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js",
+      "default": "./dist/lib/index.js"
+    },
+    "./styles.css": "./dist/lib/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/lib",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "astro dev",
     "build": "npm run generate-types && astro build",
+    "build:lib": "npm run generate-types && vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "build:all": "npm run build && npm run build:lib",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "tsc --noEmit",

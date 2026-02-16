@@ -14,6 +14,8 @@ import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '.
 import type { Operation } from '../../types/schema';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
+import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
+import type { NodeProfileResponse } from '../extensionAPITypes';
 
 import {
   createNodeSlice,
@@ -65,6 +67,8 @@ setEsiLagEdgeIdGenerator(generateEdgeId);
 setSimNodeIdGenerator(generateSimNodeId);
 
 // Core actions that span multiple domains
+export type EdaConnectionStatus = 'disconnected' | 'connected';
+
 interface CoreState {
   topologyName: string;
   namespace: string;
@@ -73,6 +77,9 @@ interface CoreState {
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;
+  edaStatus: EdaConnectionStatus;
+  edaUrl: string;
+  edaNodeProfiles: string[];
 }
 
 interface CoreActions {
@@ -83,6 +90,8 @@ interface CoreActions {
   setShowSimNodes: (show: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
+  edaInit: () => Promise<void>;
+  fetchNodeProfiles: (namespace: string) => Promise<void>;
   importFromYaml: (yaml: string) => boolean;
   clearAll: () => void;
   pasteSelection: (
@@ -140,6 +149,9 @@ const initialCoreState: CoreState = {
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   error: null,
+  edaStatus: 'disconnected',
+  edaUrl: '',
+  edaNodeProfiles: [],
 };
 
 type StoreSetFn = (partial: Partial<TopologyStore>) => void;
@@ -439,6 +451,42 @@ export const createTopologyStore = () => {
           saveToUndoHistory: () => {
             const state = get();
             pushToUndoHistory(captureState(state));
+          },
+
+          async edaInit() {
+            const result = await detectExtension();
+            set({
+              edaStatus: result.status === 'connected' ? 'connected' : 'disconnected',
+              edaUrl: result.edaUrl,
+            });
+
+            if (result.available) {
+              onEdaStatusChange(({ status, edaUrl }) => {
+                const prev = get().edaStatus;
+                const mapped: EdaConnectionStatus = status === 'connected' ? 'connected' : 'disconnected';
+                set({ edaStatus: mapped, edaUrl });
+                if (mapped !== 'connected' && prev === 'connected') {
+                  set({ edaNodeProfiles: [] });
+                }
+              });
+            }
+          },
+
+          async fetchNodeProfiles(namespace) {
+            if (get().edaStatus !== 'connected') return;
+            try {
+              const path = '/apps/core.eda.nokia.com/v1/namespaces/' + namespace + '/nodeprofiles';
+              const res = await edaFetch(path);
+              if (!res.ok) return;
+              const data: NodeProfileResponse = JSON.parse(res.body) as NodeProfileResponse;
+              const names = (data.items ?? [])
+                .map(item => item.metadata?.name)
+                .filter((n): n is string => !!n)
+                .sort();
+              set({ edaNodeProfiles: names });
+            } catch {
+              // Silently fail
+            }
           },
 
           importFromYaml: (yamlString: string): boolean => {

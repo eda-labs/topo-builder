@@ -181,15 +181,22 @@ export default function AppLayout({
   };
 
   const handleDeploy = async () => {
+    // Open a blank window synchronously to avoid popup blockers, then navigate it after deploy succeeds
+    const deployWindow = window.open('', '_blank');
     // Ping extension to wake up service worker and wait for session restore
     await detectExtension();
     const result = await deployToEda();
     if (result.ok && result.workflowName) {
-      window.open(
-        `${edaUrl}/ui/main/workflows/eda/topologies.eda.nokia.com/v1alpha1/networktopologies/${result.workflowName}`,
-        '_blank',
-      );
+      const url = `${edaUrl}/ui/main/workflows/eda/topologies.eda.nokia.com/v1alpha1/networktopologies/${result.workflowName}`;
+      if (deployWindow) {
+        deployWindow.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
     } else {
+      if (deployWindow) {
+        deployWindow.close();
+      }
       setError(result.error ?? 'Deploy failed');
     }
   };

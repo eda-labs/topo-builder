@@ -29,16 +29,3 @@ export interface EdaStatusChangedMessage {
 }
 
 export type ExtensionMessage = EdaPongMessage | EdaResponseMessage | EdaStatusChangedMessage;
-
-export interface WorkflowRequest {
-  apiVersion: 'core.eda.nokia.com/v1';
-  kind: 'Workflow';
-  metadata: {
-    name: string;
-    namespace: string;
-  };
-  spec: {
-    type: string;
-    input: unknown;
-  };
-}

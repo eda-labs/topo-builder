@@ -40,11 +40,13 @@ import {
   Info,
   Settings as SettingsIcon,
   Hub as AutoLinkIcon,
+  PlayArrow as DeployIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 
 import EdaIcon from '../icons/EdaIcon';
 import { useTopologyStore } from '../lib/store';
+import { detectExtension } from '../lib/extensionAPIClient';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
@@ -138,6 +140,8 @@ export default function AppLayout({
   const edaStatus = useTopologyStore(state => state.edaStatus);
   const edaUrl = useTopologyStore(state => state.edaUrl);
   const edaInit = useTopologyStore(state => state.edaInit);
+  const edaDeploying = useTopologyStore(state => state.edaDeploying);
+  const deployToEda = useTopologyStore(state => state.deployToEda);
 
   const [edaDialogOpen, setEdaDialogOpen] = useState(false);
 
@@ -174,6 +178,20 @@ export default function AppLayout({
     await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getExportYaml()}\nEOF`);
     setCopied(true);
     setTimeout(() => { setCopied(false); }, 2000);
+  };
+
+  const handleDeploy = async () => {
+    // Ping extension to wake up service worker and wait for session restore
+    await detectExtension();
+    const result = await deployToEda();
+    if (result.ok && result.workflowName) {
+      window.open(
+        `${edaUrl}/ui/main/workflows/eda/topologies.eda.nokia.com/v1alpha1/networktopologies/${result.workflowName}`,
+        '_blank',
+      );
+    } else {
+      setError(result.error ?? 'Deploy failed');
+    }
   };
 
   const handleValidate = () => {
@@ -263,6 +281,18 @@ export default function AppLayout({
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {isStandalone && edaStatus === 'connected' && (
+                <>
+                  <Tooltip title="Deploy to EDA">
+                    <span>
+                      <IconButton size="small" onClick={() => { void handleDeploy(); }} disabled={edaDeploying} sx={{ color: toolbarTextColor }}>
+                        <DeployIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+                </>
+              )}
               <Tooltip title="Validate against schema">
                 <IconButton size="small" onClick={handleValidate} sx={{ color: toolbarTextColor }}>
                   <ValidateIcon fontSize="small" />

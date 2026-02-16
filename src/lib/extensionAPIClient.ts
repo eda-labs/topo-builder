@@ -6,9 +6,20 @@
  * and CORS — web pages just send API paths.
  */
 
+import type {
+  ExtensionMessage,
+  EdaPongMessage,
+  EdaResponseMessage,
+  EdaStatusChangedMessage,
+} from './extensionAPITypes';
+
 export interface EdaStatus {
   status: string;
   edaUrl: string;
+}
+
+function isExtensionMessage(data: unknown): data is ExtensionMessage {
+  return typeof data === 'object' && data !== null && 'type' in data;
 }
 
 let extensionAvailable: boolean | null = null;
@@ -24,16 +35,18 @@ export function detectExtension(): Promise<EdaStatus & { available: boolean }> {
 
     const handler = (event: MessageEvent) => {
       if (event.source !== window) return;
-      if (event.data?.type === 'eda-pong') {
-        clearTimeout(timeout);
-        window.removeEventListener('message', handler);
-        extensionAvailable = true;
-        resolve({
-          available: true,
-          status: event.data.status ?? 'disconnected',
-          edaUrl: event.data.edaUrl ?? '',
-        });
-      }
+      if (!isExtensionMessage(event.data)) return;
+      if (event.data.type !== 'eda-pong') return;
+
+      const msg: EdaPongMessage = event.data;
+      clearTimeout(timeout);
+      window.removeEventListener('message', handler);
+      extensionAvailable = true;
+      resolve({
+        available: true,
+        status: msg.status ?? 'disconnected',
+        edaUrl: msg.edaUrl ?? '',
+      });
     };
 
     window.addEventListener('message', handler);
@@ -41,7 +54,7 @@ export function detectExtension(): Promise<EdaStatus & { available: boolean }> {
   });
 }
 
-export function isExtensionAvailable(): boolean {
+export function isExtensionDetected(): boolean {
   return extensionAvailable === true;
 }
 
@@ -53,7 +66,7 @@ export function edaFetch(
   init?: { method?: string; headers?: Record<string, string>; body?: string },
 ): Promise<{ ok: boolean; status: number; body: string }> {
   if (!extensionAvailable) {
-    return Promise.reject(new Error('EDA Browser Connector not available'));
+    return Promise.reject(new Error('EDA Browser Extension not available'));
   }
 
   const id = `eda-req-${++requestId}`;
@@ -66,15 +79,13 @@ export function edaFetch(
 
     const handler = (event: MessageEvent) => {
       if (event.source !== window) return;
-      if (event.data?.type !== 'eda-response' || event.data.id !== id) return;
+      if (!isExtensionMessage(event.data)) return;
+      if (event.data.type !== 'eda-response' || event.data.id !== id) return;
 
+      const msg: EdaResponseMessage = event.data;
       clearTimeout(timer);
       window.removeEventListener('message', handler);
-      resolve({
-        ok: event.data.ok,
-        status: event.data.status,
-        body: event.data.body,
-      });
+      resolve({ ok: msg.ok, status: msg.status, body: msg.body });
     };
 
     window.addEventListener('message', handler);
@@ -95,9 +106,11 @@ export type StatusChangeCallback = (status: EdaStatus) => void;
 export function onEdaStatusChange(callback: StatusChangeCallback): () => void {
   const handler = (event: MessageEvent) => {
     if (event.source !== window) return;
-    if (event.data?.type === 'eda-status-changed') {
-      callback({ status: event.data.status, edaUrl: event.data.edaUrl });
-    }
+    if (!isExtensionMessage(event.data)) return;
+    if (event.data.type !== 'eda-status-changed') return;
+
+    const msg: EdaStatusChangedMessage = event.data;
+    callback({ status: msg.status, edaUrl: msg.edaUrl });
   };
   window.addEventListener('message', handler);
   return () => { window.removeEventListener('message', handler); };

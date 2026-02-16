@@ -372,6 +372,7 @@ function NodeTemplateEditor({
 
 export function NodeTemplatesPanel() {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
+  const namespace = useTopologyStore(state => state.namespace);
   const addNodeTemplate = useTopologyStore(state => state.addNodeTemplate);
   const updateNodeTemplate = useTopologyStore(
     state => state.updateNodeTemplate,
@@ -383,8 +384,20 @@ export function NodeTemplatesPanel() {
     state => state.triggerYamlRefresh,
   );
 
+  const edaStatus = useTopologyStore(state => state.edaStatus);
+  const edaNodeProfiles = useTopologyStore(state => state.edaNodeProfiles);
+  const fetchNodeProfiles = useTopologyStore(state => state.fetchNodeProfiles);
+
+  // Fetch node profiles from EDA when connected
+  useEffect(() => {
+    if (edaStatus === 'connected' && namespace) {
+      void fetchNodeProfiles(namespace);
+    }
+  }, [edaStatus, namespace, fetchNodeProfiles]);
+
   const existingNodeProfiles = [
     ...new Set([
+      ...edaNodeProfiles,
       ...NODE_PROFILE_SUGGESTIONS,
       ...nodeTemplates
         .map(t => t.nodeProfile)

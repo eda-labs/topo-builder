@@ -8,13 +8,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Node, Edge } from '@xyflow/react';
+import yaml from 'js-yaml';
 
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
 import type { Operation, NodeTemplate } from '../../types/schema';
 import { EMPTY_STRING_SET, generateUniqueName, extractNamePrefix, getNameError } from '../utils';
 import { ANNOTATION_NAME_PREFIX } from '../constants';
-import { yamlToUI, setIdCounters } from '../yaml-converter';
+import { yamlToUI, setIdCounters, exportToYaml, normalizeNodeCoordinates } from '../yaml-converter';
+import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
+import type { NodeProfileResponse } from '../extensionAPITypes';
 
 import {
   createNodeSlice,
@@ -66,6 +69,8 @@ setEsiLagEdgeIdGenerator(generateEdgeId);
 setSimNodeIdGenerator(generateSimNodeId);
 
 // Core actions that span multiple domains
+export type EdaConnectionStatus = 'disconnected' | 'connected';
+
 interface CoreState {
   topologyName: string;
   namespace: string;
@@ -74,6 +79,10 @@ interface CoreState {
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;
+  edaStatus: EdaConnectionStatus;
+  edaUrl: string;
+  edaNodeProfiles: string[];
+  edaDeploying: boolean;
 }
 
 interface CoreActions {
@@ -84,6 +93,9 @@ interface CoreActions {
   setShowSimNodes: (show: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
+  edaInit: () => Promise<void>;
+  fetchNodeProfiles: (namespace: string) => Promise<void>;
+  deployToEda: () => Promise<{ ok: boolean; error?: string; workflowName?: string }>;
   importFromYaml: (yaml: string) => boolean;
   clearAll: () => void;
   pasteSelection: (
@@ -141,6 +153,10 @@ const initialCoreState: CoreState = {
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   error: null,
+  edaStatus: 'disconnected',
+  edaUrl: '',
+  edaNodeProfiles: [],
+  edaDeploying: false,
 };
 
 type StoreSetFn = (partial: Partial<TopologyStore>) => void;
@@ -445,6 +461,75 @@ export const createTopologyStore = () => {
           saveToUndoHistory: () => {
             const state = get();
             pushToUndoHistory(captureState(state));
+          },
+
+          async edaInit() {
+            const result = await detectExtension();
+            set({
+              edaStatus: result.status === 'connected' ? 'connected' : 'disconnected',
+              edaUrl: result.edaUrl,
+            });
+
+            if (result.available) {
+              onEdaStatusChange(({ status, edaUrl }) => {
+                const prev = get().edaStatus;
+                const mapped: EdaConnectionStatus = status === 'connected' ? 'connected' : 'disconnected';
+                set({ edaStatus: mapped, edaUrl });
+                if (mapped !== 'connected' && prev === 'connected') {
+                  set({ edaNodeProfiles: [] });
+                }
+              });
+            }
+          },
+
+          async fetchNodeProfiles(namespace) {
+            if (get().edaStatus !== 'connected') return;
+            try {
+              const path = '/apps/core.eda.nokia.com/v1/namespaces/' + namespace + '/nodeprofiles';
+              const res = await edaFetch(path);
+              if (!res.ok) return;
+              const data: NodeProfileResponse = JSON.parse(res.body) as NodeProfileResponse;
+              const names = (data.items ?? [])
+                .map(item => item.metadata?.name)
+                .filter((n): n is string => !!n)
+                .sort();
+              set({ edaNodeProfiles: names });
+            } catch {
+              // Silently fail
+            }
+          },
+
+          async deployToEda() {
+            const { edaStatus, topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations } = get();
+            if (edaStatus !== 'connected') {
+              return { ok: false, error: 'Not connected to EDA' };
+            }
+
+            set({ edaDeploying: true });
+            try {
+              const workflowName = `${topologyName}-${Date.now()}`;
+              const yamlStr = exportToYaml({
+                topologyName: workflowName, namespace, operation,
+                nodes: normalizeNodeCoordinates(nodes),
+                edges, nodeTemplates, linkTemplates, simulation, annotations,
+              });
+              const json = JSON.stringify(yaml.load(yamlStr));
+              const path = `/workflows/v1/topologies.eda.nokia.com/v1alpha1/namespaces/${namespace}/networktopologies`;
+              const res = await edaFetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: json,
+              });
+
+              if (!res.ok) {
+                return { ok: false, error: `EDA returned ${String(res.status)}: ${res.body}` };
+              }
+              return { ok: true, workflowName };
+            } catch (err) {
+              return { ok: false, error: err instanceof Error ? err.message : String(err) };
+            } finally {
+              set({ edaDeploying: false });
+            }
           },
 
           importFromYaml: (yamlString: string): boolean => {

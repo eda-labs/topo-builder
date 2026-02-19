@@ -18,7 +18,6 @@ import {
   ListItemText,
   CssBaseline,
   ThemeProvider,
-  createTheme,
   Snackbar,
   Link,
   TextField,
@@ -27,7 +26,9 @@ import {
   Select,
   MenuItem,
   Divider,
+  Badge,
 } from '@mui/material';
+import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
 import {
   ContentCopy as CopyIcon,
   Download as DownloadIcon,
@@ -39,10 +40,13 @@ import {
   Info,
   Settings as SettingsIcon,
   Hub as AutoLinkIcon,
+  PlayArrow as DeployIcon,
 } from '@mui/icons-material';
 import { toSvg } from 'html-to-image';
 
+import EdaIcon from '../icons/EdaIcon';
 import { useTopologyStore } from '../lib/store';
+import { detectExtension } from '../lib/extensionAPIClient';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
@@ -51,40 +55,59 @@ import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 
 import { getEditorContent } from './YamlEditor';
 
-interface AppLayoutProps {
+export interface TopologyThemingProps {
+  theme?: Theme;
+  themeOptions?: ThemeOptions;
+  disableCssBaseline?: boolean;
+  styleVariables?: Record<string, string>;
+}
+
+interface AppLayoutProps extends TopologyThemingProps {
   children: React.ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
-  const theme = useMemo(() => createTheme({
-    cssVariables: true,
-    palette: {
-      mode: 'dark',
-      primary: { main: '#6098FF' },
-      error: { main: '#FF6363' },
-      warning: { main: '#FFAC0A' },
-      success: { main: '#00A87E' },
-      info: { main: '#90B7FF' },
-      background: { default: '#1A222E', paper: '#101824' },
-      text: { primary: '#ffffff', secondary: '#C9CED6' },
-      divider: '#4A5361B2',
-      card: { bg: '#101824', border: '#4A5361B2' },
-    },
-    shape: { borderRadius: 4 },
-    typography: {
-      fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
-    },
-    components: {
-      MuiPaper: {
-        styleOverrides: {
-          outlined: {
-            backgroundColor: 'var(--mui-palette-card-bg)',
-            borderColor: 'var(--mui-palette-card-border)',
-          },
+export const defaultTopologyThemeOptions: ThemeOptions = {
+  cssVariables: true,
+  palette: {
+    mode: 'dark',
+    primary: { main: '#6098FF' },
+    error: { main: '#FF6363' },
+    warning: { main: '#FFAC0A' },
+    success: { main: '#00A87E' },
+    info: { main: '#90B7FF' },
+    background: { default: '#1A222E', paper: '#101824' },
+    text: { primary: '#ffffff', secondary: '#C9CED6' },
+    divider: '#4A5361B2',
+    card: { bg: '#101824', border: '#4A5361B2' },
+  },
+  shape: { borderRadius: 4 },
+  typography: {
+    fontFamily: '"NokiaPureText", "Roboto", "Helvetica", "Arial", sans-serif',
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        outlined: {
+          backgroundColor: 'var(--mui-palette-card-bg)',
+          borderColor: 'var(--mui-palette-card-border)',
         },
       },
     },
-  }), []);
+  },
+};
+
+export function createTopologyTheme(themeOptions?: ThemeOptions): Theme {
+  return createTheme(defaultTopologyThemeOptions, themeOptions ?? {});
+}
+
+export default function AppLayout({
+  children,
+  theme: providedTheme,
+  themeOptions,
+  disableCssBaseline = false,
+  styleVariables,
+}: AppLayoutProps) {
+  const theme = useMemo(() => providedTheme ?? createTopologyTheme(themeOptions), [providedTheme, themeOptions]);
 
   const topologyName = useTopologyStore(state => state.topologyName);
   const namespace = useTopologyStore(state => state.namespace);
@@ -112,11 +135,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
 
+  const isStandalone = typeof __APP_MODE__ === 'undefined' || __APP_MODE__ === 'standalone';
+
+  const edaStatus = useTopologyStore(state => state.edaStatus);
+  const edaUrl = useTopologyStore(state => state.edaUrl);
+  const edaInit = useTopologyStore(state => state.edaInit);
+  const edaDeploying = useTopologyStore(state => state.edaDeploying);
+  const deployToEda = useTopologyStore(state => state.deployToEda);
+
+  const [edaDialogOpen, setEdaDialogOpen] = useState(false);
+
+  const commitSha = typeof __COMMIT_SHA__ === 'string' ? __COMMIT_SHA__ : 'unknown';
+  const toolbarTextColor = 'text.primary';
+
   useEffect(() => {
     if (error) {
       setDisplayedError(error);
     }
   }, [error]);
+
+  useEffect(() => {
+    if (isStandalone) void edaInit();
+  }, [isStandalone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
@@ -138,6 +178,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
     await navigator.clipboard.writeText(`kubectl apply -f - <<'EOF'\n${getExportYaml()}\nEOF`);
     setCopied(true);
     setTimeout(() => { setCopied(false); }, 2000);
+  };
+
+  const handleDeploy = async () => {
+    // Open a blank window synchronously to avoid popup blockers, then navigate it after deploy succeeds
+    const deployWindow = window.open('', '_blank');
+    // Ping extension to wake up service worker and wait for session restore
+    await detectExtension();
+    const result = await deployToEda();
+    if (result.ok && result.workflowName) {
+      const url = `${edaUrl}/ui/main/workflows/eda/topologies.eda.nokia.com/v1alpha1/networktopologies/${result.workflowName}`;
+      if (deployWindow) {
+        deployWindow.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
+    } else {
+      if (deployWindow) {
+        deployWindow.close();
+      }
+      setError(result.error ?? 'Deploy failed');
+    }
   };
 
   const handleValidate = () => {
@@ -212,58 +273,89 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}>
+      {!disableCssBaseline && <CssBaseline />}
+      <Box
+        sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column' }}
+        style={styleVariables}
+      >
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar variant="dense">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
               <img src="/eda.svg" alt="EDA" style={{ height: 28 }} />
-              <Typography variant="h6" sx={{ fontWeight: 200, color: 'white' }}>
+              <Typography variant="h6" sx={{ fontWeight: 200, color: toolbarTextColor }}>
                 {TITLE}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {isStandalone && edaStatus === 'connected' && (
+                <>
+                  <Tooltip title="Deploy to EDA">
+                    <span>
+                      <IconButton size="small" onClick={() => { void handleDeploy(); }} disabled={edaDeploying} sx={{ color: toolbarTextColor }}>
+                        <DeployIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+                </>
+              )}
               <Tooltip title="Validate against schema">
-                <IconButton size="small" onClick={handleValidate} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={handleValidate} sx={{ color: toolbarTextColor }}>
                   <ValidateIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="AutoLink">
-                <IconButton size="small" onClick={autoLink} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={autoLink} sx={{ color: toolbarTextColor }}>
                   <AutoLinkIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title={copied ? 'Copied!' : 'Copy YAML'}>
-                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopy(); }} sx={{ color: toolbarTextColor }}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Copy as kubectl apply">
-                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleCopyKubectl(); }} sx={{ color: toolbarTextColor }}>
                   <TerminalIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Download YAML">
-                <IconButton size="small" onClick={handleDownload} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={handleDownload} sx={{ color: toolbarTextColor }}>
                   <DownloadIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export SVG">
-                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: toolbarTextColor }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              {isStandalone && (
+                <>
+                  <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+                  <Tooltip title={edaStatus === 'connected' ? 'EDA Connected' : 'EDA Connection'}>
+                    <IconButton size="small" onClick={() => { setEdaDialogOpen(true); }} sx={{ color: toolbarTextColor }}>
+                      <Badge
+                        variant="dot"
+                        invisible={edaStatus !== 'connected'}
+                        sx={{ '& .MuiBadge-badge': { bgcolor: 'success.main' } }}
+                      >
+                        <EdaIcon fontSize="small" />
+                      </Badge>
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               <Tooltip title="Settings">
-                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setLocalName(topologyName); setLocalNamespace(namespace); setLocalOperation(operation); setSettingsOpen(true); }} sx={{ color: toolbarTextColor }}>
                   <SettingsIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               <Tooltip title="About">
-                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: 'white' }}>
+                <IconButton size="small" onClick={() => { setAboutDialogOpen(true); }} sx={{ color: toolbarTextColor }}>
                   <Info fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -351,7 +443,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </Dialog>
 
         <Dialog open={aboutDialogOpen} onClose={() => { setAboutDialogOpen(false); }} maxWidth="xs" fullWidth>
-          <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({__COMMIT_SHA__})</Typography></DialogTitle>
+          <DialogTitle>{TITLE} <Typography component="span" variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>({commitSha})</Typography></DialogTitle>
           <DialogContent sx={{ pb: 0 }}>
             <Container sx={{ textAlign: 'center' }}>
               <Typography variant="body1">
@@ -383,6 +475,25 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Button onClick={() => { setAboutDialogOpen(false); }}>Close</Button>
           </DialogActions>
         </Dialog>
+
+        {isStandalone && (
+          <Dialog open={edaDialogOpen} onClose={() => { setEdaDialogOpen(false); }} maxWidth="xs" fullWidth>
+            <DialogTitle>EDA Connection</DialogTitle>
+            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              {edaStatus === 'connected' ? (
+                <Alert severity="success" sx={{ mt: 1 }}>Connected to EDA{edaUrl ? ` — ${edaUrl}` : ''}</Alert>
+              ) : (
+                <Alert severity="warning" sx={{ mt: 1 }}>Not connected to EDA</Alert>
+              )}
+              <Typography variant="body2" color="text.secondary">
+                Use the <Link href="https://github.com/eda-labs/browser-extension" target="_blank" rel="noopener">EDA Browser Extension</Link> to connect.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => { setEdaDialogOpen(false); }}>Close</Button>
+            </DialogActions>
+          </Dialog>
+        )}
 
         <Snackbar
           open={!!error}

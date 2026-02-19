@@ -182,6 +182,11 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     if (node.data.simNodeType) simNode.type = node.data.simNodeType;
     if (node.data.image) simNode.image = node.data.image;
 
+    simNode.annotations = {
+      [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
+      [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
+    };
+
     return simNode;
   });
 

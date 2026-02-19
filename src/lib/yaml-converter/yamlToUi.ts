@@ -232,7 +232,7 @@ function parseYamlSimulation(options: {
     if (!id) id = generateSimNodeId();
     nameToId.set(simNode.name, id);
 
-    const positionFromLabels = extractPosition(undefined);
+    const positionFromLabels = extractPosition(simNode.annotations);
     const position = resolvePosition(positionFromLabels, existingPosition, defaultSimNodePosition(index));
 
     const userLabels = filterUserLabels(simNode.labels);

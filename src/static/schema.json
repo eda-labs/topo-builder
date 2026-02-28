@@ -604,7 +604,8 @@
             "replace",
             "replaceAll",
             "delete",
-            "deleteAll"
+            "deleteAll",
+            "reconcile"
           ],
           "type": "string"
         },

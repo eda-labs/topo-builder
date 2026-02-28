@@ -94,6 +94,7 @@ export interface SimNode {
   type?: SimNodeType;
   image?: string;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface EndpointLocal {

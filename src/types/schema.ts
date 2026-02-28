@@ -1,7 +1,7 @@
 // DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
 
-export type Operation = 'create' | 'replace' | 'replaceAll' | 'delete' | 'deleteAll';
+export type Operation = 'create' | 'replace' | 'replaceAll' | 'delete' | 'deleteAll' | 'reconcile';
 
 export type LinkType = 'edge' | 'interSwitch' | 'loopback';
 
@@ -51,6 +51,7 @@ export interface SimNode {
   type?: SimNodeType;
   image?: string;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
 export interface EndpointLocal {

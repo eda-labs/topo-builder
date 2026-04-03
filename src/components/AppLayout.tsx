@@ -331,12 +331,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 value={localOperation}
                 onChange={e => { setLocalOperation(e.target.value as Operation); }}
               >
-                <MenuItem value="create">create</MenuItem>
-                <MenuItem value="replace">replace</MenuItem>
-                <MenuItem value="replaceAll">replaceAll</MenuItem>
-                <MenuItem value="delete">delete</MenuItem>
-                <MenuItem value="deleteAll">deleteAll</MenuItem>
-                <MenuItem value="reconcile">reconcile</MenuItem>
+                <MenuItem value="Create">Create</MenuItem>
+                <MenuItem value="Replace">Replace</MenuItem>
+                <MenuItem value="ReplaceAll">ReplaceAll</MenuItem>
+                <MenuItem value="Delete">Delete</MenuItem>
+                <MenuItem value="DeleteAll">DeleteAll</MenuItem>
+                <MenuItem value="Reconcile">Reconcile</MenuItem>
               </Select>
             </FormControl>
           </DialogContent>

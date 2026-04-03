@@ -98,7 +98,7 @@ function getNodeName(nodes: UINode[], nodeId: string): string {
 
 function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean): string {
   if (!simConnection) return 'isl';
-  return linkTemplates.find(t => t.type === 'edge')?.name || 'edge';
+  return linkTemplates.find(t => t.type === 'Edge')?.name || 'edge';
 }
 
 function findExistingEdge(
@@ -502,8 +502,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       else if (role && superspineRoles.has(role)) superspines.push(node);
     }
 
-    const islTemplate = linkTemplates.find(t => t.type === 'interSwitch')?.name;
-    const edgeTemplate = linkTemplates.find(t => t.type === 'edge')?.name;
+    const islTemplate = linkTemplates.find(t => t.type === 'InterSwitch')?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === 'Edge')?.name;
 
     const newEdges: UIEdge[] = [];
     const currentEdges = [...edges];

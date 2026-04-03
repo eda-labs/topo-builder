@@ -135,7 +135,7 @@ const baseTemplate = parseBaseTemplate();
 const initialCoreState: CoreState = {
   topologyName: baseTemplate.topologyName || 'my-topology',
   namespace: baseTemplate.namespace || 'eda',
-  operation: baseTemplate.operation || 'replaceAll',
+  operation: baseTemplate.operation || 'ReplaceAll',
   showSimNodes: true,
   yamlRefreshCounter: 0,
   layoutVersion: 0,

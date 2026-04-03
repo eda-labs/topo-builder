@@ -59,7 +59,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
   return {
     topologyName: 'my-topology',
     namespace: 'eda',
-    operation: 'replaceAll',
+    operation: 'ReplaceAll',
     nodeTemplates: [],
     linkTemplates: [],
     nodes: [],
@@ -149,7 +149,7 @@ function resolvePlatformAndProfile(
 function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: Operation } {
   const topologyName = fallbackIfEmptyString(parsed.metadata?.name, 'my-topology');
   const namespace = fallbackIfEmptyString(parsed.metadata?.namespace, 'eda');
-  const operation = fallbackIfEmptyString(parsed.spec?.operation as Operation | undefined, 'replaceAll') as Operation;
+  const operation = fallbackIfEmptyString(parsed.spec?.operation as Operation | undefined, 'ReplaceAll') as Operation;
   return { topologyName, namespace, operation };
 }
 

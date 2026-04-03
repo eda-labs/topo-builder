@@ -46,8 +46,8 @@ import { useTopologyStore } from '../lib/store';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
-import type { Operation } from '../types/schema';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
+import { operations as OPERATIONS } from '../lib/schemaEnums';
 
 import { getEditorContent } from './YamlEditor';
 
@@ -329,14 +329,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Select
                 label="Operation"
                 value={localOperation}
-                onChange={e => { setLocalOperation(e.target.value as Operation); }}
+                onChange={e => { setLocalOperation(e.target.value); }}
               >
-                <MenuItem value="Create">Create</MenuItem>
-                <MenuItem value="Replace">Replace</MenuItem>
-                <MenuItem value="ReplaceAll">ReplaceAll</MenuItem>
-                <MenuItem value="Delete">Delete</MenuItem>
-                <MenuItem value="DeleteAll">DeleteAll</MenuItem>
-                <MenuItem value="Reconcile">Reconcile</MenuItem>
+                {OPERATIONS.map(op => (
+                  <MenuItem key={op} value={op}>{op}</MenuItem>
+                ))}
               </Select>
             </FormControl>
           </DialogContent>

@@ -8,7 +8,6 @@ import type {
   Endpoint,
   NodeTemplate,
   LinkTemplate,
-  Operation,
 } from '../../types/schema';
 import type {
   UINode,
@@ -38,7 +37,7 @@ import { asArray, fallbackIfEmptyString } from './shared';
 export interface UIToYamlOptions {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   nodes: UINode[];
   edges: UIEdge[];
   nodeTemplates: NodeTemplate[];

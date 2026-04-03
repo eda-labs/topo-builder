@@ -5,7 +5,6 @@ import { useTopologyStore } from '../../../lib/store';
 import spineIcon from '../../../static/icons/spine.svg?raw';
 import leafIcon from '../../../static/icons/leaf.svg?raw';
 import superspineIcon from '../../../static/icons/superspine.svg?raw';
-import type { SimNodeType } from '../../../types/schema';
 
 const RoleIcons: Record<string, string> = {
   spine: spineIcon,
@@ -27,7 +26,7 @@ interface LinkDiagramProps {
   centerLabel?: string;
 }
 
-function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: SimNodeType }) {
+function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: string }) {
   // Role-based SVG icons (for regular nodes)
   if (role) {
     const iconSvg = RoleIcons[role];
@@ -81,7 +80,7 @@ function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: SimNodeT
   );
 }
 
-function useNodeIconProps(nodeName: string): { role?: string; simNodeType?: SimNodeType } {
+function useNodeIconProps(nodeName: string): { role?: string; simNodeType?: string } {
   const nodes = useTopologyStore(state => state.nodes);
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const simulation = useTopologyStore(state => state.simulation);
@@ -103,7 +102,7 @@ function useNodeIconProps(nodeName: string): { role?: string; simNodeType?: SimN
   }
 
   // Get SimNode type if applicable
-  let simNodeType: SimNodeType | undefined;
+  let simNodeType: string | undefined;
   if (nodeData.nodeType === 'simnode') {
     simNodeType = nodeData.simNodeType
       || simulation.simNodeTemplates?.find(t => t.name === nodeData.template)?.type

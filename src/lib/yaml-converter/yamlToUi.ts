@@ -9,9 +9,9 @@ import type {
   Endpoint,
   NodeTemplate,
   LinkTemplate,
-  Operation,
   ParsedTopology,
 } from '../../types/schema';
+import { defaultOperation } from '../schemaEnums';
 import type {
   UINode,
   UIEdge,
@@ -46,7 +46,7 @@ export interface YamlToUIOptions {
 export interface YamlToUIResult {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
   nodes: UINode[];
@@ -59,7 +59,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
   return {
     topologyName: 'my-topology',
     namespace: 'eda',
-    operation: 'ReplaceAll',
+    operation: defaultOperation,
     nodeTemplates: [],
     linkTemplates: [],
     nodes: [],
@@ -146,10 +146,10 @@ function resolvePlatformAndProfile(
   return { platform, nodeProfile };
 }
 
-function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: Operation } {
+function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: string } {
   const topologyName = fallbackIfEmptyString(parsed.metadata?.name, 'my-topology');
   const namespace = fallbackIfEmptyString(parsed.metadata?.namespace, 'eda');
-  const operation = fallbackIfEmptyString(parsed.spec?.operation as Operation | undefined, 'ReplaceAll') as Operation;
+  const operation = fallbackIfEmptyString(parsed.spec?.operation, defaultOperation);
   return { topologyName, namespace, operation };
 }
 

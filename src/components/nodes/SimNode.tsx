@@ -2,7 +2,6 @@ import { type NodeProps } from '@xyflow/react';
 import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
 
 import type { UINodeData } from '../../types/ui';
-import type { SimNodeType } from '../../types/schema';
 import { useTopologyStore } from '../../lib/store';
 import { topologySimNodeTestId } from '../../lib/testIds';
 
@@ -16,7 +15,7 @@ function SimNode({ id, data, selected }: NodeProps) {
   const templateName = nodeData.template;
 
   const template = simulation.simNodeTemplates.find(t => t.name === templateName);
-  const simNodeType: SimNodeType = nodeData.simNodeType || template?.type || 'Linux';
+  const simNodeType = nodeData.simNodeType || template?.type || 'Linux';
 
   let icon;
   if (template) {

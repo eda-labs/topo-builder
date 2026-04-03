@@ -11,8 +11,8 @@ import type { Node, Edge } from '@xyflow/react';
 
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
-import type { Operation } from '../../types/schema';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
+import { defaultOperation } from '../schemaEnums';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
 
 import {
@@ -68,7 +68,7 @@ setSimNodeIdGenerator(generateSimNodeId);
 interface CoreState {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   showSimNodes: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
@@ -79,7 +79,7 @@ interface CoreActions {
   setError: (error: string | null) => void;
   setTopologyName: (name: string) => void;
   setNamespace: (namespace: string) => void;
-  setOperation: (operation: Operation) => void;
+  setOperation: (operation: string) => void;
   setShowSimNodes: (show: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
@@ -135,7 +135,7 @@ const baseTemplate = parseBaseTemplate();
 const initialCoreState: CoreState = {
   topologyName: baseTemplate.topologyName || 'my-topology',
   namespace: baseTemplate.namespace || 'eda',
-  operation: baseTemplate.operation || 'ReplaceAll',
+  operation: baseTemplate.operation || defaultOperation,
   showSimNodes: true,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
@@ -429,7 +429,7 @@ export const createTopologyStore = () => {
             get().triggerYamlRefresh();
           },
 
-          setOperation: (operation: Operation) => {
+          setOperation: (operation: string) => {
             set({ operation });
             get().triggerYamlRefresh();
           },

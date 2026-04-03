@@ -12,6 +12,7 @@ import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { extractPortNumber, getNameError, getNodeRole } from '../utils';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
+import { defaultLinkType, edgeLinkType } from '../schemaEnums';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -98,7 +99,7 @@ function getNodeName(nodes: UINode[], nodeId: string): string {
 
 function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean): string {
   if (!simConnection) return 'isl';
-  return linkTemplates.find(t => t.type === 'Edge')?.name || 'edge';
+  return linkTemplates.find(t => t.type === edgeLinkType)?.name || 'edge';
 }
 
 function findExistingEdge(
@@ -502,8 +503,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       else if (role && superspineRoles.has(role)) superspines.push(node);
     }
 
-    const islTemplate = linkTemplates.find(t => t.type === 'InterSwitch')?.name;
-    const edgeTemplate = linkTemplates.find(t => t.type === 'Edge')?.name;
+    const islTemplate = linkTemplates.find(t => t.type === defaultLinkType)?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === edgeLinkType)?.name;
 
     const newEdges: UIEdge[] = [];
     const currentEdges = [...edges];

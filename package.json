@@ -29,7 +29,7 @@
     "@types/react-dom": "^19.2.3",
     "@xyflow/react": "^12.10.0",
     "ajv": "^8.17.1",
-    "astro": "^5.16.11",
+    "astro": "^5.18.1",
     "fastest-levenshtein": "^1.0.16",
     "html-to-image": "^1.11.13",
     "js-yaml": "^4.1.1",

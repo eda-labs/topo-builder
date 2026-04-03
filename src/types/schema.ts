@@ -1,20 +1,5 @@
-// DO NOT EDIT THIS GENERATED FILE.
-// Run: node scripts/generate-types.js
-
-export type Operation = 'Create' | 'Replace' | 'ReplaceAll' | 'Delete' | 'DeleteAll' | 'Reconcile';
-
-export type LinkType = 'Edge' | 'InterSwitch' | 'Loopback';
-
-export type LinkSpeed = '800G' | '400G' | '200G' | '100G' | '50G' | '40G' | '25G' | '10G' | '2.5G' | '1G' | '100M';
-
-export type EncapType = 'Null' | 'Dot1q';
-
-export type SimNodeType = 'Linux' | 'TestMan' | 'SrlTest';
-
-export type ComponentKind = 'controlCard' | 'lineCard' | 'fabric' | 'mda' | 'connector' | 'xiom' | 'powerShelf' | 'powerModule';
-
 export interface Component {
-  kind: ComponentKind;
+  kind: string;
   type: string;
   slot?: string;
 }
@@ -30,15 +15,15 @@ export interface NodeTemplate {
 
 export interface LinkTemplate {
   name: string;
-  type?: LinkType;
-  speed?: LinkSpeed;
-  encapType?: EncapType;
+  type?: string;
+  speed?: string;
+  encapType?: string;
   labels?: Record<string, string>;
 }
 
 export interface SimNodeTemplate {
   name: string;
-  type?: SimNodeType;
+  type?: string;
   image?: string;
   imagePullSecret?: string;
   labels?: Record<string, string>;
@@ -58,7 +43,7 @@ export interface TopoNode {
 export interface SimNode {
   name: string;
   template?: string;
-  type?: SimNodeType;
+  type?: string;
   image?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
@@ -85,14 +70,14 @@ export interface Endpoint {
   local?: EndpointLocal;
   remote?: EndpointRemote;
   sim?: EndpointSim;
-  type?: LinkType;
-  speed?: LinkSpeed;
+  type?: string;
+  speed?: string;
 }
 
 export interface Link {
   name?: string;
   template?: string;
-  encapType?: EncapType;
+  encapType?: string;
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
   endpoints: Endpoint[];
@@ -110,7 +95,7 @@ export interface TopologyMetadata {
 }
 
 export interface TopologySpec {
-  operation?: Operation;
+  operation?: string;
   nodeTemplates?: NodeTemplate[];
   linkTemplates?: LinkTemplate[];
   nodes?: TopoNode[];
@@ -119,8 +104,8 @@ export interface TopologySpec {
 }
 
 export interface Topology {
-  apiVersion: 'topologies.eda.nokia.com/v1alpha1';
-  kind: 'NetworkTopology';
+  apiVersion: string;
+  kind: string;
   metadata: TopologyMetadata;
   spec: TopologySpec;
 }

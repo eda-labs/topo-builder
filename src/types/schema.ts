@@ -1,20 +1,29 @@
 // DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
 
-export type Operation = 'create' | 'replace' | 'replaceAll' | 'delete' | 'deleteAll' | 'reconcile';
+export type Operation = 'Create' | 'Replace' | 'ReplaceAll' | 'Delete' | 'DeleteAll' | 'Reconcile';
 
-export type LinkType = 'edge' | 'interSwitch' | 'loopback';
+export type LinkType = 'Edge' | 'InterSwitch' | 'Loopback';
 
 export type LinkSpeed = '800G' | '400G' | '200G' | '100G' | '50G' | '40G' | '25G' | '10G' | '2.5G' | '1G' | '100M';
 
-export type EncapType = 'null' | 'dot1q';
+export type EncapType = 'Null' | 'Dot1q';
 
 export type SimNodeType = 'Linux' | 'TestMan' | 'SrlTest';
+
+export type ComponentKind = 'controlCard' | 'lineCard' | 'fabric' | 'mda' | 'connector' | 'xiom' | 'powerShelf' | 'powerModule';
+
+export interface Component {
+  kind: ComponentKind;
+  type: string;
+  slot?: string;
+}
 
 export interface NodeTemplate {
   name: string;
   platform?: string;
   nodeProfile?: string;
+  components?: Component[];
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
@@ -41,6 +50,7 @@ export interface TopoNode {
   serialNumber?: string;
   platform?: string;
   nodeProfile?: string;
+  components?: Component[];
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }

@@ -40,6 +40,8 @@ const encapTypeEnum = extractEnum(specSchema, 'links.items.encapType') ||
                       extractEnum(specSchema, 'linkTemplates.items.encapType');
 const simNodeTypeEnum = extractEnum(specSchema, 'simulation.simNodes.items.type') ||
                         extractEnum(specSchema, 'simulation.simNodeTemplates.items.type');
+const componentKindEnum = extractEnum(specSchema, 'nodeTemplates.items.components.items.kind') ||
+                          extractEnum(specSchema, 'nodes.items.components.items.kind');
 
 const yamlOutput = `// DO NOT EDIT THIS GENERATED FILE.
 // Run: node scripts/generate-types.js
@@ -54,10 +56,19 @@ export type EncapType = ${encapTypeEnum ? encapTypeEnum.map(v => `'${v}'`).join(
 
 export type SimNodeType = ${simNodeTypeEnum ? simNodeTypeEnum.map(v => `'${v}'`).join(' | ') : 'string'};
 
+export type ComponentKind = ${componentKindEnum ? componentKindEnum.map(v => `'${v}'`).join(' | ') : 'string'};
+
+export interface Component {
+  kind: ComponentKind;
+  type: string;
+  slot?: string;
+}
+
 export interface NodeTemplate {
   name: string;
   platform?: string;
   nodeProfile?: string;
+  components?: Component[];
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }
@@ -84,6 +95,7 @@ export interface TopoNode {
   serialNumber?: string;
   platform?: string;
   nodeProfile?: string;
+  components?: Component[];
   labels?: Record<string, string>;
   annotations?: Record<string, string>;
 }

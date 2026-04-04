@@ -26,7 +26,7 @@ import {
   CloseFullscreen as CloseFullscreenIcon,
 } from '@mui/icons-material';
 
-import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName } from '../lib/store';
+import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName, saveToUndoHistory } from '../lib/store';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES, SESSION_NEW_LINK_ID } from '../lib/constants';
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
@@ -829,6 +829,7 @@ function TopologyEditorInner() {
   }, []);
 
   const handleNodeDragStart = useCallback(() => {
+    saveToUndoHistory();
     setContextMenu(prev => ({ ...prev, open: false }));
   }, []);
 

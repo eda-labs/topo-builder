@@ -36,6 +36,7 @@ export type TemplateSliceCreator = StateCreator<
     simulation: UISimulation;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
+    saveToUndoHistory: () => void;
   },
   [],
   [],
@@ -47,6 +48,7 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   linkTemplates: [],
 
   addNodeTemplate: (template: NodeTemplate) => {
+    get().saveToUndoHistory();
     const existingNames = get().nodeTemplates.map(t => t.name);
     const nameError = validateTemplateName(template.name, existingNames);
     if (nameError) {
@@ -58,6 +60,7 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   updateNodeTemplate: (name: string, template: Partial<NodeTemplate>): boolean => {
+    get().saveToUndoHistory();
     const newName = template.name;
     if (newName && newName !== name) {
       const existingNames = get().nodeTemplates.filter(t => t.name !== name).map(t => t.name);
@@ -85,11 +88,13 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   deleteNodeTemplate: (name: string) => {
+    get().saveToUndoHistory();
     set({ nodeTemplates: get().nodeTemplates.filter(t => t.name !== name) });
     get().triggerYamlRefresh();
   },
 
   addLinkTemplate: (template: LinkTemplate) => {
+    get().saveToUndoHistory();
     const existingNames = get().linkTemplates.map(t => t.name);
     const nameError = validateTemplateName(template.name, existingNames);
     if (nameError) {
@@ -101,6 +106,7 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   updateLinkTemplate: (name: string, template: Partial<LinkTemplate>): boolean => {
+    get().saveToUndoHistory();
     const newName = template.name;
     if (newName && newName !== name) {
       const existingNames = get().linkTemplates.filter(t => t.name !== name).map(t => t.name);
@@ -134,11 +140,13 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   deleteLinkTemplate: (name: string) => {
+    get().saveToUndoHistory();
     set({ linkTemplates: get().linkTemplates.filter(t => t.name !== name) });
     get().triggerYamlRefresh();
   },
 
   addSimNodeTemplate: (template: SimNodeTemplate) => {
+    get().saveToUndoHistory();
     const simulation = get().simulation;
     const existingNames = simulation.simNodeTemplates.map(t => t.name);
     const nameError = validateTemplateName(template.name, existingNames);
@@ -156,6 +164,7 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   updateSimNodeTemplate: (name: string, template: Partial<SimNodeTemplate>): boolean => {
+    get().saveToUndoHistory();
     const simulation = get().simulation;
     const newName = template.name;
     if (newName && newName !== name) {
@@ -187,6 +196,7 @@ export const createTemplateSlice: TemplateSliceCreator = (set, get) => ({
   },
 
   deleteSimNodeTemplate: (name: string) => {
+    get().saveToUndoHistory();
     const simulation = get().simulation;
     set({
       simulation: {

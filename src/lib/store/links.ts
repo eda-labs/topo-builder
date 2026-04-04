@@ -378,6 +378,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   updateEdge: (id: string, data: Partial<UIEdgeData>) => {
+    get().saveToUndoHistory();
     set({
       edges: get().edges.map(edge =>
         edge.id === id ? { ...edge, data: { ...edge.data, ...data } as UIEdgeData } : edge,
@@ -399,6 +400,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   addMemberLink: (edgeId: string, link: UIMemberLink) => {
+    get().saveToUndoHistory();
     set({
       edges: get().edges.map(edge =>
         edge.id === edgeId
@@ -409,6 +411,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   updateMemberLink: (edgeId: string, index: number, link: Partial<UIMemberLink>) => {
+    get().saveToUndoHistory();
     if (link.name !== undefined) {
       const nameError = getNameError(link.name);
       if (nameError) {
@@ -426,6 +429,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   deleteMemberLink: (edgeId: string, index: number) => {
+    get().saveToUndoHistory();
     const edge = get().edges.find(e => e.id === edgeId);
     if (!edge) return;
     const memberLinks = edge.data?.memberLinks || [];

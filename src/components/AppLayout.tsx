@@ -47,7 +47,7 @@ import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yam
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
-import { operations as OPERATIONS } from '../lib/schemaEnums';
+import { operations } from '../lib/schemaEnums';
 
 import { getEditorContent } from './YamlEditor';
 
@@ -331,7 +331,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 value={localOperation}
                 onChange={e => { setLocalOperation(e.target.value); }}
               >
-                {OPERATIONS.map(op => (
+                {operations.map(op => (
                   <MenuItem key={op} value={op}>{op}</MenuItem>
                 ))}
               </Select>

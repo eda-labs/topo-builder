@@ -23,12 +23,17 @@ import {
 import type {
   NodeTemplate,
   LinkTemplate,
-  LinkType,
-  LinkSpeed,
-  EncapType,
   SimNodeTemplate,
-  SimNodeType,
+  Component,
 } from '../types/schema';
+import {
+  linkTypes,
+  linkSpeeds,
+  encapTypes,
+  simNodeTypes,
+  componentKinds,
+  defaultLinkType,
+} from '../lib/schemaEnums';
 
 import {
   PanelHeader,
@@ -39,6 +44,8 @@ import {
   SimNodeEditor,
   AnnotationEditor,
 } from './panels';
+
+const SPACE_BETWEEN = 'space-between';
 
 export function SelectionPanel() {
   const selectedNodeId = useTopologyStore(state => state.selectedNodeId);
@@ -236,6 +243,60 @@ function createTemplateLabelHandlers(
   return { handleAddLabel, handleUpdateLabel, handleDeleteLabel };
 }
 
+function ComponentEditor({
+  component,
+  onUpdate,
+  onDelete,
+}: {
+  component: Component;
+  onUpdate: (updated: Component) => void;
+  onDelete: () => void;
+}) {
+  const [localType, setLocalType] = useState(component.type);
+  const [localSlot, setLocalSlot] = useState(component.slot || '');
+
+  useEffect(() => {
+    setLocalType(component.type);
+    setLocalSlot(component.slot || '');
+  }, [component.type, component.slot]);
+
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.7fr auto', gap: '0.5rem', alignItems: 'center' }}>
+      <FormControl size="small" fullWidth>
+        <InputLabel>Kind</InputLabel>
+        <Select
+          label="Kind"
+          value={component.kind}
+          onChange={e => { onUpdate({ ...component, kind: e.target.value }); }}
+        >
+          {componentKinds.map(k => (
+            <MenuItem key={k} value={k}>{k}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <TextField
+        size="small"
+        label="Type"
+        value={localType}
+        onChange={e => { setLocalType(e.target.value); }}
+        onBlur={() => { onUpdate({ ...component, type: localType }); }}
+        fullWidth
+      />
+      <TextField
+        size="small"
+        label="Slot"
+        value={localSlot}
+        onChange={e => { setLocalSlot(e.target.value); }}
+        onBlur={() => { onUpdate({ ...component, slot: localSlot || undefined }); }}
+        fullWidth
+      />
+      <IconButton size="small" onClick={onDelete}>
+        <DeleteIcon fontSize="small" color="error" />
+      </IconButton>
+    </Box>
+  );
+}
+
 // Individual template editor to maintain stable local state for text fields
 function NodeTemplateEditor({
   template,
@@ -339,7 +400,7 @@ function NodeTemplateEditor({
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent: SPACE_BETWEEN,
               alignItems: 'center',
               mb: '0.5rem',
             }}
@@ -361,6 +422,51 @@ function NodeTemplateEditor({
                 { handleUpdateLabel(key, newKey, newValue); }
                 }
                 onDelete={() => { handleDeleteLabel(key); }}
+              />
+            ))}
+          </Box>
+        </Box>
+
+        {/* Components Section */}
+        <Box>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: SPACE_BETWEEN,
+              alignItems: 'center',
+              mb: '0.5rem',
+            }}
+          >
+            <Typography variant="body2" fontWeight={600}>
+              Components
+            </Typography>
+
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                const components = [...(template.components || []), { kind: componentKinds[0] ?? 'lineCard', type: '' }];
+                onUpdate(template.name, { components });
+              }}
+            >
+              Add
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {(template.components || []).map((comp, i) => (
+              <ComponentEditor
+                key={i}
+                component={comp}
+                onUpdate={updated => {
+                  const components = [...(template.components || [])];
+                  components[i] = updated;
+                  onUpdate(template.name, { components });
+                }}
+                onDelete={() => {
+                  const components = (template.components || []).filter((_, j) => j !== i);
+                  onUpdate(template.name, { components: components.length > 0 ? components : undefined });
+                }}
               />
             ))}
           </Box>
@@ -506,13 +612,14 @@ function LinkTemplateEditor({
             <InputLabel>Type</InputLabel>
             <Select
               label="Type"
-              value={template.type || 'interSwitch'}
+              value={template.type || defaultLinkType}
               onChange={e =>
-                onUpdate(template.name, { type: e.target.value as LinkType })
+                onUpdate(template.name, { type: e.target.value })
               }
             >
-              <MenuItem value="interSwitch">interSwitch</MenuItem>
-              <MenuItem value="edge">edge</MenuItem>
+              {linkTypes.filter(t => t !== 'Loopback' && t !== 'loopback').map(t => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" fullWidth>
@@ -521,14 +628,13 @@ function LinkTemplateEditor({
               label="Speed"
               value={template.speed || ''}
               onChange={e =>
-                onUpdate(template.name, { speed: e.target.value as LinkSpeed })
+                onUpdate(template.name, { speed: e.target.value })
               }
             >
               <MenuItem value="">None</MenuItem>
-              <MenuItem value="400G">400G</MenuItem>
-              <MenuItem value="100G">100G</MenuItem>
-              <MenuItem value="25G">25G</MenuItem>
-              <MenuItem value="10G">10G</MenuItem>
+              {linkSpeeds.map(s => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" fullWidth>
@@ -538,13 +644,14 @@ function LinkTemplateEditor({
               value={template.encapType || ''}
               onChange={e =>
                 onUpdate(template.name, {
-                  encapType: e.target.value as EncapType,
+                  encapType: e.target.value,
                 })
               }
             >
               <MenuItem value="">None</MenuItem>
-              <MenuItem value="null">null</MenuItem>
-              <MenuItem value="dot1q">dot1q</MenuItem>
+              {encapTypes.map(t => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>
@@ -553,7 +660,7 @@ function LinkTemplateEditor({
           <Box
             sx={{
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent: SPACE_BETWEEN,
               alignItems: 'center',
               mb: '0.5rem',
             }}
@@ -577,7 +684,7 @@ function LinkTemplateEditor({
               <TextField
                 size="small"
                 label="Value"
-                value={template.type || 'interSwitch'}
+                value={template.type || defaultLinkType}
                 disabled
                 fullWidth
               />
@@ -619,7 +726,7 @@ export function LinkTemplatesPanel() {
 
   const handleAdd = () => {
     const name = `link-template-${linkTemplates.length + 1}`;
-    addLinkTemplate({ name, type: 'interSwitch' });
+    addLinkTemplate({ name, type: defaultLinkType });
     triggerYamlRefresh();
   };
 
@@ -723,12 +830,12 @@ function SimNodeTemplateEditor({
               label="Type"
               value={template.type}
               onChange={e =>
-                onUpdate(template.name, { type: e.target.value as SimNodeType })
+                onUpdate(template.name, { type: e.target.value })
               }
             >
-              <MenuItem value="Linux">Linux</MenuItem>
-              <MenuItem value="TestMan">TestMan</MenuItem>
-              <MenuItem value="SrlTest">SrlTest</MenuItem>
+              {simNodeTypes.map(t => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           <TextField

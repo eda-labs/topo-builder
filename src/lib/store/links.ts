@@ -12,7 +12,7 @@ import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { extractPortNumber, getNameError, getNodeRole } from '../utils';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
-import { defaultLinkType, edgeLinkType } from '../schemaEnums';
+import { getSchemaEnums } from '../schemaEnums';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -97,8 +97,9 @@ function getNodeName(nodes: UINode[], nodeId: string): string {
   return node ? node.data.name : nodeId;
 }
 
-function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean): string {
+function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean, schemaVersion: number): string {
   if (!simConnection) return 'isl';
+  const { edgeLinkType } = getSchemaEnums(schemaVersion);
   return linkTemplates.find(t => t.type === edgeLinkType)?.name || 'edge';
 }
 
@@ -287,6 +288,7 @@ export type LinkSliceCreator = StateCreator<
     nodes: UINode[];
     linkTemplates: LinkTemplate[];
     nodeTemplates: NodeTemplate[];
+    schemaVersion: number;
     selectedEdgeId: string | null;
     selectedEdgeIds: string[];
     selectedNodeId: string | null;
@@ -326,7 +328,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const sourceIsSimNode = isSimNodeId(sourceId);
     const targetIsSimNode = isSimNodeId(targetId);
     const simConnection = isSimNodeConnection(sourceId, targetId);
-    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection);
+    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection, get().schemaVersion);
 
     const nextSourcePort = getNextPortNumber(edges, sourceId);
     const nextTargetPort = getNextPortNumber(edges, targetId);
@@ -507,8 +509,9 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       else if (role && superspineRoles.has(role)) superspines.push(node);
     }
 
-    const islTemplate = linkTemplates.find(t => t.type === defaultLinkType)?.name;
-    const edgeTemplate = linkTemplates.find(t => t.type === edgeLinkType)?.name;
+    const enums = getSchemaEnums(state.schemaVersion);
+    const islTemplate = linkTemplates.find(t => t.type === enums.defaultLinkType)?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === enums.edgeLinkType)?.name;
 
     const newEdges: UIEdge[] = [];
     const currentEdges = [...edges];

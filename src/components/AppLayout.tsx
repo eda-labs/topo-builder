@@ -47,7 +47,7 @@ import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yam
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
-import { operations } from '../lib/schemaEnums';
+import { getSchemaEnums, supportedVersions } from '../lib/schemaEnums';
 
 import { getEditorContent } from './YamlEditor';
 
@@ -98,6 +98,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const setSchemaVersion = useTopologyStore(state => state.setSchemaVersion);
   const error = useTopologyStore(state => state.error);
   const setError = useTopologyStore(state => state.setError);
   const autoLink = useTopologyStore(state => state.autoLink);
@@ -143,7 +145,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const handleValidate = () => {
     const yaml = getEditorContent()
       || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
-    setValidationResult(validateNetworkTopology(yaml));
+    setValidationResult(validateNetworkTopology(yaml, schemaVersion));
     setValidationDialogOpen(true);
   };
 
@@ -221,6 +223,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Typography variant="h6" sx={{ fontWeight: 200, color: 'white' }}>
                 {TITLE}
               </Typography>
+              <Select
+                variant="standard"
+                size="small"
+                value={schemaVersion}
+                onChange={e => { setSchemaVersion(e.target.value); }}
+                sx={{ ml: 1, color: 'white', '.MuiSelect-icon': { color: 'white' }, fontSize: '0.75rem' }}
+              >
+                {supportedVersions.map(v => (
+                  <MenuItem key={v} value={v}>{v === 26 ? 'v26+' : `v${v}.x`}</MenuItem>
+                ))}
+              </Select>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -331,7 +344,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 value={localOperation}
                 onChange={e => { setLocalOperation(e.target.value); }}
               >
-                {operations.map(op => (
+                {getSchemaEnums(schemaVersion).operations.map(op => (
                   <MenuItem key={op} value={op}>{op}</MenuItem>
                 ))}
               </Select>

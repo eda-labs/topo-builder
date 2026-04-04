@@ -2,6 +2,7 @@ import { type ReactNode, useMemo, useRef } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
+import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
 
 function middleEllipsis(text: string, max: number): string {
   if (text.length <= max) return text;
@@ -9,7 +10,6 @@ function middleEllipsis(text: string, max: number): string {
   const right = Math.floor((max - 1) / 2);
   return `${text.slice(0, left)}\u2026${text.slice(-right)}`;
 }
-import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
 
 export interface BaseNodeProps {
   nodeId: string;

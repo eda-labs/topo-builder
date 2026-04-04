@@ -12,7 +12,7 @@ import type { Node, Edge } from '@xyflow/react';
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
-import { defaultOperation } from '../schemaEnums';
+import { getSchemaEnums, setActiveVersion, migrateValue } from '../schemaEnums';
 import { yamlToUI, setIdCounters } from '../yaml-converter';
 
 import {
@@ -50,6 +50,8 @@ import {
   clearHistory,
 } from './history';
 
+const DEFAULT_SCHEMA_VERSION = 26;
+
 // ID counters
 let nodeIdCounter = 1;
 let edgeIdCounter = 1;
@@ -69,6 +71,7 @@ interface CoreState {
   topologyName: string;
   namespace: string;
   operation: string;
+  schemaVersion: number;
   showSimNodes: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
@@ -80,6 +83,7 @@ interface CoreActions {
   setTopologyName: (name: string) => void;
   setNamespace: (namespace: string) => void;
   setOperation: (operation: string) => void;
+  setSchemaVersion: (version: number) => void;
   setShowSimNodes: (show: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
@@ -135,7 +139,8 @@ const baseTemplate = parseBaseTemplate();
 const initialCoreState: CoreState = {
   topologyName: baseTemplate.topologyName || 'my-topology',
   namespace: baseTemplate.namespace || 'eda',
-  operation: baseTemplate.operation || defaultOperation,
+  operation: baseTemplate.operation || getSchemaEnums(DEFAULT_SCHEMA_VERSION).defaultOperation,
+  schemaVersion: DEFAULT_SCHEMA_VERSION,
   showSimNodes: true,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
@@ -431,6 +436,20 @@ export const createTopologyStore = () => {
 
           setOperation: (operation: string) => {
             set({ operation });
+            get().triggerYamlRefresh();
+          },
+          setSchemaVersion: (version: number) => {
+            setActiveVersion(version);
+            const state = get();
+            set({
+              schemaVersion: version,
+              operation: migrateValue(state.operation, version),
+              linkTemplates: state.linkTemplates.map(lt => ({
+                ...lt,
+                type: lt.type ? migrateValue(lt.type, version) : lt.type,
+                encapType: lt.encapType ? migrateValue(lt.encapType, version) : lt.encapType,
+              })),
+            });
             get().triggerYamlRefresh();
           },
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),

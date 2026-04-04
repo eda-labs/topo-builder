@@ -2,14 +2,11 @@ import Ajv from 'ajv';
 import yaml from 'js-yaml';
 import { closest, distance } from 'fastest-levenshtein';
 
-import schemaJson from '../static/schema.json';
 import type { ValidationError, ValidationResult } from '../types/ui';
 
-let ajvInstance: Ajv | null = null;
+import { getSchema } from './schemaEnums';
 
-function getSchema(): object {
-  return schemaJson as object;
-}
+let ajvInstance: Ajv | null = null;
 
 function getAjv(): Ajv {
   if (ajvInstance) return ajvInstance;
@@ -104,7 +101,7 @@ function validateUnknownProperties(value: unknown, schema: SchemaNode, path: str
   return errors;
 }
 
-export function validateNetworkTopology(yamlString: string): ValidationResult {
+export function validateNetworkTopology(yamlString: string, schemaVersion: number = 26): ValidationResult {
   const errors: ValidationError[] = [];
 
   if (!yamlString || yamlString.trim() === '') {
@@ -135,7 +132,7 @@ export function validateNetworkTopology(yamlString: string): ValidationResult {
   }
 
   try {
-    const schema = getSchema();
+    const schema = getSchema(schemaVersion);
     const ajv = getAjv();
     const validate = ajv.compile(schema);
     const valid = validate(doc);

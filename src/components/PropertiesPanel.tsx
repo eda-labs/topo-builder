@@ -26,14 +26,7 @@ import type {
   SimNodeTemplate,
   Component,
 } from '../types/schema';
-import {
-  linkTypes,
-  linkSpeeds,
-  encapTypes,
-  simNodeTypes,
-  componentKinds,
-  defaultLinkType,
-} from '../lib/schemaEnums';
+import { getSchemaEnums } from '../lib/schemaEnums';
 
 import {
   PanelHeader,
@@ -252,6 +245,8 @@ function ComponentEditor({
   onUpdate: (updated: Component) => void;
   onDelete: () => void;
 }) {
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const { componentKinds } = getSchemaEnums(schemaVersion);
   const [localType, setLocalType] = useState(component.type);
   const [localSlot, setLocalSlot] = useState(component.slot || '');
 
@@ -311,6 +306,8 @@ function NodeTemplateEditor({
   existingNodeProfiles: string[];
   existingPlatforms: string[];
 }) {
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const { componentKinds } = getSchemaEnums(schemaVersion);
   const [localName, setLocalName] = useState(template.name);
   const [localNamePrefix, setLocalNamePrefix] = useState(template.annotations?.[ANNOTATION_NAME_PREFIX] || '');
   const [localPlatform, setLocalPlatform] = useState(template.platform || '');
@@ -573,6 +570,8 @@ function LinkTemplateEditor({
   onUpdate: (name: string, update: Partial<LinkTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const { linkTypes, linkSpeeds, encapTypes, defaultLinkType } = getSchemaEnums(schemaVersion);
   const [localName, setLocalName] = useState(template.name);
 
   // Sync local state when template changes from external source
@@ -723,6 +722,8 @@ export function LinkTemplatesPanel() {
   const triggerYamlRefresh = useTopologyStore(
     state => state.triggerYamlRefresh,
   );
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const { defaultLinkType } = getSchemaEnums(schemaVersion);
 
   const handleAdd = () => {
     const name = `link-template-${linkTemplates.length + 1}`;
@@ -785,6 +786,8 @@ function SimNodeTemplateEditor({
   onUpdate: (name: string, update: Partial<SimNodeTemplate>) => boolean;
   onDelete: (name: string) => void;
 }) {
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const { simNodeTypes } = getSchemaEnums(schemaVersion);
   const [localName, setLocalName] = useState(template.name);
   const [localImage, setLocalImage] = useState(template.image || '');
   const [localImagePullSecret, setLocalImagePullSecret] = useState(

@@ -11,7 +11,7 @@ import type {
   LinkTemplate,
   ParsedTopology,
 } from '../../types/schema';
-import { defaultOperation } from '../schemaEnums';
+import { getSchemaEnums } from '../schemaEnums';
 import type {
   UINode,
   UIEdge,
@@ -59,7 +59,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
   return {
     topologyName: 'my-topology',
     namespace: 'eda',
-    operation: defaultOperation,
+    operation: getSchemaEnums().defaultOperation,
     nodeTemplates: [],
     linkTemplates: [],
     nodes: [],
@@ -149,7 +149,7 @@ function resolvePlatformAndProfile(
 function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: string } {
   const topologyName = fallbackIfEmptyString(parsed.metadata?.name, 'my-topology');
   const namespace = fallbackIfEmptyString(parsed.metadata?.namespace, 'eda');
-  const operation = fallbackIfEmptyString(parsed.spec?.operation, defaultOperation);
+  const operation = fallbackIfEmptyString(parsed.spec?.operation, getSchemaEnums().defaultOperation);
   return { topologyName, namespace, operation };
 }
 

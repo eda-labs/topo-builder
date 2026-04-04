@@ -33,6 +33,7 @@ export interface TopoNode {
   name: string;
   template?: string;
   serialNumber?: string;
+  productionAddress?: { ipv4?: string; ipv6?: string };
   platform?: string;
   nodeProfile?: string;
   components?: Component[];

@@ -128,6 +128,10 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.serialNumber = node.data.serialNumber;
     }
 
+    if (node.data.productionAddress?.ipv4 || node.data.productionAddress?.ipv6) {
+      yamlNode.productionAddress = node.data.productionAddress;
+    }
+
     if (node.data.labels && Object.keys(node.data.labels).length > 0) {
       yamlNode.labels = node.data.labels;
     }

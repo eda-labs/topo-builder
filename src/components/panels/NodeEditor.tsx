@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { Edge, Node } from '@xyflow/react';
+import { isIPv4, isIPv6 } from 'is-ip';
 
 import { LagCard, LinkDiagram } from '../edges/cards';
 import { CARD_BG, CARD_BORDER } from '../../lib/constants';
@@ -125,6 +126,33 @@ export function NodeEditor({
           size="small"
           value={nodeData.serialNumber || ''}
           onChange={e => { handleUpdateNodeField({ serialNumber: e.target.value || undefined }); }}
+          fullWidth
+        />
+
+        <TextField
+          label="Production Address (IPv4)"
+          size="small"
+          value={nodeData.productionAddress?.ipv4 || ''}
+          error={!!nodeData.productionAddress?.ipv4 && !isIPv4(nodeData.productionAddress.ipv4)}
+          helperText={nodeData.productionAddress?.ipv4 && !isIPv4(nodeData.productionAddress.ipv4) ? 'Invalid IPv4 address' : undefined}
+          onChange={e => {
+            const ipv4 = e.target.value || undefined;
+            const ipv6 = nodeData.productionAddress?.ipv6;
+            handleUpdateNodeField({ productionAddress: ipv4 || ipv6 ? { ipv4, ipv6 } : undefined });
+          }}
+          fullWidth
+        />
+        <TextField
+          label="Production Address (IPv6)"
+          size="small"
+          value={nodeData.productionAddress?.ipv6 || ''}
+          error={!!nodeData.productionAddress?.ipv6 && !isIPv6(nodeData.productionAddress.ipv6)}
+          helperText={nodeData.productionAddress?.ipv6 && !isIPv6(nodeData.productionAddress.ipv6) ? 'Invalid IPv6 address' : undefined}
+          onChange={e => {
+            const ipv6 = e.target.value || undefined;
+            const ipv4 = nodeData.productionAddress?.ipv4;
+            handleUpdateNodeField({ productionAddress: ipv4 || ipv6 ? { ipv4, ipv6 } : undefined });
+          }}
           fullWidth
         />
 

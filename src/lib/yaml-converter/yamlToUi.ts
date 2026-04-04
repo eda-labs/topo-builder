@@ -191,6 +191,7 @@ function parseYamlTopoNodes(options: {
         platform,
         template: node.template,
         serialNumber: node.serialNumber,
+        productionAddress: node.productionAddress,
         nodeProfile,
         labels: userLabels,
       },

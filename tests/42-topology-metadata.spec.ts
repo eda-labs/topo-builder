@@ -36,14 +36,14 @@ test('Settings dialog updates operation in YAML', async ({ page }) => {
   await page.getByRole('heading', { name: 'Settings' }).waitFor();
 
   // MUI Select: click the displayed value within the dialog to open the dropdown
-  await page.locator('[role="dialog"]').getByText('replaceAll').click();
-  await page.getByRole('option', { name: 'create' }).click();
+  await page.locator('[role="dialog"]').getByText('ReplaceAll').click();
+  await page.getByRole('option', { name: 'Create' }).click();
 
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('tab', { name: 'YAML' }).click();
   const yaml = await getYamlContent(page);
-  expect(yaml).toContain('operation: create');
+  expect(yaml).toContain('operation: Create');
 });
 
 test('Settings dialog cancel does not update YAML', async ({ page }) => {

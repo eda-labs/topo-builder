@@ -4,7 +4,7 @@ metadata:
   name: my-topology
   namespace: eda
 spec:
-  operation: replaceAll
+  operation: ReplaceAll
   nodeTemplates:
     - name: leaf
       labels:
@@ -41,16 +41,16 @@ spec:
         topobuilder.eda.labs/y: "300"
   linkTemplates:
     - name: isl
-      type: interSwitch
+      type: InterSwitch
       speed: 25G
-      encapType: "null"
+      encapType: "Null"
       labels:
-        eda.nokia.com/role: interSwitch
+        eda.nokia.com/role: InterSwitch
     - name: edge
-      type: edge
-      encapType: dot1q
+      type: Edge
+      encapType: Dot1q
       labels:
-        eda.nokia.com/role: edge
+        eda.nokia.com/role: Edge
   links: []
   simulation:
     simNodeTemplates:

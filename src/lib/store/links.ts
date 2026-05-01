@@ -510,8 +510,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     }
 
     const enums = getSchemaEnums(state.schemaVersion);
-    const islTemplate = linkTemplates.find(t => t.type === enums.defaultLinkType)?.name;
-    const edgeTemplate = linkTemplates.find(t => t.type === enums.edgeLinkType)?.name;
+    const islTemplate = linkTemplates.find(t => t.type === enums.edgeLinkType)?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === enums.defaultLinkType)?.name;
 
     const newEdges: UIEdge[] = [];
     const currentEdges = [...edges];

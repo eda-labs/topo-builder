@@ -6,7 +6,7 @@ metadata:
   annotations:
     topobuilder.eda.labs/drawing: '[{"type":"text","text":"Label","fontSize":14,"fontColor":"#bcd0fb","position":{"x":60,"y":60},"id":"a1"}]'
 spec:
-  operation: replaceAll
+  operation: ReplaceAll
   nodeTemplates:
     - name: leaf
       labels:
@@ -35,16 +35,16 @@ spec:
   nodes: []
   linkTemplates:
     - name: isl
-      type: interSwitch
+      type: InterSwitch
       speed: 25G
-      encapType: "null"
+      encapType: "Null"
       labels:
-        eda.nokia.com/role: interSwitch
+        eda.nokia.com/role: InterSwitch
     - name: edge
-      type: edge
-      encapType: dot1q
+      type: Edge
+      encapType: Dot1q
       labels:
-        eda.nokia.com/role: edge
+        eda.nokia.com/role: Edge
   links: []
   simulation:
     simNodeTemplates:

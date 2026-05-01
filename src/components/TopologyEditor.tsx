@@ -773,18 +773,17 @@ function TopologyEditorInner() {
     for (const change of annotationChanges) {
       if (change.type === 'position' && 'position' in change && change.position) {
         const pos = change.position;
-        if (change.dragging) {
-          useTopologyStore.setState(state => ({
-            annotations: state.annotations.map(a =>
-              a.id === change.id ? { ...a, position: pos } : a,
-            ),
-          }));
-        } else {
-          updateAnnotation(change.id, { position: change.position });
+        useTopologyStore.setState(state => ({
+          annotations: state.annotations.map(a =>
+            a.id === change.id ? { ...a, position: pos } : a,
+          ),
+        }));
+        if (!change.dragging) {
+          triggerYamlRefresh();
         }
       }
     }
-  }, [onNodesChange, updateAnnotation]);
+  }, [onNodesChange, triggerYamlRefresh]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

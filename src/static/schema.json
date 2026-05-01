@@ -14,130 +14,6 @@
     },
     "spec": {
       "properties": {
-        "breakoutTemplates": {
-          "description": "Deprecated: Define the breakout parameters that are meant to be inherited by the breakouts referencing the template. These parameters can be overridden at the breakout level.",
-          "items": {
-            "properties": {
-              "annotations": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Annotations to assign to the Breakout.",
-                "type": "object",
-                "x-kubernetes-preserve-unknown-fields": true
-              },
-              "channels": {
-                "description": "The number of breakout channels to create",
-                "maximum": 8,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "labels": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Labels to assign to the Breakout",
-                "type": "object",
-                "x-kubernetes-preserve-unknown-fields": true
-              },
-              "name": {
-                "description": "The name of the BreakoutTemplate.",
-                "type": "string"
-              },
-              "speed": {
-                "description": "The speed of each breakout channel",
-                "enum": [
-                  "800G",
-                  "400G",
-                  "200G",
-                  "100G",
-                  "50G",
-                  "40G",
-                  "25G",
-                  "10G"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "breakouts": {
-          "description": "Deprecated: Define the set of breakouts to be created/replaced/deleted. A breakout can reference a breakout template to inherit its parameters.",
-          "items": {
-            "properties": {
-              "annotations": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Annotations to assign to the Breakouts.",
-                "type": "object",
-                "x-kubernetes-preserve-unknown-fields": true
-              },
-              "channels": {
-                "description": "The number of breakout channels to create",
-                "maximum": 8,
-                "minimum": 1,
-                "type": "integer"
-              },
-              "interfaces": {
-                "description": "A list of normalized parent interface/port",
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "labels": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Labels to assign to the TopoBreakout",
-                "type": "object",
-                "x-kubernetes-preserve-unknown-fields": true
-              },
-              "name": {
-                "description": "The name of the TopoBreakout",
-                "type": "string"
-              },
-              "nodes": {
-                "description": "Reference to a list of TopoNodes where the parent interfaces are to be broken out",
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "speed": {
-                "description": "The speed of each breakout channel",
-                "enum": [
-                  "800G",
-                  "400G",
-                  "200G",
-                  "100G",
-                  "50G",
-                  "40G",
-                  "25G",
-                  "10G"
-                ],
-                "type": "string"
-              },
-              "template": {
-                "description": "Reference to a template to use for this TopoBreakout.",
-                "type": "string"
-              }
-            },
-            "required": [
-              "interfaces",
-              "name",
-              "nodes"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
         "checks": {
           "description": "Configure dry run mode and prompts for topology operations.",
           "properties": {
@@ -562,7 +438,7 @@
                       "type": "string"
                     },
                     "satelliteProfile": {
-                      "description": "Satellite node profile to be used for the satellite node.",
+                      "description": "Satellite profile to be used for the satellite node.",
                       "type": "string"
                     },
                     "type": {
@@ -787,7 +663,7 @@
                       "type": "string"
                     },
                     "satelliteProfile": {
-                      "description": "Satellite node profile to be used for the satellite node.",
+                      "description": "Satellite profile to be used for the satellite node.",
                       "type": "string"
                     },
                     "type": {

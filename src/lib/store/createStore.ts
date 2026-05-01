@@ -73,6 +73,7 @@ interface CoreState {
   operation: string;
   schemaVersion: number;
   showSimNodes: boolean;
+  disableAnnotations: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;
@@ -85,6 +86,7 @@ interface CoreActions {
   setOperation: (operation: string) => void;
   setSchemaVersion: (version: number) => void;
   setShowSimNodes: (show: boolean) => void;
+  setDisableAnnotations: (disable: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
   importFromYaml: (yaml: string) => boolean;
@@ -142,6 +144,7 @@ const initialCoreState: CoreState = {
   operation: baseTemplate.operation || getSchemaEnums(DEFAULT_SCHEMA_VERSION).defaultOperation,
   schemaVersion: DEFAULT_SCHEMA_VERSION,
   showSimNodes: true,
+  disableAnnotations: false,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   error: null,
@@ -453,6 +456,7 @@ export const createTopologyStore = () => {
             get().triggerYamlRefresh();
           },
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),
+          setDisableAnnotations: (disable: boolean) => set({ disableAnnotations: disable }),
           triggerYamlRefresh: () => set({ yamlRefreshCounter: get().yamlRefreshCounter + 1 }),
 
           saveToUndoHistory: () => {

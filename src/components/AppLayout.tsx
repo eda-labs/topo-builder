@@ -27,6 +27,8 @@ import {
   Select,
   MenuItem,
   Divider,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -103,6 +105,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const error = useTopologyStore(state => state.error);
   const setError = useTopologyStore(state => state.setError);
   const autoLink = useTopologyStore(state => state.autoLink);
+  const disableAnnotations = useTopologyStore(state => state.disableAnnotations);
+  const setDisableAnnotations = useTopologyStore(state => state.setDisableAnnotations);
 
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -123,6 +127,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
     namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
+    disableAnnotations,
   });
 
   const handleDownload = () => {
@@ -144,7 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const handleValidate = () => {
     const yaml = getEditorContent()
-      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
+      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, disableAnnotations });
     setValidationResult(validateNetworkTopology(yaml, schemaVersion));
     setValidationDialogOpen(true);
   };
@@ -349,6 +354,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 ))}
               </Select>
             </FormControl>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={disableAnnotations}
+                  onChange={e => { setDisableAnnotations(e.target.checked); }}
+                  size="small"
+                />
+              }
+              label="Disable annotations"
+              labelPlacement="start"
+              sx={{ mt: 1, justifyContent: 'space-between', ml: 0, mr: 0 }}
+            />
           </DialogContent>
           <DialogActions>
             <Button variant="contained" onClick={() => {

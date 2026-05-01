@@ -387,7 +387,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </Typography>
               <br/>
               <Typography variant="caption">
-                Created by <Link target="_blank" href="https://www.linkedin.com/in/kaelem-chandra/">Kaelem Chandra</Link> and <Link target="_blank" href="https://www.linkedin.com/in/rdodin/">Roman Dodin</Link>
+                Created by <Link target="_blank" href="https://www.linkedin.com/in/kaelem-chandra/">Kaelem Chandra</Link>, <Link target="_blank" href="https://www.linkedin.com/in/rdodin/">Roman Dodin</Link> and <Link target="_blank" href="https://www.linkedin.com/in/florian-schwarz-812a34145/">Florian Schwarz</Link>
               </Typography>
               <br/>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, my: 1 }}>

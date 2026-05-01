@@ -1,7 +1,9 @@
 import schemaV26 from '../static/schema.json';
 import schemaV25 from '../static/v25/schema.json';
 
-const schemas: Record<number, typeof schemaV26> = {
+type SchemaVersion = typeof schemaV26 | typeof schemaV25;
+
+const schemas: Record<number, SchemaVersion> = {
   25: schemaV25,
   26: schemaV26,
 };
@@ -12,7 +14,7 @@ export function setActiveVersion(version: number) {
   activeVersion = version;
 }
 
-function extractEnums(schema: typeof schemaV26) {
+function extractEnums(schema: SchemaVersion) {
   const spec = schema.properties.spec.properties;
   return {
     operations: spec.operation.enum,
@@ -20,7 +22,7 @@ function extractEnums(schema: typeof schemaV26) {
     linkSpeeds: spec.linkTemplates.items.properties.speed.enum,
     encapTypes: spec.linkTemplates.items.properties.encapType.enum,
     simNodeTypes: spec.simulation.properties.simNodeTemplates.items.properties.type.enum,
-    componentKinds: spec.nodeTemplates.items.properties.components?.items.properties.kind.enum ?? [],
+    componentKinds: ((spec.nodeTemplates.items.properties as unknown as Record<string, { items: { properties: { kind: { enum: string[] } } } }>).components ?? (spec.nodeTemplates.items.properties as unknown as Record<string, { items: { properties: { kind: { enum: string[] } } } }>).component)?.items.properties.kind.enum ?? [],
     defaultOperation: spec.operation.default ?? spec.operation.enum[0],
     defaultLinkType: spec.linkTemplates.items.properties.type.enum[0],
     edgeLinkType: spec.linkTemplates.items.properties.type.enum[1],

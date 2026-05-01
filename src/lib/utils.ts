@@ -79,24 +79,24 @@ export const validateName = (
 };
 
 export const generateUniqueName = (prefix: string, existingNames: string[], startCounter?: number): string => {
+  const existing = new Set(existingNames);
   let counter = startCounter ?? 1;
-  let name = `${prefix}${counter}`;
-  while (existingNames.includes(name)) {
+  for (let i = 0; i < 10000; i++) {
+    const name = `${prefix}${counter}`;
+    if (!existing.has(name) && name.length <= NAME_MAX_LENGTH) return name;
     counter++;
-    name = `${prefix}${counter}`;
   }
-  return name;
+  return `${prefix}${Date.now()}`;
 };
 
 export const generateCopyName = (originalName: string, existingNames: string[]): string => {
-  const baseName = originalName.replace(/-copy(\d+)?$/, '');
-  let newName = `${baseName}-copy`;
-  let counter = 1;
-  while (existingNames.includes(newName)) {
-    newName = `${baseName}-copy${counter}`;
-    counter++;
+  const match = originalName.match(/^(.*?)(\d+)$/);
+  if (match) {
+    const prefix = match[1];
+    const startCounter = parseInt(match[2], 10) + 1;
+    return generateUniqueName(prefix, existingNames, startCounter);
   }
-  return newName;
+  return generateUniqueName(`${originalName}-`, existingNames, 2);
 };
 
 export const formatName = (value: string): string => value.replace(/\s+/g, '-').toLowerCase();

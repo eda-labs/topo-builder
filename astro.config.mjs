@@ -23,6 +23,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
     define: {
       __COMMIT_SHA__: JSON.stringify(getGitCommitSha()),
+      __APP_MODE__: JSON.stringify('standalone'),
     },
   }
 });

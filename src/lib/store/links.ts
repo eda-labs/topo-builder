@@ -99,8 +99,8 @@ function getNodeName(nodes: UINode[], nodeId: string): string {
 
 function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean, schemaVersion: number): string {
   if (!simConnection) return 'isl';
-  const { edgeLinkType } = getSchemaEnums(schemaVersion);
-  return linkTemplates.find(t => t.type === edgeLinkType)?.name || 'edge';
+  const { defaultLinkType } = getSchemaEnums(schemaVersion);
+  return linkTemplates.find(t => t.type === defaultLinkType)?.name || 'edge';
 }
 
 function findExistingEdge(

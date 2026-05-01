@@ -11,7 +11,26 @@ import {
   Typography,
 } from '@mui/material';
 import type { Edge, Node } from '@xyflow/react';
-import { isIPv4, isIPv6 } from 'is-ip';
+const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)$/;
+const IPV6_REGEX = /^(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|:(?::[0-9a-fA-F]{1,4}){1,7}|::(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}|(?:[0-9a-fA-F]{1,4}:){1,5}:(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3})$/;
+
+function isValidCidrIPv4(value: string, requirePrefix: boolean): boolean {
+  const parts = value.split('/');
+  if (parts.length === 1) return !requirePrefix && IPV4_REGEX.test(parts[0]);
+  if (parts.length !== 2) return false;
+  if (!IPV4_REGEX.test(parts[0])) return false;
+  const prefix = Number(parts[1]);
+  return Number.isInteger(prefix) && prefix >= 0 && prefix <= 32;
+}
+
+function isValidCidrIPv6(value: string, requirePrefix: boolean): boolean {
+  const parts = value.split('/');
+  if (parts.length === 1) return !requirePrefix && IPV6_REGEX.test(parts[0]);
+  if (parts.length !== 2) return false;
+  if (!IPV6_REGEX.test(parts[0])) return false;
+  const prefix = Number(parts[1]);
+  return Number.isInteger(prefix) && prefix >= 0 && prefix <= 128;
+}
 
 import { LagCard, LinkDiagram } from '../edges/cards';
 import { CARD_BG, CARD_BORDER } from '../../lib/constants';
@@ -41,6 +60,8 @@ export function NodeEditor({
   const nodeData = node.data;
   const updateNode = useTopologyStore(state => state.updateNode);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const requirePrefix = schemaVersion >= 26;
 
   const internalRef = useRef<HTMLInputElement>(null);
   const nodeNameInputRef = externalRef || internalRef;
@@ -130,11 +151,11 @@ export function NodeEditor({
         />
 
         <TextField
-          label="Production Address (IPv4)"
+          label={requirePrefix ? 'Production Address (IPv4/CIDR)' : 'Production Address (IPv4)'}
           size="small"
           value={nodeData.productionAddress?.ipv4 || ''}
-          error={!!nodeData.productionAddress?.ipv4 && !isIPv4(nodeData.productionAddress.ipv4)}
-          helperText={nodeData.productionAddress?.ipv4 && !isIPv4(nodeData.productionAddress.ipv4) ? 'Invalid IPv4 address' : undefined}
+          error={!!nodeData.productionAddress?.ipv4 && !isValidCidrIPv4(nodeData.productionAddress.ipv4, requirePrefix)}
+          helperText={nodeData.productionAddress?.ipv4 && !isValidCidrIPv4(nodeData.productionAddress.ipv4, requirePrefix) ? 'Invalid IPv4 address' : undefined}
           onChange={e => {
             const ipv4 = e.target.value || undefined;
             const ipv6 = nodeData.productionAddress?.ipv6;
@@ -143,11 +164,11 @@ export function NodeEditor({
           fullWidth
         />
         <TextField
-          label="Production Address (IPv6)"
+          label={requirePrefix ? 'Production Address (IPv6/CIDR)' : 'Production Address (IPv6)'}
           size="small"
           value={nodeData.productionAddress?.ipv6 || ''}
-          error={!!nodeData.productionAddress?.ipv6 && !isIPv6(nodeData.productionAddress.ipv6)}
-          helperText={nodeData.productionAddress?.ipv6 && !isIPv6(nodeData.productionAddress.ipv6) ? 'Invalid IPv6 address' : undefined}
+          error={!!nodeData.productionAddress?.ipv6 && !isValidCidrIPv6(nodeData.productionAddress.ipv6, requirePrefix)}
+          helperText={nodeData.productionAddress?.ipv6 && !isValidCidrIPv6(nodeData.productionAddress.ipv6, requirePrefix) ? 'Invalid IPv6 address' : undefined}
           onChange={e => {
             const ipv6 = e.target.value || undefined;
             const ipv4 = nodeData.productionAddress?.ipv4;

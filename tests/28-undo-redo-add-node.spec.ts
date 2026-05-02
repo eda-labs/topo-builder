@@ -11,6 +11,7 @@ test('Undo/redo add node', async ({ page }) => {
   expect(await getNodeCount(page)).toBe(1);
 
   await undoViaContextMenu(page);
+  await undoViaContextMenu(page);
   expect(await getNodeCount(page)).toBe(0);
 
   await redoViaContextMenu(page);

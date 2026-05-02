@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo, useRef, type ReactNode, type SyntheticEvent } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -50,7 +50,6 @@ const edgeTypes: EdgeTypes = {
 };
 
 export interface TopologyEditorProps extends TopologyThemingProps {
-  renderYamlPanel?: () => ReactNode;
   reactFlowColorMode?: 'light' | 'dark';
 }
 
@@ -388,13 +387,11 @@ function SidePanel({
   onTabChange,
   open,
   onToggle,
-  renderYamlPanel,
 }: {
   activeTab: number;
   onTabChange: (tab: number) => void;
   open: boolean;
   onToggle: () => void;
-  renderYamlPanel?: () => ReactNode;
 }) {
   const theme = useTheme();
   const borderColor = theme.palette.divider;
@@ -510,12 +507,22 @@ function SidePanel({
           <Tab label="Link Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
           <Tab label="Sim Templates" sx={{ minHeight: 36, fontSize: '0.75rem', py: 0 }} />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: 'auto', p: activeTab === 0 ? 0 : 1.5, bgcolor: contentBg }}>
-          {activeTab === 0 && (renderYamlPanel ? renderYamlPanel() : <YamlEditor />)}
-          {activeTab === 1 && <SelectionPanel />}
-          {activeTab === 2 && <NodeTemplatesPanel />}
-          {activeTab === 3 && <LinkTemplatesPanel />}
-          {activeTab === 4 && <SimNodeTemplatesPanel />}
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: contentBg }}>
+          <Box sx={{ flex: 1, overflow: 'auto', p: 0, display: activeTab === 0 ? 'flex' : 'none', flexDirection: 'column' }}>
+            <YamlEditor />
+          </Box>
+          <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: activeTab === 1 ? 'block' : 'none' }}>
+            <SelectionPanel />
+          </Box>
+          <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: activeTab === 2 ? 'block' : 'none' }}>
+            <NodeTemplatesPanel />
+          </Box>
+          <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: activeTab === 3 ? 'block' : 'none' }}>
+            <LinkTemplatesPanel />
+          </Box>
+          <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: activeTab === 4 ? 'block' : 'none' }}>
+            <SimNodeTemplatesPanel />
+          </Box>
         </Box>
       </Drawer>
     </>
@@ -575,7 +582,6 @@ function EmptyCanvasHint({ show }: { show: boolean }) {
 }
 
 function TopologyEditorInner({
-  renderYamlPanel,
   theme,
   themeOptions,
   disableCssBaseline,
@@ -1214,7 +1220,6 @@ function TopologyEditorInner({
           onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 0) triggerYamlRefresh(); }}
           open={panelOpen}
           onToggle={() => { setPanelOpen(!panelOpen); }}
-          renderYamlPanel={renderYamlPanel}
         />
       </Box>
 
@@ -1261,7 +1266,6 @@ function TopologyEditorInner({
 }
 
 export default function TopologyEditor({
-  renderYamlPanel,
   theme,
   themeOptions,
   disableCssBaseline,
@@ -1271,7 +1275,6 @@ export default function TopologyEditor({
   return (
     <ReactFlowProvider>
       <TopologyEditorInner
-        renderYamlPanel={renderYamlPanel}
         theme={theme}
         themeOptions={themeOptions}
         disableCssBaseline={disableCssBaseline}

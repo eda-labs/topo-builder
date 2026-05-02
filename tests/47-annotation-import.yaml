@@ -6,7 +6,7 @@ metadata:
   annotations:
     topobuilder.eda.labs/drawing: '[{"id":"a1","type":"text","position":{"x":100,"y":200},"text":"Hello","fontSize":16,"fontColor":"#ff0000"},{"id":"a2","type":"shape","position":{"x":300,"y":400},"shapeType":"circle","width":150,"height":100,"strokeColor":"#00ff00","strokeWidth":3,"strokeStyle":"dashed"}]'
 spec:
-  operation: replaceAll
+  operation: ReplaceAll
   nodeTemplates: []
   nodes: []
   linkTemplates: []

@@ -82,6 +82,7 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
   },
 
   updateNode: (id: string, data: Partial<UINodeData>) => {
+    get().saveToUndoHistory();
     const currentNode = get().nodes.find(n => n.id === id);
     const oldName = currentNode?.data.name;
     let newName = data.name;

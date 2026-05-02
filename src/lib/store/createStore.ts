@@ -12,8 +12,8 @@ import yaml from 'js-yaml';
 
 import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
-import type { Operation } from '../../types/schema';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
+import { getSchemaEnums, setActiveVersion, migrateValue } from '../schemaEnums';
 import { yamlToUI, setIdCounters, exportToYaml, normalizeNodeCoordinates } from '../yaml-converter';
 import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
 import type { NodeProfileResponse } from '../extensionAPITypes';
@@ -53,6 +53,8 @@ import {
   clearHistory,
 } from './history';
 
+const DEFAULT_SCHEMA_VERSION = 26;
+
 // ID counters
 let nodeIdCounter = 1;
 let edgeIdCounter = 1;
@@ -73,8 +75,10 @@ export type EdaConnectionStatus = 'disconnected' | 'connected';
 interface CoreState {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
+  schemaVersion: number;
   showSimNodes: boolean;
+  disableAnnotations: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
   error: string | null;
@@ -88,8 +92,10 @@ interface CoreActions {
   setError: (error: string | null) => void;
   setTopologyName: (name: string) => void;
   setNamespace: (namespace: string) => void;
-  setOperation: (operation: Operation) => void;
+  setOperation: (operation: string) => void;
+  setSchemaVersion: (version: number) => void;
   setShowSimNodes: (show: boolean) => void;
+  setDisableAnnotations: (disable: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
   edaInit: () => Promise<void>;
@@ -147,8 +153,10 @@ const baseTemplate = parseBaseTemplate();
 const initialCoreState: CoreState = {
   topologyName: baseTemplate.topologyName || 'my-topology',
   namespace: baseTemplate.namespace || 'eda',
-  operation: baseTemplate.operation || 'replaceAll',
+  operation: baseTemplate.operation || getSchemaEnums(DEFAULT_SCHEMA_VERSION).defaultOperation,
+  schemaVersion: DEFAULT_SCHEMA_VERSION,
   showSimNodes: true,
+  disableAnnotations: false,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
   error: null,
@@ -445,11 +453,26 @@ export const createTopologyStore = () => {
             get().triggerYamlRefresh();
           },
 
-          setOperation: (operation: Operation) => {
+          setOperation: (operation: string) => {
             set({ operation });
             get().triggerYamlRefresh();
           },
+          setSchemaVersion: (version: number) => {
+            setActiveVersion(version);
+            const state = get();
+            set({
+              schemaVersion: version,
+              operation: migrateValue(state.operation, version),
+              linkTemplates: state.linkTemplates.map(lt => ({
+                ...lt,
+                type: lt.type ? migrateValue(lt.type, version) : lt.type,
+                encapType: lt.encapType ? migrateValue(lt.encapType, version) : lt.encapType,
+              })),
+            });
+            get().triggerYamlRefresh();
+          },
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),
+          setDisableAnnotations: (disable: boolean) => set({ disableAnnotations: disable }),
           triggerYamlRefresh: () => set({ yamlRefreshCounter: get().yamlRefreshCounter + 1 }),
 
           saveToUndoHistory: () => {

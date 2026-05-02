@@ -9,9 +9,9 @@ import type {
   Endpoint,
   NodeTemplate,
   LinkTemplate,
-  Operation,
   ParsedTopology,
 } from '../../types/schema';
+import { getSchemaEnums } from '../schemaEnums';
 import type {
   UINode,
   UIEdge,
@@ -46,7 +46,7 @@ export interface YamlToUIOptions {
 export interface YamlToUIResult {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
   nodes: UINode[];
@@ -59,7 +59,7 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
   return {
     topologyName: 'my-topology',
     namespace: 'eda',
-    operation: 'replaceAll',
+    operation: getSchemaEnums().defaultOperation,
     nodeTemplates: [],
     linkTemplates: [],
     nodes: [],
@@ -146,10 +146,10 @@ function resolvePlatformAndProfile(
   return { platform, nodeProfile };
 }
 
-function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: Operation } {
+function parseYamlMetadata(parsed: ParsedTopology): { topologyName: string; namespace: string; operation: string } {
   const topologyName = fallbackIfEmptyString(parsed.metadata?.name, 'my-topology');
   const namespace = fallbackIfEmptyString(parsed.metadata?.namespace, 'eda');
-  const operation = fallbackIfEmptyString(parsed.spec?.operation as Operation | undefined, 'replaceAll') as Operation;
+  const operation = fallbackIfEmptyString(parsed.spec?.operation, getSchemaEnums().defaultOperation);
   return { topologyName, namespace, operation };
 }
 
@@ -191,6 +191,7 @@ function parseYamlTopoNodes(options: {
         platform,
         template: node.template,
         serialNumber: node.serialNumber,
+        productionAddress: node.productionAddress,
         nodeProfile,
         labels: userLabels,
       },
@@ -232,7 +233,7 @@ function parseYamlSimulation(options: {
     if (!id) id = generateSimNodeId();
     nameToId.set(simNode.name, id);
 
-    const positionFromLabels = extractPosition(undefined);
+    const positionFromLabels = extractPosition(simNode.annotations);
     const position = resolvePosition(positionFromLabels, existingPosition, defaultSimNodePosition(index));
 
     const userLabels = filterUserLabels(simNode.labels);

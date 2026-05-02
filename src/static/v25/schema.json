@@ -14,6 +14,130 @@
     },
     "spec": {
       "properties": {
+        "breakoutTemplates": {
+          "description": "Define the breakout parameters that are meant to be inherited by the breakouts referencing the template. These parameters can be overridden at the breakout level.",
+          "items": {
+            "properties": {
+              "annotations": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Annotations to assign to the Breakout.",
+                "type": "object",
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "channels": {
+                "description": "The number of breakout channels to create",
+                "maximum": 8,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "labels": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Labels to assign to the Breakout",
+                "type": "object",
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "name": {
+                "description": "The name of the BreakoutTemplate.",
+                "type": "string"
+              },
+              "speed": {
+                "description": "The speed of each breakout channel",
+                "enum": [
+                  "800G",
+                  "400G",
+                  "200G",
+                  "100G",
+                  "50G",
+                  "40G",
+                  "25G",
+                  "10G"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "breakouts": {
+          "description": "Define the set of breakouts to be created/replaced/deleted. A breakout can reference a breakout template to inherit its parameters.",
+          "items": {
+            "properties": {
+              "annotations": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Annotations to assign to the Breakouts.",
+                "type": "object",
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "channels": {
+                "description": "The number of breakout channels to create",
+                "maximum": 8,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "interface": {
+                "description": "A list of normalized parent interface/port",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "labels": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Labels to assign to the TopoBreakout",
+                "type": "object",
+                "x-kubernetes-preserve-unknown-fields": true
+              },
+              "name": {
+                "description": "The name of the TopoBreakout",
+                "type": "string"
+              },
+              "node": {
+                "description": "Reference to a list of TopoNodes where the parent interfaces are to be broken out",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "speed": {
+                "description": "The speed of each breakout channel",
+                "enum": [
+                  "800G",
+                  "400G",
+                  "200G",
+                  "100G",
+                  "50G",
+                  "40G",
+                  "25G",
+                  "10G"
+                ],
+                "type": "string"
+              },
+              "template": {
+                "description": "Reference to a template to use for this TopoBreakout.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "interface",
+              "name",
+              "node"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "checks": {
           "description": "Configure dry run mode and prompts for topology operations.",
           "properties": {
@@ -22,8 +146,8 @@
               "description": "Enabling the Dry Run will run the transaction with the calculated changes to the topology resources in the dry run mode and pause the workflow awaiting users confirmation.",
               "type": "boolean"
             },
-            "prompts": {
-              "description": "Prompts can be configured to request user confirmation before creating, replacing, or deleting topology resources, regardless if Dry Run is enabled or not.\nThis can be configured per operation type (BeforeCreate, BeforeReplace, BeforeDelete).",
+            "prompt": {
+              "description": "Prompts can be configured to request user confirmation before creating, replacing, or deleting topology resources, buardless if Dry Run is enabled or not.\nThis can be configured per operation type (BeforeCreate, BeforeReplace, BeforeDelete).",
               "items": {
                 "enum": [
                   "BeforeCreate",
@@ -49,79 +173,12 @@
                 "type": "object",
                 "x-kubernetes-preserve-unknown-fields": true
               },
-              "breakouts": {
-                "description": "Breakout endpoints propertiesfor the link",
-                "items": {
-                  "properties": {
-                    "local": {
-                      "description": "Local breakout endpoint properties",
-                      "properties": {
-                        "channels": {
-                          "description": "The number of breakout channels to create",
-                          "maximum": 8,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "speed": {
-                          "description": "Speed of each breakout channel",
-                          "enum": [
-                            "800G",
-                            "400G",
-                            "200G",
-                            "100G",
-                            "50G",
-                            "40G",
-                            "25G",
-                            "10G",
-                            "2.5G",
-                            "1G",
-                            "100M"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "remote": {
-                      "description": "Remote breakout endpoint properties",
-                      "properties": {
-                        "channels": {
-                          "description": "The number of breakout channels to create",
-                          "maximum": 8,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "speed": {
-                          "description": "Speed of each breakout channel",
-                          "enum": [
-                            "800G",
-                            "400G",
-                            "200G",
-                            "100G",
-                            "50G",
-                            "40G",
-                            "25G",
-                            "10G",
-                            "2.5G",
-                            "1G",
-                            "100M"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "type": "object"
-                },
-                "type": "array"
-              },
               "encapType": {
-                "default": "Null",
+                "default": "null",
                 "description": "Enable or disable VLAN tagging on Interfaces created by the TopoLink.",
                 "enum": [
-                  "Null",
-                  "Dot1q"
+                  "null",
+                  "dot1q"
                 ],
                 "type": "string"
               },
@@ -157,9 +214,9 @@
               "type": {
                 "description": "Specify the type of link.\nIf type is set to edge, topology information for the remote device can be set; when doing so the Remote Node can be set as the hostname of the remote device and Remote Interface as the remote interface name in the device specific format, e.g. eth0.",
                 "enum": [
-                  "Edge",
-                  "InterSwitch",
-                  "Loopback"
+                  "edge",
+                  "interSwitch",
+                  "loopback"
                 ],
                 "type": "string"
               }
@@ -186,8 +243,8 @@
               "encapType": {
                 "description": "Enable or disable VLAN tagging on Interfaces created by the TopoLink",
                 "enum": [
-                  "Null",
-                  "Dot1q"
+                  "null",
+                  "dot1q"
                 ],
                 "type": "string"
               },
@@ -271,9 +328,9 @@
                     "type": {
                       "description": "Specify the type of link.\nIf type is set to edge, topology information for the remote device can be set; when doing so the Remote Node can be set as the hostname of the remote device and Remote Interface as the remote interface name in the device specific format, e.g. eth0.",
                       "enum": [
-                        "Edge",
-                        "InterSwitch",
-                        "Loopback"
+                        "edge",
+                        "interSwitch",
+                        "loopback"
                       ],
                       "type": "string"
                     }
@@ -323,7 +380,7 @@
                 "type": "object",
                 "x-kubernetes-preserve-unknown-fields": true
               },
-              "components": {
+              "component": {
                 "description": "List of components within the TopoNode.\nUsed to define the type and location of linecards, fabrics (SFM), media adapter cards (MDA) and control cards (CPM).",
                 "items": {
                   "properties": {
@@ -381,99 +438,6 @@
               "platform": {
                 "description": "Platform type of this TopoNode, e.g. 7220 IXR-D3L.",
                 "type": "string"
-              },
-              "satelliteNodes": {
-                "description": "List of satellite nodes to be inherited by nodes using this template.",
-                "items": {
-                  "properties": {
-                    "components": {
-                      "description": "Components for the satellite node.",
-                      "items": {
-                        "properties": {
-                          "kind": {
-                            "description": "The kind of Component, e.g. lineCard.",
-                            "enum": [
-                              "controlCard",
-                              "lineCard",
-                              "fabric",
-                              "mda",
-                              "connector",
-                              "xiom",
-                              "powerShelf",
-                              "powerModule"
-                            ],
-                            "type": "string"
-                          },
-                          "slot": {
-                            "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
-                            "type": "string"
-                          },
-                          "type": {
-                            "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "type"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "id": {
-                      "description": "ID of the satellite node.",
-                      "type": "string"
-                    },
-                    "macAddress": {
-                      "description": " MAC Address of the satellite node.",
-                      "type": "string"
-                    },
-                    "platform": {
-                      "description": "Platform of the satellite node.",
-                      "type": "string"
-                    },
-                    "portTemplate": {
-                      "description": "Port template to be used for the satellite node.",
-                      "type": "string"
-                    },
-                    "satelliteProfile": {
-                      "description": "Satellite profile to be used for the satellite node.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Type of the satellite node.",
-                      "type": "string"
-                    },
-                    "uplinkInterfaces": {
-                      "description": "Uplink interfaces to be created for the satellite node.",
-                      "items": {
-                        "properties": {
-                          "hostPort": {
-                            "description": "HostPort interface of the satellite uplink.",
-                            "type": "string"
-                          },
-                          "satellite": {
-                            "description": "Satellite interface of the satellite uplink.",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "hostPort",
-                          "satellite"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "type"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
               }
             },
             "required": [
@@ -495,7 +459,7 @@
                 "type": "object",
                 "x-kubernetes-preserve-unknown-fields": true
               },
-              "components": {
+              "component": {
                 "description": "List of components within the TopoNode.\nUsed to define the type and location of linecards, fabrics (SFM), media adapter cards (MDA) and control cards (CPM).",
                 "items": {
                   "properties": {
@@ -572,7 +536,7 @@
                 },
                 "type": "object"
               },
-              "onboarded": {
+              "onBoarded": {
                 "default": false,
                 "description": "Indicates if this TopoNode has been bootstrapped or is reachable via configured credentials. Set by BootstrapServer when it completes onboarding functions for a given TopoNode.\nMost applications ignore TopoNodes that have not been onboarded yet.",
                 "type": "boolean"
@@ -585,7 +549,8 @@
                   "eos",
                   "sonic",
                   "ios-xr",
-                  "nxos"
+                  "nxos",
+                  "linux"
                 ],
                 "type": "string"
               },
@@ -606,99 +571,6 @@
                   }
                 },
                 "type": "object"
-              },
-              "satelliteNodes": {
-                "description": "List of satellite nodes to be inherited by this TopoNode.",
-                "items": {
-                  "properties": {
-                    "components": {
-                      "description": "Components for the satellite node.",
-                      "items": {
-                        "properties": {
-                          "kind": {
-                            "description": "The kind of Component, e.g. lineCard.",
-                            "enum": [
-                              "controlCard",
-                              "lineCard",
-                              "fabric",
-                              "mda",
-                              "connector",
-                              "xiom",
-                              "powerShelf",
-                              "powerModule"
-                            ],
-                            "type": "string"
-                          },
-                          "slot": {
-                            "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
-                            "type": "string"
-                          },
-                          "type": {
-                            "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "type"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "id": {
-                      "description": "ID of the satellite node.",
-                      "type": "string"
-                    },
-                    "macAddress": {
-                      "description": " MAC Address of the satellite node.",
-                      "type": "string"
-                    },
-                    "platform": {
-                      "description": "Platform of the satellite node.",
-                      "type": "string"
-                    },
-                    "portTemplate": {
-                      "description": "Port template to be used for the satellite node.",
-                      "type": "string"
-                    },
-                    "satelliteProfile": {
-                      "description": "Satellite profile to be used for the satellite node.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Type of the satellite node.",
-                      "type": "string"
-                    },
-                    "uplinkInterfaces": {
-                      "description": "Uplink interfaces to be created for the satellite node.",
-                      "items": {
-                        "properties": {
-                          "hostPort": {
-                            "description": "HostPort interface of the satellite uplink.",
-                            "type": "string"
-                          },
-                          "satellite": {
-                            "description": "Satellite interface of the satellite uplink.",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "hostPort",
-                          "satellite"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "type"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
               },
               "serialNumber": {
                 "description": "Serial number of this TopoNode, optionally sent by a node in DHCP requests.\nNot required when a TopoNode is not being bootstrapped by EDA, or is simulated through CX.",
@@ -725,96 +597,20 @@
           "type": "array"
         },
         "operation": {
-          "default": "Reconcile",
-          "description": "Operation to be performed on the Topology.\nCreate - creates the topology resources based on the provided specifications.\nReplace - replaces the resources matched by name with the provided specifications.\nReplaceAll - first removes all existing topology resources and then creates new ones based on the provided specifications.\nDelete - deletes the resources matched by name.\nDeleteAll - deletes all topology resources found in the namespace.\nReconcile - reconciles the topology resources based on the provided specifications.\nOne of Create, Replace, ReplaceAll, Delete, DeleteAll, Reconcile.",
+          "default": "create",
+          "description": "Operation to be performed on the Topology.\nCreate - creates the topology resources based on the provided specifications.\nReplace - replaces the resources matched by name with the provided specifications.\nReplaceAll - first removes all existing topology resources and then creates new ones based on the provided specifications.\nDelete - deletes the resources matched by name.\nDeleteAll - deletes all topology resources found in the namespace.\nOne of create, replace, replaceAll, delete, deleteAll.",
           "enum": [
-            "Create",
-            "Replace",
-            "ReplaceAll",
-            "Delete",
-            "DeleteAll",
-            "Reconcile"
+            "create",
+            "replace",
+            "replaceAll",
+            "delete",
+            "deleteAll"
           ],
           "type": "string"
         },
         "remoteLocation": {
           "description": "http(s) location of the topology input in YAML format to deploy. Providing the remote location will discard any topology resources provided in the spec of the workflow.",
           "type": "string"
-        },
-        "satellitePortTemplates": {
-          "description": "Define the satellite port templates that are meant to be inherited by the satellite nodes referencing the template. These parameters can be overridden at the satellite node level.",
-          "items": {
-            "description": "Satellite Port Templates",
-            "properties": {
-              "connectors": {
-                "description": "List of connector components within the SatellitePortTemplate.\nUsed to define the type and location of connectors.",
-                "items": {
-                  "properties": {
-                    "kind": {
-                      "description": "The kind of Component, e.g. lineCard.",
-                      "enum": [
-                        "controlCard",
-                        "lineCard",
-                        "fabric",
-                        "mda",
-                        "connector",
-                        "xiom",
-                        "powerShelf",
-                        "powerModule"
-                      ],
-                      "type": "string"
-                    },
-                    "slot": {
-                      "description": "The slot this Component resides in, unset for Components that do not have a slot or ID.\ne.g. 1 would denote the linecard slot 1, 1/1 would denote linecard slot 1 mda slot 1.",
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Denotes the type of hardware being provisioned, e.g. xcm-x20.",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "type"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              "name": {
-                "description": "The name of the SatellitePortTemplate.",
-                "type": "string"
-              },
-              "uplinks": {
-                "description": "Uplinks for the SatellitePortTemplate.",
-                "items": {
-                  "properties": {
-                    "downlinks": {
-                      "description": "Downlinks for the SatelliteUplink.",
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "name": {
-                      "description": "The name of the SatelliteUplink.",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "name"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "type": "object"
-          },
-          "type": "array"
         },
         "simulation": {
           "description": "Specify simulation topology configuration.",
@@ -823,14 +619,6 @@
               "description": "Define the simulation node (sim node) parameters that are meant to be inherited by the simulation nodes referencing the template. These parameters can be overridden at the sim node level.",
               "items": {
                 "properties": {
-                  "annotations": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "Annotations to assign to the SimNode.",
-                    "type": "object",
-                    "x-kubernetes-preserve-unknown-fields": true
-                  },
                   "image": {
                     "description": "The image to use for this SimNode. This is the full path to the image as it would be provided to the container runtime.",
                     "type": "string"
@@ -838,14 +626,6 @@
                   "imagePullSecret": {
                     "description": "Reference to a Secret to use when pulling the image for this simNode.",
                     "type": "string"
-                  },
-                  "labels": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "Labels to assign to the SimNode.",
-                    "type": "object",
-                    "x-kubernetes-preserve-unknown-fields": true
                   },
                   "name": {
                     "description": "The name of the template.",
@@ -872,14 +652,6 @@
               "description": "Define the sim node to be created/replaced/deleted. A sim node can reference a sim node template to inherit its parameters.",
               "items": {
                 "properties": {
-                  "annotations": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "Annotations to assign to the SimNode.",
-                    "type": "object",
-                    "x-kubernetes-preserve-unknown-fields": true
-                  },
                   "image": {
                     "description": "The image to use for this SimNode. This is the full path to the image as it would be provided to the container runtime.",
                     "type": "string"
@@ -887,14 +659,6 @@
                   "imagePullSecret": {
                     "description": "Reference to a Secret to use when pulling the image for this simNode",
                     "type": "string"
-                  },
-                  "labels": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "description": "Labels to assign to the SimNode.",
-                    "type": "object",
-                    "x-kubernetes-preserve-unknown-fields": true
                   },
                   "name": {
                     "description": "The name of the SimNode. This is the name that will be used to reference the SimNode in the SimTopology.",
@@ -922,7 +686,7 @@
               "minItems": 0,
               "type": "array"
             },
-            "topologies": {
+            "topology": {
               "description": "Define the simulation topology to be created/replaced/deleted by providing the list of nodes/interfaces and their corresponding sim nodes/sim node interfaces.",
               "items": {
                 "properties": {

@@ -40,11 +40,6 @@ export { validateNetworkTopology } from './lib/validate';
 
 export type * from './types/ui';
 export type {
-  Operation,
-  LinkType,
-  LinkSpeed,
-  EncapType,
-  SimNodeType,
   NodeTemplate,
   LinkTemplate,
   SimNodeTemplate,

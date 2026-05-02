@@ -8,7 +8,6 @@ import type {
   Endpoint,
   NodeTemplate,
   LinkTemplate,
-  Operation,
 } from '../../types/schema';
 import type {
   UINode,
@@ -38,13 +37,14 @@ import { asArray, fallbackIfEmptyString } from './shared';
 export interface UIToYamlOptions {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   nodes: UINode[];
   edges: UIEdge[];
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
   simulation?: UISimulation;
   annotations?: UIAnnotation[];
+  disableAnnotations?: boolean;
 }
 
 const ANNOTATION_JSON_PLACEHOLDER = 'ANNOTATION_JSON_PLACEHOLDER';
@@ -53,6 +53,7 @@ const ANNOTATION_JSON_PLACEHOLDER = 'ANNOTATION_JSON_PLACEHOLDER';
  * Convert UI state to YAML string.
  */
 export function exportToYaml(options: UIToYamlOptions): string {
+  const disableAnnotations = options.disableAnnotations ?? false;
   const crd = buildCrd(options);
   let yamlStr = yaml.dump(crd, {
     indent: 2,
@@ -63,7 +64,7 @@ export function exportToYaml(options: UIToYamlOptions): string {
     forceQuotes: false,
   });
 
-  if (options.annotations && options.annotations.length > 0) {
+  if (!disableAnnotations && options.annotations && options.annotations.length > 0) {
     const jsonStr = JSON.stringify(options.annotations);
     const yamlSafeJson = jsonStr.replace(/'/g, "''");
     yamlStr = yamlStr.replace(ANNOTATION_JSON_PLACEHOLDER, `'${yamlSafeJson}'`);
@@ -103,6 +104,8 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     simulation,
   } = options;
 
+  const disableAnnotations = options.disableAnnotations ?? false;
+
   // Separate TopoNodes from SimNodes
   const topoNodes = nodes.filter(n => n.data.nodeType !== 'simnode');
   const simNodes = nodes.filter(n => n.data.nodeType === 'simnode');
@@ -129,26 +132,32 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.serialNumber = node.data.serialNumber;
     }
 
+    if (node.data.productionAddress?.ipv4 || node.data.productionAddress?.ipv6) {
+      yamlNode.productionAddress = node.data.productionAddress;
+    }
+
     if (node.data.labels && Object.keys(node.data.labels).length > 0) {
       yamlNode.labels = node.data.labels;
     }
 
-    yamlNode.annotations = {
-      [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
-      [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
-    };
+    if (!disableAnnotations) {
+      yamlNode.annotations = {
+        [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
+        [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
+      };
+    }
 
     return yamlNode;
   });
 
   // Convert edges to links
-  const yamlLinks = uiEdgesToYamlLinks(edges, nodeIdToName, simNodeIdToName);
+  const yamlLinks = uiEdgesToYamlLinks(edges, nodeIdToName, simNodeIdToName, disableAnnotations);
 
   const metadataObj: Record<string, unknown> = {
     name: topologyName,
     namespace,
   };
-  if (options.annotations && options.annotations.length > 0) {
+  if (!disableAnnotations && options.annotations && options.annotations.length > 0) {
     metadataObj.annotations = {
       [ANNOTATION_DRAWING]: ANNOTATION_JSON_PLACEHOLDER,
     };
@@ -161,7 +170,9 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     metadata: metadataObj as unknown as Topology['metadata'],
     spec: {
       operation,
-      nodeTemplates,
+      nodeTemplates: disableAnnotations
+        ? nodeTemplates.map(({ annotations: _, ...rest }) => rest)
+        : nodeTemplates,
       nodes: yamlNodes,
       linkTemplates,
       links: yamlLinks,
@@ -181,6 +192,13 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     if (node.data.template) simNode.template = node.data.template;
     if (node.data.simNodeType) simNode.type = node.data.simNodeType;
     if (node.data.image) simNode.image = node.data.image;
+
+    if (!disableAnnotations) {
+      simNode.annotations = {
+        [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
+        [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
+      };
+    }
 
     return simNode;
   });
@@ -210,6 +228,7 @@ function uiEdgesToYamlLinks(
   edges: UIEdge[],
   nodeIdToName: Map<string, string>,
   simNodeIdToName: Map<string, string>,
+  disableAnnotations: boolean,
 ): Link[] {
   const { links: esiLagLinks, processedIds } = collectEsiLagLinks({ edges, simNodeIdToName });
 
@@ -223,6 +242,7 @@ function uiEdgesToYamlLinks(
       edge,
       nodeIdToName,
       simNodeIdToName,
+      disableAnnotations,
     });
 
     islLinks.push(...edgeIslLinks);
@@ -236,8 +256,9 @@ function getLinksForNonEsiLagEdge(options: {
   edge: UIEdge;
   nodeIdToName: Map<string, string>;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): { islLinks: Link[]; simLinks: Link[] } {
-  const { edge, nodeIdToName, simNodeIdToName } = options;
+  const { edge, nodeIdToName, simNodeIdToName, disableAnnotations } = options;
 
   const { sourceName, targetName } = resolveEdgeNodeNames(edge, nodeIdToName);
   const sourceIsSimNode = isSimNodeId(edge.source);
@@ -257,6 +278,7 @@ function getLinksForNonEsiLagEdge(options: {
     sourceIsSimNode,
     targetIsSimNode,
     simNodeIdToName,
+    disableAnnotations,
   });
 
   const unlagged = buildUnlaggedLinksForEdge({
@@ -268,6 +290,7 @@ function getLinksForNonEsiLagEdge(options: {
     sourceIsSimNode,
     targetIsSimNode,
     simNodeIdToName,
+    disableAnnotations,
   });
 
   return {
@@ -285,8 +308,9 @@ function buildLagLinksForEdge(options: {
   sourceIsSimNode: boolean;
   targetIsSimNode: boolean;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): Link[] {
-  const { edge, lagGroups, memberLinks, sourceName, targetName, sourceIsSimNode, targetIsSimNode, simNodeIdToName } = options;
+  const { edge, lagGroups, memberLinks, sourceName, targetName, sourceIsSimNode, targetIsSimNode, simNodeIdToName, disableAnnotations } = options;
 
   const links: Link[] = [];
 
@@ -300,6 +324,7 @@ function buildLagLinksForEdge(options: {
       sourceIsSimNode,
       targetIsSimNode,
       simNodeIdToName,
+      disableAnnotations,
     });
     if (lagLink) links.push(lagLink);
   }
@@ -316,6 +341,7 @@ function buildUnlaggedLinksForEdge(options: {
   sourceIsSimNode: boolean;
   targetIsSimNode: boolean;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): { islLinks: Link[]; simLinks: Link[] } {
   const {
     edge,
@@ -326,6 +352,7 @@ function buildUnlaggedLinksForEdge(options: {
     sourceIsSimNode,
     targetIsSimNode,
     simNodeIdToName,
+    disableAnnotations,
   } = options;
 
   const unlaggedMembers = collectUnlaggedMemberLinks(memberLinks, indicesInLags);
@@ -334,7 +361,7 @@ function buildUnlaggedLinksForEdge(options: {
     const simNodeName = resolveSimNodeNameOrId(simNodeIdToName, edge.target);
     const simLinks: Link[] = [];
     for (const { index, member } of unlaggedMembers) {
-      simLinks.push(buildSimMemberLinkWithTargetSim({ edge, sourceName, simNodeName, member, memberIndex: index }));
+      simLinks.push(buildSimMemberLinkWithTargetSim({ edge, sourceName, simNodeName, member, memberIndex: index, disableAnnotations }));
     }
     return { islLinks: [], simLinks };
   }
@@ -343,14 +370,14 @@ function buildUnlaggedLinksForEdge(options: {
     const simNodeName = resolveSimNodeNameOrId(simNodeIdToName, edge.source);
     const simLinks: Link[] = [];
     for (const { index, member } of unlaggedMembers) {
-      simLinks.push(buildSimMemberLinkWithSourceSim({ edge, targetName, simNodeName, member, memberIndex: index }));
+      simLinks.push(buildSimMemberLinkWithSourceSim({ edge, targetName, simNodeName, member, memberIndex: index, disableAnnotations }));
     }
     return { islLinks: [], simLinks };
   }
 
   const islLinks: Link[] = [];
   for (const { index, member } of unlaggedMembers) {
-    islLinks.push(buildIslMemberLink({ edge, sourceName, targetName, member, memberIndex: index }));
+    islLinks.push(buildIslMemberLink({ edge, sourceName, targetName, member, memberIndex: index, disableAnnotations }));
   }
 
   return { islLinks, simLinks: [] };
@@ -358,7 +385,8 @@ function buildUnlaggedLinksForEdge(options: {
 
 // ============ ESI-LAG Processing ============
 
-function createAnnotations(edge: Pick<UIEdge, 'id' | 'data' | 'sourceHandle' | 'targetHandle'>, memberIndex: number): Record<string, string> {
+function createAnnotations(edge: Pick<UIEdge, 'id' | 'data' | 'sourceHandle' | 'targetHandle'>, memberIndex: number, disableAnnotations: boolean): Record<string, string> | undefined {
+  if (disableAnnotations) return undefined;
   const annotations: Record<string, string> = {
     [ANNOTATION_EDGE_ID]: edge.id,
     [ANNOTATION_MEMBER_INDEX]: String(memberIndex),
@@ -562,15 +590,16 @@ function buildLagLinkForSimOnSource(options: {
   targetName: string;
   sourceName: string;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, lag, lagMemberLinks, firstMemberIndex, targetName, sourceName, simNodeIdToName } = options;
+  const { edge, lag, lagMemberLinks, firstMemberIndex, targetName, sourceName, simNodeIdToName, disableAnnotations } = options;
 
   const topoNodeName = targetName;
   const simNodeName = resolveSimNodeNameOrFallback(simNodeIdToName, edge.source, sourceName);
 
   return {
     name: lag.name,
-    annotations: createAnnotations(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex, disableAnnotations),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -592,15 +621,16 @@ function buildLagLinkForSimOnTarget(options: {
   sourceName: string;
   targetName: string;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, lag, lagMemberLinks, firstMemberIndex, sourceName, targetName, simNodeIdToName } = options;
+  const { edge, lag, lagMemberLinks, firstMemberIndex, sourceName, targetName, simNodeIdToName, disableAnnotations } = options;
 
   const topoNodeName = sourceName;
   const simNodeName = resolveSimNodeNameOrFallback(simNodeIdToName, edge.target, targetName);
 
   return {
     name: lag.name,
-    annotations: createAnnotations(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex, disableAnnotations),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: topoNodeName,
@@ -621,12 +651,13 @@ function buildLagLinkForTopoOnly(options: {
   firstMemberIndex: number;
   sourceName: string;
   targetName: string;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, lag, lagMemberLinks, firstMemberIndex, sourceName, targetName } = options;
+  const { edge, lag, lagMemberLinks, firstMemberIndex, sourceName, targetName, disableAnnotations } = options;
 
   return {
     name: lag.name,
-    annotations: createAnnotations(edge, firstMemberIndex),
+    annotations: createAnnotations(edge, firstMemberIndex, disableAnnotations),
     endpoints: lagMemberLinks.map(member => ({
       local: {
         node: targetName,
@@ -649,8 +680,9 @@ function buildLagLinkFromGroup(options: {
   sourceIsSimNode: boolean;
   targetIsSimNode: boolean;
   simNodeIdToName: Map<string, string>;
+  disableAnnotations: boolean;
 }): Link | null {
-  const { edge, lag, memberLinks, sourceName, targetName, sourceIsSimNode, targetIsSimNode, simNodeIdToName } = options;
+  const { edge, lag, memberLinks, sourceName, targetName, sourceIsSimNode, targetIsSimNode, simNodeIdToName, disableAnnotations } = options;
 
   const lagMemberLinks = getLagMemberLinks(lag, memberLinks);
   if (lagMemberLinks.length === 0) return null;
@@ -668,6 +700,7 @@ function buildLagLinkFromGroup(options: {
         targetName,
         sourceName,
         simNodeIdToName,
+        disableAnnotations,
       });
     } else {
       lagLink = buildLagLinkForSimOnTarget({
@@ -678,6 +711,7 @@ function buildLagLinkFromGroup(options: {
         sourceName,
         targetName,
         simNodeIdToName,
+        disableAnnotations,
       });
     }
   } else {
@@ -688,6 +722,7 @@ function buildLagLinkFromGroup(options: {
       firstMemberIndex,
       sourceName,
       targetName,
+      disableAnnotations,
     });
   }
 
@@ -717,13 +752,14 @@ function buildSimMemberLinkWithTargetSim(options: {
   simNodeName: string;
   member: UIMemberLink;
   memberIndex: number;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, sourceName, simNodeName, member, memberIndex } = options;
+  const { edge, sourceName, simNodeName, member, memberIndex, disableAnnotations } = options;
 
   return {
     name: member.name,
     template: member.template,
-    annotations: createAnnotations(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex, disableAnnotations),
     endpoints: [
       {
         local: {
@@ -745,13 +781,14 @@ function buildSimMemberLinkWithSourceSim(options: {
   simNodeName: string;
   member: UIMemberLink;
   memberIndex: number;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, targetName, simNodeName, member, memberIndex } = options;
+  const { edge, targetName, simNodeName, member, memberIndex, disableAnnotations } = options;
 
   return {
     name: member.name,
     template: member.template,
-    annotations: createAnnotations(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex, disableAnnotations),
     endpoints: [
       {
         local: {
@@ -773,12 +810,13 @@ function buildIslMemberLink(options: {
   targetName: string;
   member: UIMemberLink;
   memberIndex: number;
+  disableAnnotations: boolean;
 }): Link {
-  const { edge, sourceName, targetName, member, memberIndex } = options;
+  const { edge, sourceName, targetName, member, memberIndex, disableAnnotations } = options;
 
   const link: Link = {
     name: member.name,
-    annotations: createAnnotations(edge, memberIndex),
+    annotations: createAnnotations(edge, memberIndex, disableAnnotations),
     endpoints: [
       {
         local: {

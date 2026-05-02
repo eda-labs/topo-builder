@@ -4,6 +4,13 @@ import { Handle, Position, useStore } from '@xyflow/react';
 import { useTopologyStore } from '../../lib/store';
 import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
 
+function middleEllipsis(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const left = Math.ceil((max - 1) / 2);
+  const right = Math.floor((max - 1) / 2);
+  return `${text.slice(0, left)}\u2026${text.slice(-right)}`;
+}
+
 export interface BaseNodeProps {
   nodeId: string;
   selected: boolean;
@@ -153,8 +160,8 @@ export default function BaseNode({
         className="flex flex-col items-center justify-center gap-0.5"
       >
         <span className="pointer-events-none">{icon}</span>
-        <div className="w-17.5 text-xs font-bold text-(--color-node-text) text-center overflow-hidden text-ellipsis whitespace-nowrap pointer-events-none">
-          {name}
+        <div className="w-19 text-xs font-bold text-(--color-node-text) text-center pointer-events-none" title={name}>
+          {middleEllipsis(name, 11)}
         </div>
       </div>
     </div>

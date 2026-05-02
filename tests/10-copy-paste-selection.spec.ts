@@ -77,6 +77,6 @@ test('Copy/paste selection of nodes and links', async ({ page, browserName }) =>
   const nodeNames = (doc?.spec?.nodes ?? []).map(n => n.name).sort();
   const linkNames = (doc?.spec?.links ?? []).map(l => l.name).sort();
 
-  expect(nodeNames).toEqual(['leaf1', 'leaf1-copy', 'leaf2', 'leaf2-copy']);
-  expect(linkNames).toEqual(['leaf1-copy-leaf2-copy-1', 'leaf1-leaf2-1']);
+  expect(nodeNames).toEqual(['leaf1', 'leaf2', 'leaf3', 'leaf4']);
+  expect(linkNames).toEqual(['leaf1-leaf2-1', 'leaf3-leaf4-1']);
 });

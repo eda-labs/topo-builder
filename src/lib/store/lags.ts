@@ -51,6 +51,7 @@ export type LagSliceCreator = StateCreator<
     selectedLagId: string | null;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
+    saveToUndoHistory: () => void;
   },
   [],
   [],
@@ -59,6 +60,7 @@ export type LagSliceCreator = StateCreator<
 
 export const createLagSlice: LagSliceCreator = (set, get) => ({
   createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const sourceEdge = edges.find(e => e.id === edgeId);
     if (!sourceEdge || !sourceEdge.data?.memberLinks) return;
@@ -92,6 +94,7 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
   },
 
   addLinkToLag: (edgeId: string, lagId: string) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || !edge.data) return;
@@ -134,6 +137,7 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
   },
 
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || !edge.data) return;

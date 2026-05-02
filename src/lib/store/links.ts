@@ -12,6 +12,7 @@ import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { extractPortNumber, getNameError, getNodeRole } from '../utils';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
+import { getSchemaEnums } from '../schemaEnums';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -96,9 +97,10 @@ function getNodeName(nodes: UINode[], nodeId: string): string {
   return node ? node.data.name : nodeId;
 }
 
-function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean): string {
+function getDefaultTemplate(linkTemplates: LinkTemplate[], simConnection: boolean, schemaVersion: number): string {
   if (!simConnection) return 'isl';
-  return linkTemplates.find(t => t.type === 'edge')?.name || 'edge';
+  const { defaultLinkType } = getSchemaEnums(schemaVersion);
+  return linkTemplates.find(t => t.type === defaultLinkType)?.name || 'edge';
 }
 
 function findExistingEdge(
@@ -286,6 +288,7 @@ export type LinkSliceCreator = StateCreator<
     nodes: UINode[];
     linkTemplates: LinkTemplate[];
     nodeTemplates: NodeTemplate[];
+    schemaVersion: number;
     selectedEdgeId: string | null;
     selectedEdgeIds: string[];
     selectedNodeId: string | null;
@@ -325,7 +328,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const sourceIsSimNode = isSimNodeId(sourceId);
     const targetIsSimNode = isSimNodeId(targetId);
     const simConnection = isSimNodeConnection(sourceId, targetId);
-    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection);
+    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection, get().schemaVersion);
 
     const nextSourcePort = getNextPortNumber(edges, sourceId);
     const nextTargetPort = getNextPortNumber(edges, targetId);
@@ -377,6 +380,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   updateEdge: (id: string, data: Partial<UIEdgeData>) => {
+    get().saveToUndoHistory();
     set({
       edges: get().edges.map(edge =>
         edge.id === id ? { ...edge, data: { ...edge.data, ...data } as UIEdgeData } : edge,
@@ -398,6 +402,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   addMemberLink: (edgeId: string, link: UIMemberLink) => {
+    get().saveToUndoHistory();
     set({
       edges: get().edges.map(edge =>
         edge.id === edgeId
@@ -408,6 +413,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   updateMemberLink: (edgeId: string, index: number, link: Partial<UIMemberLink>) => {
+    get().saveToUndoHistory();
     if (link.name !== undefined) {
       const nameError = getNameError(link.name);
       if (nameError) {
@@ -425,6 +431,7 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
   },
 
   deleteMemberLink: (edgeId: string, index: number) => {
+    get().saveToUndoHistory();
     const edge = get().edges.find(e => e.id === edgeId);
     if (!edge) return;
     const memberLinks = edge.data?.memberLinks || [];
@@ -502,8 +509,9 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       else if (role && superspineRoles.has(role)) superspines.push(node);
     }
 
-    const islTemplate = linkTemplates.find(t => t.type === 'interSwitch')?.name;
-    const edgeTemplate = linkTemplates.find(t => t.type === 'edge')?.name;
+    const enums = getSchemaEnums(state.schemaVersion);
+    const islTemplate = linkTemplates.find(t => t.type === enums.edgeLinkType)?.name;
+    const edgeTemplate = linkTemplates.find(t => t.type === enums.defaultLinkType)?.name;
 
     const newEdges: UIEdge[] = [];
     const currentEdges = [...edges];

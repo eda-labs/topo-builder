@@ -26,6 +26,8 @@ import {
   Select,
   MenuItem,
   Divider,
+  FormControlLabel,
+  Switch,
   Badge,
 } from '@mui/material';
 import { createTheme, type Theme, type ThemeOptions } from '@mui/material/styles';
@@ -50,8 +52,8 @@ import { detectExtension } from '../lib/extensionAPIClient';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
 import type { ValidationResult } from '../types/ui';
-import type { Operation } from '../types/schema';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
+import { getSchemaEnums, supportedVersions } from '../lib/schemaEnums';
 
 import { getEditorContent } from './YamlEditor';
 
@@ -121,9 +123,13 @@ export default function AppLayout({
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);
+  const schemaVersion = useTopologyStore(state => state.schemaVersion);
+  const setSchemaVersion = useTopologyStore(state => state.setSchemaVersion);
   const error = useTopologyStore(state => state.error);
   const setError = useTopologyStore(state => state.setError);
   const autoLink = useTopologyStore(state => state.autoLink);
+  const disableAnnotations = useTopologyStore(state => state.disableAnnotations);
+  const setDisableAnnotations = useTopologyStore(state => state.setDisableAnnotations);
 
   const [copied, setCopied] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -161,6 +167,7 @@ export default function AppLayout({
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
     namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
+    disableAnnotations,
   });
 
   const handleDownload = () => {
@@ -203,8 +210,8 @@ export default function AppLayout({
 
   const handleValidate = () => {
     const yaml = getEditorContent()
-      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations });
-    setValidationResult(validateNetworkTopology(yaml));
+      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, disableAnnotations });
+    setValidationResult(validateNetworkTopology(yaml, schemaVersion));
     setValidationDialogOpen(true);
   };
 
@@ -285,6 +292,17 @@ export default function AppLayout({
               <Typography variant="h6" sx={{ fontWeight: 200, color: toolbarTextColor }}>
                 {TITLE}
               </Typography>
+              <Select
+                variant="standard"
+                size="small"
+                value={schemaVersion}
+                onChange={e => { setSchemaVersion(e.target.value); }}
+                sx={{ ml: 1, color: 'white', '.MuiSelect-icon': { color: 'white' }, fontSize: '0.75rem' }}
+              >
+                {supportedVersions.map(v => (
+                  <MenuItem key={v} value={v}>{v === 26 ? 'v26+' : `v${v}.x`}</MenuItem>
+                ))}
+              </Select>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -421,15 +439,25 @@ export default function AppLayout({
               <Select
                 label="Operation"
                 value={localOperation}
-                onChange={e => { setLocalOperation(e.target.value as Operation); }}
+                onChange={e => { setLocalOperation(e.target.value); }}
               >
-                <MenuItem value="create">create</MenuItem>
-                <MenuItem value="replace">replace</MenuItem>
-                <MenuItem value="replaceAll">replaceAll</MenuItem>
-                <MenuItem value="delete">delete</MenuItem>
-                <MenuItem value="deleteAll">deleteAll</MenuItem>
+                {getSchemaEnums(schemaVersion).operations.map(op => (
+                  <MenuItem key={op} value={op}>{op}</MenuItem>
+                ))}
               </Select>
             </FormControl>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={disableAnnotations}
+                  onChange={e => { setDisableAnnotations(e.target.checked); }}
+                  size="small"
+                />
+              }
+              label="Disable annotations"
+              labelPlacement="start"
+              sx={{ mt: 1, justifyContent: 'space-between', ml: 0, mr: 0 }}
+            />
           </DialogContent>
           <DialogActions>
             <Button variant="contained" onClick={() => {
@@ -451,7 +479,7 @@ export default function AppLayout({
               </Typography>
               <br/>
               <Typography variant="caption">
-                Created by <Link target="_blank" href="https://www.linkedin.com/in/kaelem-chandra/">Kaelem Chandra</Link> and <Link target="_blank" href="https://www.linkedin.com/in/rdodin/">Roman Dodin</Link>
+                Created by <Link target="_blank" href="https://www.linkedin.com/in/kaelem-chandra/">Kaelem Chandra</Link>, <Link target="_blank" href="https://www.linkedin.com/in/rdodin/">Roman Dodin</Link> and <Link target="_blank" href="https://www.linkedin.com/in/florian-schwarz-812a34145/">Florian Schwarz</Link>.
               </Typography>
               <br/>
               <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, my: 1 }}>

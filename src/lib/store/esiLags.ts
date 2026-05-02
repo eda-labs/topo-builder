@@ -53,6 +53,7 @@ export type EsiLagSliceCreator = StateCreator<
     selectedLagId: string | null;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
+    saveToUndoHistory: () => void;
   },
   [],
   [],
@@ -61,6 +62,7 @@ export type EsiLagSliceCreator = StateCreator<
 
 export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const nodes = get().nodes;
 
@@ -150,6 +152,7 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
   },
 
   removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || edge.data?.edgeType !== 'esilag' || !edge.data.esiLeaves) return;
@@ -176,6 +179,7 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
   },
 
   mergeEdgesIntoEsiLag: (esiLagId: string, edgeIds: string[]) => {
+    get().saveToUndoHistory();
     const edges = get().edges;
     const nodes = get().nodes;
 

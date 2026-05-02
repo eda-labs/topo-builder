@@ -1,11 +1,9 @@
 import type { Node, Edge } from '@xyflow/react';
 
 import type {
-  Operation,
   NodeTemplate,
   LinkTemplate,
   SimNodeTemplate,
-  SimNodeType,
 } from './schema';
 
 export type UINodeType = 'node' | 'simnode';
@@ -17,12 +15,13 @@ export interface UINodeData {
   nodeType?: UINodeType;
   template?: string;
   serialNumber?: string;
+  productionAddress?: { ipv4?: string; ipv6?: string };
   labels?: Record<string, string>;
   isNew?: boolean;
   platform?: string;
   nodeProfile?: string;
   role?: string;
-  simNodeType?: SimNodeType;
+  simNodeType?: string;
   image?: string;
 }
 
@@ -69,7 +68,7 @@ export interface UISimNode {
   id: string;
   name: string;
   template?: string;
-  type?: SimNodeType;
+  type?: string;
   image?: string;
   labels?: Record<string, string>;
   position?: { x: number; y: number };
@@ -152,7 +151,7 @@ export type UIAnnotationInput = Omit<UITextAnnotation, 'id'> | Omit<UIShapeAnnot
 export interface UIState {
   topologyName: string;
   namespace: string;
-  operation: Operation;
+  operation: string;
   nodeTemplates: NodeTemplate[];
   linkTemplates: LinkTemplate[];
   nodes: UINode[];

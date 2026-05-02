@@ -14,7 +14,7 @@ import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
 import { getSchemaEnums, setActiveVersion, migrateValue } from '../schemaEnums';
-import { yamlToUI, setIdCounters } from '../yaml-converter';
+import { yamlToUI, setIdCounters, exportToYaml, normalizeNodeCoordinates } from '../yaml-converter';
 import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
 import type { NodeProfileResponse } from '../extensionAPITypes';
 

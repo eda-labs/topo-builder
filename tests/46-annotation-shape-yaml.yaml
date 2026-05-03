@@ -1,4 +1,4 @@
-apiVersion: topologies.eda.nokia.com/v1alpha1
+apiVersion: topologies.eda.nokia.com/v1
 kind: NetworkTopology
 metadata:
   name: my-topology
@@ -6,7 +6,7 @@ metadata:
   annotations:
     topobuilder.eda.labs/drawing: '[{"type":"shape","shapeType":"rectangle","position":{"x":60,"y":60},"width":200,"height":100,"strokeColor":"#314354","fillColor":"#1A222E","strokeWidth":1,"strokeStyle":"solid","id":"a1"}]'
 spec:
-  operation: ReplaceAll
+  operation: Reconcile
   nodeTemplates:
     - name: leaf
       labels:

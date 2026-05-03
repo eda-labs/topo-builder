@@ -165,7 +165,7 @@ export function buildCrd(options: UIToYamlOptions): Topology {
 
   // Build CRD
   const crd: Topology = {
-    apiVersion: 'topologies.eda.nokia.com/v1alpha1',
+    apiVersion: 'topologies.eda.nokia.com/v1',
     kind: 'NetworkTopology',
     metadata: metadataObj as unknown as Topology['metadata'],
     spec: {

@@ -231,7 +231,7 @@ export default function YamlEditor() {
   const {
     topologyName, namespace, operation, nodes, edges,
     nodeTemplates, linkTemplates, simulation, annotations,
-    importFromYaml, yamlRefreshCounter, disableAnnotations,
+    importFromYaml, yamlRefreshCounter, disableAnnotations, schemaVersion,
   } = useTopologyStore();
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -240,7 +240,7 @@ export default function YamlEditor() {
 
   const getYamlFromState = () => exportToYaml({
     topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations,
-    disableAnnotations,
+    disableAnnotations, schemaVersion,
   });
 
   useEffect(() => {

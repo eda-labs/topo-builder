@@ -167,7 +167,7 @@ export default function AppLayout({
   const getExportYaml = () => exportToYaml({
     topologyName: `${topologyName}-${Date.now()}`,
     namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
-    disableAnnotations,
+    disableAnnotations, schemaVersion,
   });
 
   const handleDownload = () => {
@@ -210,7 +210,7 @@ export default function AppLayout({
 
   const handleValidate = () => {
     const yaml = getEditorContent()
-      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, disableAnnotations });
+      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, disableAnnotations, schemaVersion });
     setValidationResult(validateNetworkTopology(yaml, schemaVersion));
     setValidationDialogOpen(true);
   };

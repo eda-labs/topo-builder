@@ -88,6 +88,7 @@ export interface Simulation {
   simNodeTemplates?: SimNodeTemplate[];
   simNodes?: SimNode[];
   topology?: unknown[];
+  topologies?: unknown[];
 }
 
 export interface TopologyMetadata {

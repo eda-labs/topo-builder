@@ -13,7 +13,8 @@ import type { SimNodeTemplate } from '../../types/schema';
 export interface SimNodeState {
   simulation: {
     simNodeTemplates: SimNodeTemplate[];
-    topology?: unknown;
+    topology?: unknown[];
+    topologies?: unknown[];
   };
 }
 

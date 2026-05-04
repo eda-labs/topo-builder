@@ -45,6 +45,7 @@ export interface UIToYamlOptions {
   simulation?: UISimulation;
   annotations?: UIAnnotation[];
   disableAnnotations?: boolean;
+  schemaVersion?: number;
 }
 
 const ANNOTATION_JSON_PLACEHOLDER = 'ANNOTATION_JSON_PLACEHOLDER';
@@ -205,7 +206,8 @@ export function buildCrd(options: UIToYamlOptions): Topology {
 
   const hasSimData = !!simulation && (
     (!!simulation.simNodeTemplates && simulation.simNodeTemplates.length > 0) ||
-    (Array.isArray(simulation.topology) && simulation.topology.length > 0)
+    (Array.isArray(simulation.topology) && simulation.topology.length > 0) ||
+    (Array.isArray(simulation.topologies) && simulation.topologies.length > 0)
   );
   const hasSimNodes = exportSimNodes.length > 0;
 
@@ -214,7 +216,9 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       simNodeTemplates: simulation?.simNodeTemplates,
       // Always include simNodes array when simulation section exists (even if empty)
       simNodes: exportSimNodes,
+      // Preserve whichever field was in the original YAML (v25 uses 'topology', v26+ uses 'topologies')
       topology: Array.isArray(simulation?.topology) ? simulation.topology : undefined,
+      topologies: Array.isArray(simulation?.topologies) ? simulation.topologies : undefined,
     };
   }
 

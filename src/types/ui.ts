@@ -95,7 +95,8 @@ export interface SelectionState {
 
 export interface UISimulation {
   simNodeTemplates: SimNodeTemplate[];
-  topology?: unknown;
+  topology?: unknown[];
+  topologies?: unknown[];
 }
 
 export interface UIClipboard {

@@ -213,7 +213,7 @@ function parseYamlSimulation(options: {
   existingNodesById: Map<string, UINode>;
   simNodeNameToId: Map<string, string>;
   nameToId: Map<string, string>;
-}): { simNodeTemplates: SimNodeTemplate[]; simNodeNodes: UINode[]; topology: unknown[] | undefined } {
+}): { simNodeTemplates: SimNodeTemplate[]; simNodeNodes: UINode[]; topology: unknown[] | undefined; topologies: unknown[] | undefined } {
   const { simData, existingNodesById, simNodeNameToId, nameToId } = options;
 
   const simNodeTemplates = asArray<SimNodeTemplate>(simData?.simNodeTemplates);
@@ -258,6 +258,7 @@ function parseYamlSimulation(options: {
     simNodeTemplates,
     simNodeNodes,
     topology: simData?.topology,
+    topologies: simData?.topologies,
   };
 }
 
@@ -296,7 +297,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     });
 
     const simData = parsed.spec?.simulation;
-    const { simNodeTemplates, simNodeNodes, topology } = parseYamlSimulation({
+    const { simNodeTemplates, simNodeNodes, topology, topologies } = parseYamlSimulation({
       simData,
       existingNodesById,
       simNodeNameToId,
@@ -329,6 +330,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
       simulation: {
         simNodeTemplates,
         topology,
+        topologies,
       },
       annotations,
     };

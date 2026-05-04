@@ -517,7 +517,7 @@ export const createTopologyStore = () => {
           },
 
           async deployToEda() {
-            const { edaStatus, topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations } = get();
+            const { edaStatus, topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, schemaVersion } = get();
             if (edaStatus !== 'connected') {
               return { ok: false, error: 'Not connected to EDA' };
             }
@@ -528,7 +528,7 @@ export const createTopologyStore = () => {
               const yamlStr = exportToYaml({
                 topologyName: workflowName, namespace, operation,
                 nodes: normalizeNodeCoordinates(nodes),
-                edges, nodeTemplates, linkTemplates, simulation, annotations,
+                edges, nodeTemplates, linkTemplates, simulation, annotations, schemaVersion,
               });
               const json = JSON.stringify(yaml.load(yamlStr));
               const path = `/workflows/v1/topologies.eda.nokia.com/v1alpha1/namespaces/${namespace}/networktopologies`;

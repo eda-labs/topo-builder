@@ -973,9 +973,13 @@ function TopologyEditorInner({
       selectSimNode(null);
     } else if (node.type === 'simNode') {
       selectAnnotation(null);
+      // selectNode(null);
+      // selectEdge(null);
       selectSimNode((node.data as UINodeData).name);
     } else {
       selectAnnotation(null);
+      // selectEdge(null);
+      // selectSimNode(null);
       selectNode(node.id);
     }
     setContextMenu({
@@ -1142,10 +1146,10 @@ function TopologyEditorInner({
 
   const hasSelection = (() => {
     if (selectedAnnotationId) return 'annotation' as const;
+    if (selectedSimNodeName) return 'simNode' as const;
     if (selectedNodeId) return 'node' as const;
     if (selectedEdgeIds.length > 1) return 'multiEdge' as const;
     if (selectedEdgeId) return 'edge' as const;
-    if (selectedSimNodeName) return 'simNode' as const;
     return null;
   })();
 

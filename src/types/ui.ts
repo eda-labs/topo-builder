@@ -30,7 +30,7 @@ export type UINode = Node<UINodeData>;
 export interface UILagGroup {
   id: string;
   name: string;
-  template?: string;
+  template: string;
   memberLinkIndices: number[];
   labels?: Record<string, string>;
 }
@@ -44,7 +44,7 @@ export type UIEdgeType = 'normal' | 'lag' | 'esilag';
 
 export interface UIMemberLink {
   name: string;
-  template?: string;
+  template: string;
   sourceInterface: string;
   targetInterface: string;
   labels?: Record<string, string>;

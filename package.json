@@ -23,9 +23,10 @@
     "**/*.css"
   ],
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "generate:types": "npx ts-node scripts/generate-schema-types.ts",
+    "dev": "npm run generate:types && astro dev",
+    "build": "npm run generate:types && astro build",
+    "build:lib": "npm run generate:types && vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
     "build:all": "npm run build && npm run build:lib",
     "preview": "astro preview",
     "astro": "astro",
@@ -77,6 +78,7 @@
     "eslint-plugin-unicorn": "^62.0.0",
     "globals": "^17.3.0",
     "jscpd": "^4.0.8",
+    "json-schema-to-typescript": "^15.0.4",
     "typescript-eslint": "^8.53.1"
   }
 }

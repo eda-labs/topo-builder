@@ -160,7 +160,7 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
 
     addMemberLink(edge.id, {
       name: `${edge.data.targetNode}-${edge.data.sourceNode}-${nextLinkNumber}`,
-      template: copiedLink.template,
+      template: copiedLink.template ?? '',
       sourceInterface,
       targetInterface,
     });

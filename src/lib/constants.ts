@@ -139,6 +139,7 @@ export const NODE_PROFILE_SUGGESTIONS = [
   'srlinux-ghcr-25.3.3',
   'srlinux-ghcr-25.7.1',
   'srlinux-ghcr-25.7.2',
+  'srlinux-ghcr-26.3.1',
   'sros-ghcr-24.10.r4',
   'sros-ghcr-24.10.r5',
   'sros-ghcr-24.10.r6',
@@ -147,4 +148,5 @@ export const NODE_PROFILE_SUGGESTIONS = [
   'sros-ghcr-25.3.r2',
   'sros-ghcr-25.7.r1',
   'sros-ghcr-25.7.r2',
+  'sros-ghcr-26.3.r1',
 ];

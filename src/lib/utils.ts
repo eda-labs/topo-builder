@@ -189,7 +189,7 @@ export const createLagGroup = (
   return {
     id: generateLagId(edgeId, lagCount),
     name: generateLagName(targetNode, sourceNode, lagCount),
-    template: firstMemberLink?.template,
+    template: firstMemberLink?.template ?? '',
     memberLinkIndices,
   };
 };

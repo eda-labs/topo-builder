@@ -406,6 +406,7 @@ function buildEsiLagMemberLinks(
   commonName: string,
   leaves: EsiLagLeafWithInterfaces[],
   userLabels: Record<string, string> | undefined,
+  template: string,
 ): UIMemberLink[] {
   const memberLinks: UIMemberLink[] = [];
 
@@ -416,6 +417,7 @@ function buildEsiLagMemberLinks(
       sourceInterface: leaf.sourceInterface,
       targetInterface: leaf.targetInterface,
       labels: i === 0 ? userLabels : undefined,
+      template,
     });
   }
 
@@ -444,7 +446,7 @@ function buildEsiLagEdgeFromLink(options: {
 
   const edgeId = generateEdgeId();
   const esiLeaves: UIEsiLeaf[] = leaves.map(l => ({ nodeId: l.nodeId, nodeName: l.name }));
-  const memberLinks = buildEsiLagMemberLinks(commonName, leaves, userLabels);
+  const memberLinks = buildEsiLagMemberLinks(commonName, leaves, userLabels, link.template ?? '');
 
   return {
     id: edgeId,
@@ -502,7 +504,7 @@ function addLagToEdgeGroup(options: {
     const endpoint = parsedEndpoints[idx];
     edgeGroup.memberLinks.push({
       name: `${linkName}-${idx + 1}`,
-      template: link.template,
+      template: link.template ?? '',
       sourceInterface: endpoint.sourceInterface,
       targetInterface: fallbackIfEmptyString(endpoint.targetInterface, DEFAULT_INTERFACE),
     });
@@ -512,7 +514,7 @@ function addLagToEdgeGroup(options: {
   edgeGroup.lagGroups.push({
     id: `lag-${pairKey}-${edgeGroup.lagGroups.length + 1}`,
     name: linkName,
-    template: link.template,
+    template: link.template ?? '',
     memberLinkIndices: lagIndices,
     labels: userLabels,
   });
@@ -529,7 +531,7 @@ function addSingleLinkToEdgeGroup(options: {
 
   edgeGroup.memberLinks.push({
     name: linkName,
-    template: link.template,
+    template: link.template ?? '',
     sourceInterface: firstEndpoint.sourceInterface,
     targetInterface: fallbackIfEmptyString(firstEndpoint.targetInterface, DEFAULT_INTERFACE),
     labels: userLabels,

@@ -14,7 +14,15 @@ import baseTemplateYaml from '../../static/base-template.yaml?raw';
 import type { UINodeData, UIEdgeData, UISimNode, UIAnnotation, UIState } from '../../types/ui';
 import { EMPTY_STRING_SET, generateCopyName, getNameError } from '../utils';
 import { getSchemaEnums, setActiveVersion, migrateValue } from '../schemaEnums';
-import { yamlToUI, setIdCounters, exportToYaml, normalizeNodeCoordinates } from '../yaml-converter';
+import {
+  yamlToUI,
+  setIdCounters,
+  exportToYaml,
+  normalizeNodeCoordinates,
+  generateNodeId,
+  generateEdgeId,
+  generateSimNodeId,
+} from '../yaml-converter';
 import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
 import type { NodeProfileResponse } from '../extensionAPITypes';
 
@@ -54,14 +62,6 @@ import {
 } from './history';
 
 const DEFAULT_SCHEMA_VERSION = 26;
-
-// ID counters
-let nodeIdCounter = 1;
-let edgeIdCounter = 1;
-let simNodeIdCounter = 1;
-const generateNodeId = () => `node-${nodeIdCounter++}`;
-const generateEdgeId = () => `edge-${edgeIdCounter++}`;
-const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
 
 // Set ID generators for slices
 setNodeIdGenerator(generateNodeId);
@@ -580,8 +580,7 @@ export const createTopologyStore = () => {
 
           clearAll: () => {
             get().saveToUndoHistory();
-            nodeIdCounter = 1;
-            edgeIdCounter = 1;
+            setIdCounters(1, 1, 1);
             setAnnotationIdCounter(1);
             const { showSimNodes, yamlRefreshCounter } = get();
             set({
@@ -742,11 +741,8 @@ export const createTopologyStore = () => {
                 maxAnnotationId = Math.max(maxAnnotationId, num);
               }
             }
-            nodeIdCounter = maxNodeId + 1;
-            edgeIdCounter = maxEdgeId + 1;
-            simNodeIdCounter = maxSimNodeId + 1;
+            setIdCounters(maxNodeId + 1, maxEdgeId + 1, maxSimNodeId + 1);
             setAnnotationIdCounter(maxAnnotationId + 1);
-            setIdCounters(nodeIdCounter, edgeIdCounter, simNodeIdCounter);
           }
         },
       },

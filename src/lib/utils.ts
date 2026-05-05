@@ -1,4 +1,4 @@
-import type { UIEdge, UIEdgeLink, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
+import type { UIEdge, UIEdgeLink, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState, UINode } from '../types/ui';
 import type { LinkTemplate } from '../types/schema';
 
 import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
@@ -129,6 +129,7 @@ export const extractPortNumber = (iface: string): number => {
 export const getNextPortNumber = (
   nodeId: string,
   edges: UIEdge[],
+  nodes: UINode[],
   _isSimNode: boolean = false,
 ): number => {
   const portNumbers = edges.flatMap(e => {
@@ -136,7 +137,11 @@ export const getNextPortNumber = (
     if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
     return [];
   });
-  return Math.max(0, ...portNumbers) + 1;
+
+  const node = nodes.find(n => n.id === nodeId);
+  const edgeLinkPorts = node?.data?.edgeLinks?.map(el => extractPortNumber(el.interface)) || [];
+
+  return Math.max(0, ...portNumbers, ...edgeLinkPorts) + 1;
 };
 
 export const generateInterfaceName = (portNumber: number, isSimNode: boolean): string => {
@@ -254,12 +259,35 @@ export const toggleMemberLinkIndex = (
     : [...currentIndices, index].sort((a, b) => a - b);
 };
 
-export const getNextEdgeLinkInterface = (edgeLinks: UIEdgeLink[]): string => {
+export const getNextEdgeLinkInterface = (
+  edgeLinks: UIEdgeLink[],
+  edges: UIEdge[],
+  nodeId: string,
+): string => {
   let maxNum = 0;
+
   for (const link of edgeLinks) {
     const num = extractPortNumber(link.interface);
     if (num > maxNum) maxNum = num;
   }
+
+  for (const edge of edges) {
+    const memberLinks = edge.data?.memberLinks;
+    if (!memberLinks) continue;
+    if (edge.source === nodeId) {
+      for (const ml of memberLinks) {
+        const num = extractPortNumber(ml.sourceInterface);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    if (edge.target === nodeId) {
+      for (const ml of memberLinks) {
+        const num = extractPortNumber(ml.targetInterface);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  }
+
   return generateInterfaceName(maxNum + 1, false);
 };
 

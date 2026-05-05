@@ -55,6 +55,7 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
         open={edgeLinksModalOpen}
         onClose={() => { setEdgeLinksModalOpen(false); }}
         nodeName={nodeData.name}
+        nodeId={id}
         edgeLinks={edgeLinks}
         linkTemplates={linkTemplates}
         onUpdate={handleEdgeLinkUpdate}

@@ -134,13 +134,21 @@ function getInterfacesForNodeInEdge(edge: UIEdge, nodeId: string): string[] {
   return [];
 }
 
-function getNextPortNumber(edges: UIEdge[], nodeId: string): number {
+function getNextPortNumber(edges: UIEdge[], nodeId: string, nodes: UINode[]): number {
   let maxPort = 0;
 
   for (const edge of edges) {
     const interfaces = getInterfacesForNodeInEdge(edge, nodeId);
     for (const iface of interfaces) {
       const port = extractPortNumber(iface);
+      if (port > maxPort) maxPort = port;
+    }
+  }
+
+  const node = nodes.find(n => n.id === nodeId);
+  if (node?.data?.edgeLinks) {
+    for (const edgeLink of node.data.edgeLinks) {
+      const port = extractPortNumber(edgeLink.interface);
       if (port > maxPort) maxPort = port;
     }
   }
@@ -330,8 +338,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const simConnection = isSimNodeConnection(sourceId, targetId);
     const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection, get().schemaVersion);
 
-    const nextSourcePort = getNextPortNumber(edges, sourceId);
-    const nextTargetPort = getNextPortNumber(edges, targetId);
+    const nextSourcePort = getNextPortNumber(edges, sourceId, nodes);
+    const nextTargetPort = getNextPortNumber(edges, targetId, nodes);
 
     const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
     const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
@@ -522,8 +530,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       const sourceIsSimNode = isSimNodeId(sourceNode.id);
       const targetIsSimNode = isSimNodeId(targetNode.id);
 
-      const nextSourcePort = getNextPortNumber(currentEdges, sourceNode.id);
-      const nextTargetPort = getNextPortNumber(currentEdges, targetNode.id);
+      const nextSourcePort = getNextPortNumber(currentEdges, sourceNode.id, nodes);
+      const nextTargetPort = getNextPortNumber(currentEdges, targetNode.id, nodes);
       const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
       const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
 

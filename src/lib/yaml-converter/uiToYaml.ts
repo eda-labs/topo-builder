@@ -154,6 +154,10 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   // Convert edges to links
   const yamlLinks = uiEdgesToYamlLinks(edges, nodeIdToName, simNodeIdToName, disableAnnotations);
 
+  // Convert node edge links to YAML links
+  const edgeLinks = collectEdgeLinksFromNodes(topoNodes);
+  yamlLinks.push(...edgeLinks);
+
   const metadataObj: Record<string, unknown> = {
     name: topologyName,
     namespace,
@@ -223,6 +227,39 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   }
 
   return crd;
+}
+
+function collectEdgeLinksFromNodes(nodes: UINode[]): Link[] {
+  const links: Link[] = [];
+
+  for (const node of nodes) {
+    const edgeLinks = node.data.edgeLinks as Array<{
+      name: string;
+      template?: string;
+      interface: string;
+      labels?: Record<string, string>;
+    }> | undefined;
+    if (!edgeLinks || edgeLinks.length === 0) continue;
+
+    for (const edgeLink of edgeLinks) {
+      const link: Link = {
+        name: edgeLink.name,
+        endpoints: [{
+          local: {
+            node: node.data.name,
+            interface: edgeLink.interface,
+          },
+        }],
+      };
+      if (edgeLink.template) link.template = edgeLink.template;
+      if (edgeLink.labels && Object.keys(edgeLink.labels).length > 0) {
+        link.labels = edgeLink.labels;
+      }
+      links.push(link);
+    }
+  }
+
+  return links;
 }
 
 /**

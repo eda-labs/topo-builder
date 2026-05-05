@@ -1,4 +1,5 @@
-import type { UIEdge, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
+import type { UIEdge, UIEdgeLink, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
+import type { LinkTemplate } from '../types/schema';
 
 import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
 
@@ -251,4 +252,24 @@ export const toggleMemberLinkIndex = (
   return currentIndices.includes(index)
     ? currentIndices.filter(i => i !== index)
     : [...currentIndices, index].sort((a, b) => a - b);
+};
+
+export const getNextEdgeLinkInterface = (edgeLinks: UIEdgeLink[]): string => {
+  let maxNum = 0;
+  for (const link of edgeLinks) {
+    const num = extractPortNumber(link.interface);
+    if (num > maxNum) maxNum = num;
+  }
+  return generateInterfaceName(maxNum + 1, false);
+};
+
+export const getDefaultEdgeTemplate = (
+  edgeLinks: UIEdgeLink[],
+  linkTemplates: LinkTemplate[],
+): string => {
+  const lastLink = edgeLinks[edgeLinks.length - 1];
+  if (lastLink?.template) return lastLink.template;
+  const edgeTemplates = linkTemplates.filter(t => t.type === 'Edge');
+  if (edgeTemplates.length > 0) return edgeTemplates[0].name;
+  return '';
 };

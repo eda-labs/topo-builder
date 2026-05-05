@@ -21,7 +21,7 @@ test('Add and delete node templates', async ({ page }) => {
       annotations: {
         'topobuilder.eda.labs/name-prefix': 'borderleaf',
       },
-      nodeProfile: 'srlinux-ghcr-25.10.1',
+      nodeProfile: 'srlinux-ghcr-26.3.1',
       platform: '7220 IXR-D3L',
     });
 

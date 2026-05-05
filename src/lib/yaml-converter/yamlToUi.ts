@@ -15,6 +15,7 @@ import { getSchemaEnums } from '../schemaEnums';
 import type {
   UINode,
   UIEdge,
+  UIEdgeLink,
   UIMemberLink,
   UILagGroup,
   UIEsiLeaf,
@@ -306,7 +307,11 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
 
     nodes.push(...simNodeNodes);
 
-    const edges = yamlLinksToUIEdges(asArray<Link>(parsed.spec?.links), nameToId, existingEdges);
+    const allLinks = asArray<Link>(parsed.spec?.links);
+    const edgeLinksByNode = parseEdgeOnlyLinks(allLinks);
+    attachEdgeLinksToNodes(nodes, edgeLinksByNode);
+
+    const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
 
     let annotations: UIAnnotation[] = [];
     const metadataAnnotations = (parsed.metadata as Record<string, unknown> | undefined)?.annotations as Record<string, unknown> | undefined;
@@ -626,6 +631,51 @@ function buildEdgesFromGroups(options: {
   return edges;
 }
 
+function isEdgeOnlyLink(parsedEndpoints: ParsedEndpoint[]): boolean {
+  if (parsedEndpoints.length === 0) return false;
+  return parsedEndpoints.every(ep => ep.targetName === null);
+}
+
+function parseEdgeOnlyLinks(links: Link[]): Map<string, UIEdgeLink[]> {
+  const edgeLinksByNode = new Map<string, UIEdgeLink[]>();
+
+  for (const link of links) {
+    const endpoints = asArray<Endpoint>(link.endpoints);
+    if (endpoints.length === 0) continue;
+
+    const parsedEndpoints = parseYamlLinkEndpoints(endpoints);
+    if (!isEdgeOnlyLink(parsedEndpoints)) continue;
+
+    const userLabels = filterUserLabels(link.labels);
+
+    for (const ep of parsedEndpoints) {
+      const nodeName = ep.sourceName;
+      let nodeEdgeLinks = edgeLinksByNode.get(nodeName);
+      if (!nodeEdgeLinks) {
+        nodeEdgeLinks = [];
+        edgeLinksByNode.set(nodeName, nodeEdgeLinks);
+      }
+      nodeEdgeLinks.push({
+        name: link.name || `${nodeName}-${ep.sourceInterface}`,
+        template: link.template,
+        interface: ep.sourceInterface,
+        labels: userLabels,
+      });
+    }
+  }
+
+  return edgeLinksByNode;
+}
+
+function attachEdgeLinksToNodes(nodes: UINode[], edgeLinksByNode: Map<string, UIEdgeLink[]>): void {
+  for (const node of nodes) {
+    const edgeLinks = edgeLinksByNode.get(node.data.name);
+    if (edgeLinks && edgeLinks.length > 0) {
+      node.data.edgeLinks = edgeLinks;
+    }
+  }
+}
+
 function yamlLinksToUIEdges(
   links: Link[],
   nameToId: Map<string, string>,
@@ -638,8 +688,11 @@ function yamlLinksToUIEdges(
     const endpoints = asArray<Endpoint>(link.endpoints);
     if (endpoints.length === 0) continue;
 
-    const userLabels = filterUserLabels(link.labels);
     const parsedEndpoints = parseYamlLinkEndpoints(endpoints);
+
+    if (isEdgeOnlyLink(parsedEndpoints)) continue;
+
+    const userLabels = filterUserLabels(link.labels);
 
     if (isEsiLagLink(parsedEndpoints)) {
       const handles = extractHandles(link.annotations);

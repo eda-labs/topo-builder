@@ -12,7 +12,7 @@ spec:
         eda.nokia.com/security-profile: managed
       annotations:
         topobuilder.eda.labs/name-prefix: leaf
-      nodeProfile: srlinux-ghcr-25.10.1
+      nodeProfile: srlinux-ghcr-26.3.1
       platform: 7220 IXR-D3L
     - name: spine
       labels:
@@ -20,7 +20,7 @@ spec:
         eda.nokia.com/security-profile: managed
       annotations:
         topobuilder.eda.labs/name-prefix: spine
-      nodeProfile: srlinux-ghcr-25.10.1
+      nodeProfile: srlinux-ghcr-26.3.1
       platform: 7220 IXR-D5
     - name: superspine
       labels:
@@ -28,7 +28,7 @@ spec:
         eda.nokia.com/security-profile: managed
       annotations:
         topobuilder.eda.labs/name-prefix: superspine
-      nodeProfile: srlinux-ghcr-25.10.1
+      nodeProfile: srlinux-ghcr-26.3.1
       platform: 7220 IXR-H5-64D
   nodes:
     - name: router1

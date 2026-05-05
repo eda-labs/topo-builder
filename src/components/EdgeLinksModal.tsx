@@ -20,11 +20,13 @@ import AddIcon from '@mui/icons-material/Add';
 import type { UIEdgeLink } from '../types/ui';
 import type { LinkTemplate } from '../types/schema';
 import { getNextEdgeLinkInterface, getDefaultEdgeTemplate } from '../lib/utils';
+import { useTopologyStore } from '../lib/store';
 
 interface EdgeLinksModalProps {
   open: boolean;
   onClose: () => void;
   nodeName: string;
+  nodeId: string;
   edgeLinks: UIEdgeLink[];
   linkTemplates: LinkTemplate[];
   onUpdate: (edgeLinks: UIEdgeLink[]) => void;
@@ -34,21 +36,23 @@ export default function EdgeLinksModal({
   open,
   onClose,
   nodeName,
+  nodeId,
   edgeLinks,
   linkTemplates,
   onUpdate,
 }: EdgeLinksModalProps) {
   const edgeTemplates = linkTemplates.filter(t => t.type === 'Edge');
+  const edges = useTopologyStore(state => state.edges);
 
   const [newInterface, setNewInterface] = useState('');
   const [newTemplate, setNewTemplate] = useState('');
 
   useEffect(() => {
     if (open) {
-      setNewInterface(getNextEdgeLinkInterface(edgeLinks));
+      setNewInterface(getNextEdgeLinkInterface(edgeLinks, edges, nodeId));
       setNewTemplate(getDefaultEdgeTemplate(edgeLinks, linkTemplates));
     }
-  }, [open, edgeLinks, linkTemplates]);
+  }, [open, edgeLinks, linkTemplates, edges, nodeId]);
 
   const handleAdd = () => {
     const iface = newInterface.trim();
@@ -62,7 +66,7 @@ export default function EdgeLinksModal({
 
     const updatedLinks = [...edgeLinks, newEdgeLink];
     onUpdate(updatedLinks);
-    setNewInterface(getNextEdgeLinkInterface(updatedLinks));
+    setNewInterface(getNextEdgeLinkInterface(updatedLinks, edges, nodeId));
     setNewTemplate(getDefaultEdgeTemplate(updatedLinks, linkTemplates));
   };
 

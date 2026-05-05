@@ -313,6 +313,7 @@ export function NodeEditor({
         open={edgeLinksModalOpen}
         onClose={() => { setEdgeLinksModalOpen(false); }}
         nodeName={nodeData.name}
+        nodeId={node.id}
         edgeLinks={nodeData.edgeLinks || []}
         linkTemplates={linkTemplates}
         onUpdate={(newEdgeLinks: UIEdgeLink[]) => {

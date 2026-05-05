@@ -146,7 +146,10 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
         return [];
       });
 
-      return Math.max(0, ...portNumbers) + 1;
+      const node = currentState.nodes.find(n => n.id === nodeId);
+      const edgeLinkPorts = node?.data?.edgeLinks?.map(el => extractPortNumber(el.interface)) || [];
+
+      return Math.max(0, ...portNumbers, ...edgeLinkPorts) + 1;
     };
 
     const nextSourcePort = nextPortForNode(edge.source);

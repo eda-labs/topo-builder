@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Box,
+  Button,
   Chip,
   FormControl,
   InputLabel,
@@ -10,6 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import type { Edge, Node } from '@xyflow/react';
 const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)$/;
 const IPV6_REGEX = /^(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|:(?::[0-9a-fA-F]{1,4}){1,7}|::(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}|(?:[0-9a-fA-F]{1,4}:){1,5}:(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:[fF]{2}:)?(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3})$/;
@@ -38,8 +40,9 @@ import { getInheritedNodeLabels } from '../../lib/labels';
 import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import type { NodeTemplate } from '../../types/schema';
-import type { UINodeData, UIEdgeData } from '../../types/ui';
+import type { UINodeData, UIEdgeData, UIEdgeLink } from '../../types/ui';
 
+import EdgeLinksModal from '../EdgeLinksModal';
 import { EditableLabelsSection, PanelHeader, PanelSection } from './shared';
 
 const SPACE_BETWEEN = 'space-between';
@@ -60,6 +63,7 @@ export function NodeEditor({
   const nodeData = node.data;
   const updateNode = useTopologyStore(state => state.updateNode);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+  const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const schemaVersion = useTopologyStore(state => state.schemaVersion);
   const requirePrefix = schemaVersion >= 26;
 
@@ -67,6 +71,7 @@ export function NodeEditor({
   const nodeNameInputRef = externalRef || internalRef;
 
   const [localNodeName, setLocalNodeName] = useState(nodeData.name || '');
+  const [edgeLinksModalOpen, setEdgeLinksModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalNodeName(nodeData.name || '');
@@ -275,6 +280,45 @@ export function NodeEditor({
           </Box>
         </PanelSection>
       )}
+
+      <PanelSection
+        title="Edge Links"
+        count={nodeData.edgeLinks?.length || 0}
+        actions={
+          <Button size="small" startIcon={<EditIcon />} onClick={() => { setEdgeLinksModalOpen(true); }}>
+            Edit
+          </Button>
+        }
+      >
+        {nodeData.edgeLinks && nodeData.edgeLinks.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+            {nodeData.edgeLinks.map((link, idx) => (
+              <Chip
+                key={idx}
+                label={link.interface}
+                size="small"
+                variant="outlined"
+                sx={{ bgcolor: CARD_BG, borderColor: CARD_BORDER }}
+              />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            No edge links configured
+          </Typography>
+        )}
+      </PanelSection>
+
+      <EdgeLinksModal
+        open={edgeLinksModalOpen}
+        onClose={() => { setEdgeLinksModalOpen(false); }}
+        nodeName={nodeData.name}
+        edgeLinks={nodeData.edgeLinks || []}
+        linkTemplates={linkTemplates}
+        onUpdate={(newEdgeLinks: UIEdgeLink[]) => {
+          handleUpdateNodeField({ edgeLinks: newEdgeLinks });
+        }}
+      />
     </Box>
   );
 }

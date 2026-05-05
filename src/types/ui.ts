@@ -8,6 +8,13 @@ import type {
 
 export type UINodeType = 'node' | 'simnode';
 
+export interface UIEdgeLink {
+  name: string;
+  template?: string;
+  interface: string;
+  labels?: Record<string, string>;
+}
+
 export interface UINodeData {
   [key: string]: unknown;
   id: string;
@@ -23,6 +30,7 @@ export interface UINodeData {
   role?: string;
   simNodeType?: string;
   image?: string;
+  edgeLinks?: UIEdgeLink[];
 }
 
 export type UINode = Node<UINodeData>;

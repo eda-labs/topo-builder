@@ -29,6 +29,7 @@ import {
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
+import { migrateValue } from '../schemaEnums';
 
 import { asArray, fallbackIfEmptyString } from './shared';
 
@@ -49,6 +50,7 @@ export interface UIToYamlOptions {
 }
 
 const ANNOTATION_JSON_PLACEHOLDER = 'ANNOTATION_JSON_PLACEHOLDER';
+const DEFAULT_EXPORT_SCHEMA_VERSION = 26;
 
 /**
  * Convert UI state to YAML string.
@@ -106,6 +108,13 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   } = options;
 
   const disableAnnotations = options.disableAnnotations ?? false;
+  const schemaVersion = Number(options.schemaVersion ?? DEFAULT_EXPORT_SCHEMA_VERSION);
+  const yamlOperation = migrateValue(operation, schemaVersion);
+  const yamlLinkTemplates = linkTemplates.map(template => ({
+    ...template,
+    type: template.type ? migrateValue(template.type, schemaVersion) : template.type,
+    encapType: template.encapType ? migrateValue(template.encapType, schemaVersion) : template.encapType,
+  }));
 
   // Separate TopoNodes from SimNodes
   const topoNodes = nodes.filter(n => n.data.nodeType !== 'simnode');
@@ -174,12 +183,12 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     kind: 'NetworkTopology',
     metadata: metadataObj as unknown as Topology['metadata'],
     spec: {
-      operation,
+      operation: yamlOperation,
       nodeTemplates: disableAnnotations
         ? nodeTemplates.map(({ annotations: _, ...rest }) => rest)
         : nodeTemplates,
       nodes: yamlNodes,
-      linkTemplates,
+      linkTemplates: yamlLinkTemplates,
       links: yamlLinks,
     },
   };

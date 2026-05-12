@@ -1,8 +1,13 @@
 {
   "name": "@eda-labs/topo-builder",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "EDA Topology Builder app and reusable React library.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eda-labs/topo-builder.git"
+  },
   "main": "./dist/lib/index.js",
   "module": "./dist/lib/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -12,7 +17,10 @@
       "import": "./dist/lib/index.js",
       "default": "./dist/lib/index.js"
     },
-    "./styles.css": "./dist/lib/styles.css",
+    "./styles.css": {
+      "types": "./dist/lib/styles.css.d.ts",
+      "default": "./dist/lib/styles.css"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -22,11 +30,14 @@
   "sideEffects": [
     "**/*.css"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "generate:types": "npx ts-node scripts/generate-schema-types.ts",
     "dev": "astro dev",
     "build": "astro build",
-    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json && node scripts/write-style-css-type.mjs",
     "build:all": "npm run build:lib",
     "preview": "astro preview",
     "astro": "astro",
@@ -40,36 +51,42 @@
     "cpd": "jscpd src/"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.2",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
     "@monaco-editor/react": "^4.7.0",
-    "@mui/icons-material": "^7.3.7",
-    "@mui/material": "^7.3.7",
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/react": "^19.2.8",
-    "@types/react-dom": "^19.2.3",
-    "@xyflow/react": "^12.10.0",
     "ajv": "^8.17.1",
-    "astro": "^5.18.1",
+    "bezier-js": "^6.1.4",
     "fastest-levenshtein": "^1.0.16",
     "html-to-image": "^1.11.13",
     "js-yaml": "^4.1.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "tailwindcss": "^4.1.18",
     "zustand": "^5.0.10"
   },
+  "peerDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/material": "^7.3.7",
+    "@xyflow/react": "^12.10.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
   "devDependencies": {
+    "@astrojs/react": "^4.4.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@eslint/js": "^9.39.2",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/material": "^7.3.7",
     "@playwright/test": "^1.58.0",
     "@stylistic/eslint-plugin": "^5.7.1",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/bezier-js": "^4.1.3",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.0.10",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
-    "bezier-js": "^6.1.4",
+    "@xyflow/react": "^12.10.0",
+    "astro": "^5.18.1",
     "eslint": "^9.39.2",
     "eslint-plugin-import-x": "^4.16.1",
     "eslint-plugin-react": "^7.37.5",
@@ -79,6 +96,9 @@
     "globals": "^17.3.0",
     "jscpd": "^4.0.8",
     "json-schema-to-typescript": "^15.0.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.18",
     "typescript-eslint": "^8.53.1"
   }
 }

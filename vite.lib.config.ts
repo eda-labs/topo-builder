@@ -42,7 +42,7 @@ export default defineConfig({
       cssFileName: 'styles',
     },
     outDir: 'dist/lib',
-    sourcemap: true,
+    sourcemap: false,
     emptyOutDir: true,
     rollupOptions: {
       external: isExternalDependency,

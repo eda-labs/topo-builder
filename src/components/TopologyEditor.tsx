@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo, useRef, type SyntheticEvent } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef, type ReactNode, type SyntheticEvent } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -50,6 +50,7 @@ const edgeTypes: EdgeTypes = {
 };
 
 export interface TopologyEditorProps extends TopologyThemingProps {
+  renderYamlPanel?: () => ReactNode;
   reactFlowColorMode?: 'light' | 'dark';
 }
 
@@ -387,11 +388,13 @@ function SidePanel({
   onTabChange,
   open,
   onToggle,
+  renderYamlPanel,
 }: {
   activeTab: number;
   onTabChange: (tab: number) => void;
   open: boolean;
   onToggle: () => void;
+  renderYamlPanel?: () => ReactNode;
 }) {
   const theme = useTheme();
   const borderColor = theme.palette.divider;
@@ -509,7 +512,7 @@ function SidePanel({
         </Tabs>
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', bgcolor: contentBg }}>
           <Box sx={{ flex: 1, overflow: 'auto', p: 0, display: activeTab === 0 ? 'flex' : 'none', flexDirection: 'column' }}>
-            <YamlEditor />
+            {renderYamlPanel ? renderYamlPanel() : <YamlEditor />}
           </Box>
           <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: activeTab === 1 ? 'block' : 'none' }}>
             <SelectionPanel />
@@ -586,6 +589,7 @@ function TopologyEditorInner({
   themeOptions,
   disableCssBaseline,
   styleVariables,
+  renderYamlPanel,
   reactFlowColorMode,
 }: TopologyEditorProps) {
   const flowColorMode = resolveReactFlowColorMode({ reactFlowColorMode, theme, themeOptions });
@@ -1224,6 +1228,7 @@ function TopologyEditorInner({
           onTabChange={(tab: number) => { setActiveTab(tab); if (tab === 0) triggerYamlRefresh(); }}
           open={panelOpen}
           onToggle={() => { setPanelOpen(!panelOpen); }}
+          renderYamlPanel={renderYamlPanel}
         />
       </Box>
 
@@ -1274,6 +1279,7 @@ export default function TopologyEditor({
   themeOptions,
   disableCssBaseline,
   styleVariables,
+  renderYamlPanel,
   reactFlowColorMode,
 }: TopologyEditorProps = {}) {
   return (
@@ -1283,6 +1289,7 @@ export default function TopologyEditor({
         themeOptions={themeOptions}
         disableCssBaseline={disableCssBaseline}
         styleVariables={styleVariables}
+        renderYamlPanel={renderYamlPanel}
         reactFlowColorMode={reactFlowColorMode}
       />
     </ReactFlowProvider>

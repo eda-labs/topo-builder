@@ -108,7 +108,7 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   } = options;
 
   const disableAnnotations = options.disableAnnotations ?? false;
-  const schemaVersion = Number(options.schemaVersion ?? DEFAULT_EXPORT_SCHEMA_VERSION);
+  const schemaVersion = options.schemaVersion ?? DEFAULT_EXPORT_SCHEMA_VERSION;
   const yamlOperation = migrateValue(operation, schemaVersion);
   const yamlLinkTemplates = linkTemplates.map(template => ({
     ...template,

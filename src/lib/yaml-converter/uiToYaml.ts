@@ -29,6 +29,7 @@ import {
   DEFAULT_INTERFACE,
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
+import { downloadTextFile } from '../download';
 import { migrateValue } from '../schemaEnums';
 
 import { asArray, fallbackIfEmptyString } from './shared';
@@ -889,13 +890,5 @@ function buildIslMemberLink(options: {
  * Download YAML content as a file.
  */
 export function downloadYaml(yamlContent: string, filename: string): void {
-  const blob = new Blob([yamlContent], { type: 'text/yaml' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadTextFile(yamlContent, filename, 'text/yaml');
 }

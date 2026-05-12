@@ -1,7 +1,7 @@
 {
   "name": "@eda-labs/topo-builder",
   "type": "module",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "EDA Topology Builder app and reusable React library.",
   "license": "Apache-2.0",
   "repository": {
@@ -55,7 +55,6 @@
     "ajv": "^8.17.1",
     "bezier-js": "^6.1.4",
     "fastest-levenshtein": "^1.0.16",
-    "html-to-image": "^1.11.13",
     "js-yaml": "^4.1.1",
     "zustand": "^5.0.10"
   },

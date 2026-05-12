@@ -44,13 +44,13 @@ import {
   Hub as AutoLinkIcon,
   PlayArrow as DeployIcon,
 } from '@mui/icons-material';
-import { toSvg } from 'html-to-image';
 
 import EdaIcon from '../icons/EdaIcon';
 import { useTopologyStore } from '../lib/store';
 import { detectExtension } from '../lib/extensionAPIClient';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
+import { buildTopologySvgExport, downloadSvg } from '../lib/svgExport';
 import type { ValidationResult } from '../types/ui';
 import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 import { getSchemaEnums, supportedVersions } from '../lib/schemaEnums';
@@ -67,6 +67,8 @@ export interface TopologyThemingProps {
 interface AppLayoutProps extends TopologyThemingProps {
   children: React.ReactNode;
 }
+
+const DEFAULT_SVG_BACKGROUND = '#101824';
 
 export const defaultTopologyThemeOptions: ThemeOptions = {
   cssVariables: true,
@@ -102,6 +104,42 @@ export function createTopologyTheme(themeOptions?: ThemeOptions): Theme {
   return createTheme(defaultTopologyThemeOptions, themeOptions ?? {});
 }
 
+function clampExportNumber(value: string, min: number, max: number, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function toHexByte(value: number): string {
+  return Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0');
+}
+
+function normalizeCssColorToHex(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    if (hex.length === 3) {
+      return `#${hex.split('').map(char => char + char).join('')}`;
+    }
+    return `#${hex}`;
+  }
+
+  const rgbMatch = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(trimmed);
+  if (!rgbMatch) return fallback;
+
+  return `#${toHexByte(Number(rgbMatch[1]))}${toHexByte(Number(rgbMatch[2]))}${toHexByte(Number(rgbMatch[3]))}`;
+}
+
+function readCurrentCanvasBackground(): string {
+  const flow = document.querySelector<HTMLElement>('[data-testid="topology-canvas"] .react-flow');
+  if (!flow) return DEFAULT_SVG_BACKGROUND;
+
+  const styles = window.getComputedStyle(flow);
+  const background = styles.getPropertyValue('--xy-background-color') || styles.backgroundColor;
+  return normalizeCssColorToHex(background, DEFAULT_SVG_BACKGROUND);
+}
+
 export default function AppLayout({
   children,
   theme: providedTheme,
@@ -120,6 +158,8 @@ export default function AppLayout({
   const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const simulation = useTopologyStore(state => state.simulation);
   const annotations = useTopologyStore(state => state.annotations);
+  const expandedEdges = useTopologyStore(state => state.expandedEdges);
+  const showSimNodes = useTopologyStore(state => state.showSimNodes);
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);
@@ -140,6 +180,12 @@ export default function AppLayout({
   const [localName, setLocalName] = useState(topologyName);
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportBgTransparent, setExportBgTransparent] = useState(false);
+  const [exportBgColor, setExportBgColor] = useState(DEFAULT_SVG_BACKGROUND);
+  const [exportBgGrid, setExportBgGrid] = useState(true);
+  const [exportZoom, setExportZoom] = useState(100);
+  const [exportPadding, setExportPadding] = useState(100);
 
   const isStandalone = typeof __APP_MODE__ === 'undefined' || __APP_MODE__ === 'standalone';
 
@@ -215,63 +261,42 @@ export default function AppLayout({
     setValidationDialogOpen(true);
   };
 
-  const handleExportSvg = async () => {
-    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
-    if (!viewport) {
+  const handleOpenExportDialog = () => {
+    setExportBgColor(readCurrentCanvasBackground());
+    setExportDialogOpen(true);
+  };
+
+  const handleExportSvg = () => {
+    const container = document.querySelector<HTMLElement>('[data-testid="topology-canvas"]');
+    if (!container) {
       setError('Could not find canvas');
       return;
     }
 
-    if (nodes.length === 0) {
+    const svg = buildTopologySvgExport({
+      nodes,
+      edges,
+      annotations,
+      nodeTemplates,
+      simNodeTemplates: simulation.simNodeTemplates,
+      expandedEdges,
+      showSimNodes,
+      container,
+      backgroundColor: exportBgColor,
+      transparentBackground: exportBgTransparent,
+      includeBackgroundGrid: !exportBgTransparent && exportBgGrid,
+      paddingPx: exportPadding,
+      zoomPercent: exportZoom,
+    });
+
+    if (!svg) {
       setError('No nodes to export');
       return;
     }
 
-    const padding = 100;
-    const nodeW = 80;
-    const nodeH = 80;
-    const rects = nodes.map(n => ({
-      x: n.position?.x ?? 0,
-      y: n.position?.y ?? 0,
-      w: nodeW,
-      h: nodeH,
-    }));
-    for (const ann of annotations) {
-      const x = ann.position.x;
-      const y = ann.position.y;
-      const w = ann.type === 'shape' ? ann.width : 200;
-      const h = ann.type === 'shape' ? ann.height : ann.fontSize * 2;
-      rects.push({ x, y, w, h });
-    }
-    const minX = Math.min(...rects.map(r => r.x));
-    const minY = Math.min(...rects.map(r => r.y));
-    const maxX = Math.max(...rects.map(r => r.x + r.w));
-    const maxY = Math.max(...rects.map(r => r.y + r.h));
-    const boundsW = maxX - minX;
-    const boundsH = maxY - minY;
-    const imageWidth = Math.max(boundsW + padding * 2, 400);
-    const imageHeight = Math.max(boundsH + padding * 2, 400);
-
     try {
-      const dataUrl = await toSvg(viewport, {
-        width: imageWidth,
-        height: imageHeight,
-        fontEmbedCSS: [
-          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Lt.woff2') format('woff2'); font-weight: normal; font-style: normal; }",
-          "@font-face { font-family: 'NokiaPureText'; src: url('https://cdn.jsdelivr.net/gh/hellt/fonts@v0.1.0/nokia/NokiaPureText_Bd.woff2') format('woff2'); font-weight: bold; font-style: normal; }",
-        ].join('\n'),
-        style: {
-          width: `${imageWidth}px`,
-          height: `${imageHeight}px`,
-          transform: `translate(${-minX + padding}px, ${-minY + padding}px) scale(1)`,
-        },
-      });
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `${topologyName}-${Date.now()}.svg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadSvg(svg, `${topologyName}-${Date.now()}.svg`);
+      setExportDialogOpen(false);
     } catch (err) {
       console.error('SVG export failed:', err);
       setError('Failed to export SVG');
@@ -346,7 +371,7 @@ export default function AppLayout({
                 </IconButton>
               </Tooltip>
               <Tooltip title="Export SVG">
-                <IconButton size="small" onClick={() => { void handleExportSvg(); }} sx={{ color: toolbarTextColor }}>
+                <IconButton size="small" onClick={handleOpenExportDialog} sx={{ color: toolbarTextColor }}>
                   <PhotoCameraIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -413,6 +438,66 @@ export default function AppLayout({
           </DialogContent>
           <DialogActions>
             <Button onClick={() => { setValidationDialogOpen(false); }}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={exportDialogOpen} onClose={() => { setExportDialogOpen(false); }} maxWidth="xs" fullWidth>
+          <DialogTitle>Export SVG</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Quality & Size</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <TextField
+                label="Zoom (%)"
+                type="number"
+                size="small"
+                value={exportZoom}
+                onChange={e => { setExportZoom(clampExportNumber(e.target.value, 10, 300, 100)); }}
+                slotProps={{ htmlInput: { min: 10, max: 300, step: 1 } }}
+              />
+              <TextField
+                label="Padding (px)"
+                type="number"
+                size="small"
+                value={exportPadding}
+                onChange={e => { setExportPadding(clampExportNumber(e.target.value, 0, 500, 100)); }}
+                slotProps={{ htmlInput: { min: 0, max: 500, step: 1 } }}
+              />
+            </Box>
+
+            <Divider />
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>Background</Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={exportBgTransparent}
+                  onChange={e => { setExportBgTransparent(e.target.checked); }}
+                />
+              }
+              label="Transparent background"
+            />
+            <TextField
+              label="Background color"
+              type="color"
+              size="small"
+              value={exportBgColor}
+              onChange={e => { setExportBgColor(e.target.value); }}
+              disabled={exportBgTransparent}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={exportBgGrid}
+                  onChange={e => { setExportBgGrid(e.target.checked); }}
+                  disabled={exportBgTransparent}
+                />
+              }
+              label="Background grid"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setExportDialogOpen(false); }}>Cancel</Button>
+            <Button variant="contained" onClick={handleExportSvg}>Export</Button>
           </DialogActions>
         </Dialog>
 

@@ -6,14 +6,15 @@
 
 import type { StateCreator } from 'zustand';
 
-import type { UIEdge, UIMemberLink, UILagGroup } from '../../types/ui';
+import type { UIEdge, UIMemberLink, UILagGroup, UINode } from '../../types/ui';
+import type { NodeTemplate } from '../../types/schema';
 import {
   generateLagId,
   generateLagName,
   indicesInExistingLag,
   incrementInterface,
 } from '../utils';
-import { DEFAULT_INTERFACE } from '../constants';
+import { getDefaultInterface } from '../interfaces';
 
 function getEdgePairKey(a: string, b: string): string {
   return a < b ? `${a}-${b}` : `${b}-${a}`;
@@ -47,6 +48,8 @@ export type LagSlice = LagState & LagActions;
 export type LagSliceCreator = StateCreator<
   LagSlice & {
     edges: UIEdge[];
+    nodes: UINode[];
+    nodeTemplates: NodeTemplate[];
     selectedMemberLinkIndices: number[];
     selectedLagId: string | null;
     triggerYamlRefresh: () => void;
@@ -95,7 +98,7 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
 
   addLinkToLag: (edgeId: string, lagId: string) => {
     get().saveToUndoHistory();
-    const edges = get().edges;
+    const { edges, nodes, nodeTemplates } = get();
     const edge = edges.find(e => e.id === edgeId);
     if (!edge || !edge.data) return;
 
@@ -107,11 +110,18 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
     const lagMemberLinks = lag.memberLinkIndices.map(i => memberLinks[i]).filter(Boolean);
     const lastLagLink = lagMemberLinks[lagMemberLinks.length - 1];
 
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+
+    const getDefaultForNode = (node: UINode | undefined): string => {
+      return getDefaultInterface(node, nodeTemplates);
+    };
+
     const newLink: UIMemberLink = {
       name: `${lag.name}-${lag.memberLinkIndices.length + 1}`,
       template: lag.template || lastLagLink?.template,
-      sourceInterface: incrementInterface(lastLagLink?.sourceInterface || DEFAULT_INTERFACE, lagMemberLinks.length + 1),
-      targetInterface: incrementInterface(lastLagLink?.targetInterface || DEFAULT_INTERFACE, lagMemberLinks.length + 1),
+      sourceInterface: incrementInterface(lastLagLink?.sourceInterface || getDefaultForNode(sourceNode), lagMemberLinks.length + 1),
+      targetInterface: incrementInterface(lastLagLink?.targetInterface || getDefaultForNode(targetNode), lagMemberLinks.length + 1),
     };
 
     const newMemberLinkIndex = memberLinks.length;

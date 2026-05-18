@@ -16,8 +16,9 @@ import {
 import type { Edge } from '@xyflow/react';
 
 import { LagCard } from '../edges/cards';
-import { CARD_BG, CARD_BORDER, DEFAULT_INTERFACE } from '../../lib/constants';
+import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 import { getInheritedLagLabels, getInheritedLinkLabels } from '../../lib/labels';
+import { getDefaultInterface } from '../../lib/interfaces';
 import { useTopologyStore } from '../../lib/store';
 import { formatName } from '../../lib/utils';
 import type { LinkTemplate } from '../../types/schema';
@@ -47,6 +48,8 @@ export function EdgeEditor({
   const updateEdge = useTopologyStore(state => state.updateEdge);
   const deleteEdge = useTopologyStore(state => state.deleteEdge);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+  const nodes = useTopologyStore(state => state.nodes);
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const edgeData = edge.data;
   if (!edgeData) return null;
   const memberLinks = edgeData.memberLinks || [];
@@ -401,11 +404,15 @@ export function EdgeEditor({
         }
         return `${iface}-${nextNum}`;
       };
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+      const defaultSourceInterface = getDefaultInterface(sourceNode, nodeTemplates);
+      const defaultTargetInterface = getDefaultInterface(targetNode, nodeTemplates);
       addMemberLink(edge.id, {
         name: `${nodeB}-${nodeA}-${nextNum}`,
         template: lastLink?.template,
-        sourceInterface: incrementInterface(lastLink?.sourceInterface || DEFAULT_INTERFACE),
-        targetInterface: incrementInterface(lastLink?.targetInterface || DEFAULT_INTERFACE),
+        sourceInterface: incrementInterface(lastLink?.sourceInterface || defaultSourceInterface),
+        targetInterface: incrementInterface(lastLink?.targetInterface || defaultTargetInterface),
       });
       triggerYamlRefresh();
     };

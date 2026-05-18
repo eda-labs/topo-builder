@@ -3,6 +3,7 @@ import { useReactFlow, type Node, type Edge } from '@xyflow/react';
 
 import { useTopologyStore } from '../lib/store';
 import { generateAnnotationId } from '../lib/store/annotations';
+import { generateInterface } from '../lib/interfaces';
 import type { UINodeData, UIEdgeData, UIClipboard, UIAnnotation } from '../types/ui';
 
 // Use UIClipboard but with React Flow node types for the nodes/edges arrays
@@ -126,37 +127,40 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     const edge = currentState.edges.find(e => e.id === targetEdgeId);
     if (!edge?.data) return;
 
+    const { nodes, edges, nodeTemplates } = currentState;
+
+    const getUsedInterfaces = (nodeId: string): string[] => {
+      const interfaces: string[] = [];
+      for (const e of edges) {
+        if (e.source === nodeId) {
+          interfaces.push(...(e.data?.memberLinks?.map(ml => ml.sourceInterface) || []));
+        }
+        if (e.target === nodeId) {
+          interfaces.push(...(e.data?.memberLinks?.map(ml => ml.targetInterface) || []));
+        }
+      }
+      const node = nodes.find(n => n.id === nodeId);
+      if (node?.data?.edgeLinks) {
+        interfaces.push(...node.data.edgeLinks.map(el => el.interface));
+      }
+      return interfaces;
+    };
+
+    const sourceNode = nodes.find(n => n.id === edge.source);
+    const targetNode = nodes.find(n => n.id === edge.target);
+
     const sourceIsSimNode = edge.source.startsWith('sim-');
     const targetIsSimNode = edge.target.startsWith('sim-');
 
-    const extractPortNumber = (iface: string): number => {
-      const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
-      if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
+    const sourceUsedInterfaces = getUsedInterfaces(edge.source);
+    const targetUsedInterfaces = getUsedInterfaces(edge.target);
 
-      const ethMatch = iface.match(/eth(\d+)/);
-      if (ethMatch) return parseInt(ethMatch[1], 10);
-
-      return 0;
-    };
-
-    const nextPortForNode = (nodeId: string): number => {
-      const portNumbers = currentState.edges.flatMap(e => {
-        if (e.source === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-        if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-        return [];
-      });
-
-      const node = currentState.nodes.find(n => n.id === nodeId);
-      const edgeLinkPorts = node?.data?.edgeLinks?.map(el => extractPortNumber(el.interface)) || [];
-
-      return Math.max(0, ...portNumbers, ...edgeLinkPorts) + 1;
-    };
-
-    const nextSourcePort = nextPortForNode(edge.source);
-    const nextTargetPort = nextPortForNode(edge.target);
-
-    const sourceInterface = sourceIsSimNode ? `eth${nextSourcePort}` : `ethernet-1-${nextSourcePort}`;
-    const targetInterface = targetIsSimNode ? `eth${nextTargetPort}` : `ethernet-1-${nextTargetPort}`;
+    const sourceInterface = sourceIsSimNode
+      ? `eth${Math.max(0, ...sourceUsedInterfaces.map(i => { const m = i.match(/eth(\d+)/); return m ? parseInt(m[1], 10) : 0; })) + 1}`
+      : generateInterface(sourceNode, nodeTemplates, sourceUsedInterfaces);
+    const targetInterface = targetIsSimNode
+      ? `eth${Math.max(0, ...targetUsedInterfaces.map(i => { const m = i.match(/eth(\d+)/); return m ? parseInt(m[1], 10) : 0; })) + 1}`
+      : generateInterface(targetNode, nodeTemplates, targetUsedInterfaces);
 
     const memberLinks = edge.data.memberLinks || [];
     const nextLinkNumber = memberLinks.length + 1;

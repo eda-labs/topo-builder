@@ -9,7 +9,8 @@ import type { Edge, EdgeChange, Connection } from '@xyflow/react';
 import { applyEdgeChanges } from '@xyflow/react';
 
 import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
-import { extractPortNumber, getNameError, getNodeRole } from '../utils';
+import { getNameError, getNodeRole } from '../utils';
+import { generateInterface } from '../interfaces';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
 import { getSchemaEnums } from '../schemaEnums';
@@ -134,31 +135,36 @@ function getInterfacesForNodeInEdge(edge: UIEdge, nodeId: string): string[] {
   return [];
 }
 
-function getNextPortNumber(edges: UIEdge[], nodeId: string, nodes: UINode[]): number {
-  let maxPort = 0;
-
+function getUsedInterfacesForNode(edges: UIEdge[], nodeId: string, nodes: UINode[]): string[] {
+  const interfaces: string[] = [];
   for (const edge of edges) {
-    const interfaces = getInterfacesForNodeInEdge(edge, nodeId);
-    for (const iface of interfaces) {
-      const port = extractPortNumber(iface);
-      if (port > maxPort) maxPort = port;
-    }
+    interfaces.push(...getInterfacesForNodeInEdge(edge, nodeId));
   }
-
   const node = nodes.find(n => n.id === nodeId);
   if (node?.data?.edgeLinks) {
     for (const edgeLink of node.data.edgeLinks) {
-      const port = extractPortNumber(edgeLink.interface);
-      if (port > maxPort) maxPort = port;
+      interfaces.push(edgeLink.interface);
     }
   }
-
-  return maxPort + 1;
+  return interfaces;
 }
 
-function formatInterface(isSimNode: boolean, portNumber: number): string {
-  if (isSimNode) return `eth${portNumber}`;
-  return `ethernet-1-${portNumber}`;
+function formatInterface(
+  node: UINode | undefined,
+  nodeTemplates: NodeTemplate[],
+  usedInterfaces: string[],
+): string {
+  if (node?.id.startsWith('sim-')) {
+    const usedPorts = usedInterfaces
+      .map(iface => {
+        const match = iface.match(/eth(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(p => p > 0);
+    const maxPort = usedPorts.length > 0 ? Math.max(...usedPorts) : 0;
+    return `eth${maxPort + 1}`;
+  }
+  return generateInterface(node, nodeTemplates, usedInterfaces);
 }
 
 function getEdgePairKey(a: string, b: string): string {
@@ -333,16 +339,18 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const sourceNodeName = getNodeName(nodes, sourceId);
     const targetNodeName = getNodeName(nodes, targetId);
 
-    const sourceIsSimNode = isSimNodeId(sourceId);
-    const targetIsSimNode = isSimNodeId(targetId);
     const simConnection = isSimNodeConnection(sourceId, targetId);
     const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection, get().schemaVersion);
 
-    const nextSourcePort = getNextPortNumber(edges, sourceId, nodes);
-    const nextTargetPort = getNextPortNumber(edges, targetId, nodes);
+    const sourceNode = nodes.find(n => n.id === sourceId);
+    const targetNode = nodes.find(n => n.id === targetId);
+    const nodeTemplates = state.nodeTemplates;
 
-    const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
-    const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
+    const sourceUsedInterfaces = getUsedInterfacesForNode(edges, sourceId, nodes);
+    const targetUsedInterfaces = getUsedInterfacesForNode(edges, targetId, nodes);
+
+    const sourceInterface = formatInterface(sourceNode, nodeTemplates, sourceUsedInterfaces);
+    const targetInterface = formatInterface(targetNode, nodeTemplates, targetUsedInterfaces);
 
     const nextLinkNumber = getNextLinkNumberForPair(edges, sourceNodeName, targetNodeName);
     const existingEdge = findExistingEdge(edges, sourceId, targetId, normalized.sourceHandle, normalized.targetHandle);
@@ -527,13 +535,11 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const createLink = (sourceNode: UINode, targetNode: UINode, template: string) => {
       if (hasAnyEdgeBetween(currentEdges, sourceNode.id, targetNode.id)) return;
 
-      const sourceIsSimNode = isSimNodeId(sourceNode.id);
-      const targetIsSimNode = isSimNodeId(targetNode.id);
+      const sourceUsedInterfaces = getUsedInterfacesForNode(currentEdges, sourceNode.id, nodes);
+      const targetUsedInterfaces = getUsedInterfacesForNode(currentEdges, targetNode.id, nodes);
 
-      const nextSourcePort = getNextPortNumber(currentEdges, sourceNode.id, nodes);
-      const nextTargetPort = getNextPortNumber(currentEdges, targetNode.id, nodes);
-      const sourceInterface = formatInterface(sourceIsSimNode, nextSourcePort);
-      const targetInterface = formatInterface(targetIsSimNode, nextTargetPort);
+      const sourceInterface = formatInterface(sourceNode, nodeTemplates, sourceUsedInterfaces);
+      const targetInterface = formatInterface(targetNode, nodeTemplates, targetUsedInterfaces);
 
       const sourceName = sourceNode.data.name;
       const targetName = targetNode.data.name;

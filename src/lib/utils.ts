@@ -1,4 +1,4 @@
-import type { UIEdge, UIEdgeLink, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState, UINode } from '../types/ui';
+import type { UIEdge, UIEdgeLink, UILagGroup, UIEsiLeaf, UIMemberLink, SelectionState } from '../types/ui';
 import type { LinkTemplate } from '../types/schema';
 
 import { NAME_MAX_LENGTH, NAME_REGEX, ESI_LAG_MIN_EDGES, ESI_LAG_MAX_EDGES } from './constants';
@@ -118,36 +118,6 @@ export const getNodeRole = (
     || templateLabels?.['eda.nokia.com/role'];
 };
 
-export const extractPortNumber = (iface: string): number => {
-  const ethernetMatch = iface.match(/ethernet-1-(\d+)/);
-  if (ethernetMatch) return parseInt(ethernetMatch[1], 10);
-  const ethMatch = iface.match(/eth(\d+)/);
-  if (ethMatch) return parseInt(ethMatch[1], 10);
-  return 0;
-};
-
-export const getNextPortNumber = (
-  nodeId: string,
-  edges: UIEdge[],
-  nodes: UINode[],
-  _isSimNode: boolean = false,
-): number => {
-  const portNumbers = edges.flatMap(e => {
-    if (e.source === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.sourceInterface)) || [];
-    if (e.target === nodeId) return e.data?.memberLinks?.map(ml => extractPortNumber(ml.targetInterface)) || [];
-    return [];
-  });
-
-  const node = nodes.find(n => n.id === nodeId);
-  const edgeLinkPorts = node?.data?.edgeLinks?.map(el => extractPortNumber(el.interface)) || [];
-
-  return Math.max(0, ...portNumbers, ...edgeLinkPorts) + 1;
-};
-
-export const generateInterfaceName = (portNumber: number, isSimNode: boolean): string => {
-  return isSimNode ? `eth${portNumber}` : `ethernet-1-${portNumber}`;
-};
-
 export const incrementInterface = (iface: string, fallbackIndex: number): string => {
   const match = iface.match(/^(.+?)(\d+)$/);
   return match ? `${match[1]}${parseInt(match[2], 10) + 1}` : `${iface}-${fallbackIndex}`;
@@ -259,36 +229,29 @@ export const toggleMemberLinkIndex = (
     : [...currentIndices, index].sort((a, b) => a - b);
 };
 
-export const getNextEdgeLinkInterface = (
+export const getUsedInterfacesForNode = (
   edgeLinks: UIEdgeLink[],
   edges: UIEdge[],
   nodeId: string,
-): string => {
-  let maxNum = 0;
+): string[] => {
+  const interfaces: string[] = [];
 
   for (const link of edgeLinks) {
-    const num = extractPortNumber(link.interface);
-    if (num > maxNum) maxNum = num;
+    interfaces.push(link.interface);
   }
 
   for (const edge of edges) {
     const memberLinks = edge.data?.memberLinks;
     if (!memberLinks) continue;
     if (edge.source === nodeId) {
-      for (const ml of memberLinks) {
-        const num = extractPortNumber(ml.sourceInterface);
-        if (num > maxNum) maxNum = num;
-      }
+      interfaces.push(...memberLinks.map(ml => ml.sourceInterface));
     }
     if (edge.target === nodeId) {
-      for (const ml of memberLinks) {
-        const num = extractPortNumber(ml.targetInterface);
-        if (num > maxNum) maxNum = num;
-      }
+      interfaces.push(...memberLinks.map(ml => ml.targetInterface));
     }
   }
 
-  return generateInterfaceName(maxNum + 1, false);
+  return interfaces;
 };
 
 export const getDefaultEdgeTemplate = (

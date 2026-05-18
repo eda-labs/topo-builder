@@ -41,6 +41,7 @@ export const DEFAULT_ANNOTATION_WIDTH = 200;
 export const DEFAULT_ANNOTATION_HEIGHT = 100;
 
 export const DEFAULT_INTERFACE = 'ethernet-1-1';
+export const DEFAULT_SROS_INTERFACE = 'ethernet-1-a-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';
 
 export const NAME_MAX_LENGTH = 63;

@@ -243,12 +243,7 @@ function collectEdgeLinksFromNodes(nodes: UINode[]): Link[] {
   const links: Link[] = [];
 
   for (const node of nodes) {
-    const edgeLinks = node.data.edgeLinks as Array<{
-      name: string;
-      template?: string;
-      interface: string;
-      labels?: Record<string, string>;
-    }> | undefined;
+    const edgeLinks = node.data.edgeLinks;
     if (!edgeLinks || edgeLinks.length === 0) continue;
 
     for (const edgeLink of edgeLinks) {

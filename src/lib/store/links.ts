@@ -15,6 +15,8 @@ import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
 import { getSchemaEnums } from '../schemaEnums';
 
+import { SELECTION_SYNC_LOCK_MS } from './selection';
+
 export interface LinkState {
   edges: UIEdge[];
   expandedEdges: Set<string>;
@@ -235,7 +237,7 @@ function selectExistingEdgeWithNewMemberLink({
       selectedEdgeId: edgeId,
       selectedEdgeIds: [edgeId],
       selectedMemberLinkIndices: [memberIndex],
-      _selectionSyncLockedUntil: Date.now() + 200,
+      _selectionSyncLockedUntil: Date.now() + SELECTION_SYNC_LOCK_MS,
     } as Partial<LinkSlice>);
   }, 50);
 }
@@ -292,7 +294,7 @@ function createEdgeAndSelect({
       selectedEdgeIds: [id],
       selectedMemberLinkIndices: [],
       selectedLagId: null,
-      _selectionSyncLockedUntil: Date.now() + 200,
+      _selectionSyncLockedUntil: Date.now() + SELECTION_SYNC_LOCK_MS,
     } as Partial<LinkSlice>);
   }, 50);
 }

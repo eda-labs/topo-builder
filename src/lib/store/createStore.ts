@@ -641,7 +641,7 @@ export const createTopologyStore = () => {
             const newEdges = buildPastedEdges({ copiedEdges, idMap, nameMap });
 
             applyPasteSelectionToStore({
-              set: set as StoreSetFn,
+              set: set,
               existingNodes,
               existingEdges,
               newNodes: [...newNodes, ...newSimNodeNodes],
@@ -655,18 +655,17 @@ export const createTopologyStore = () => {
 
         // Compose all slices
         // Using 'as any' for slice creators due to complex generic inference across slices
-        /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+
         return {
           ...coreSlice,
-          ...createNodeSlice(set as any, get as any, api as any),
-          ...createLinkSlice(set as any, get as any, api as any),
-          ...createLagSlice(set as any, get as any, api as any),
-          ...createEsiLagSlice(set as any, get as any, api as any),
-          ...createSimNodeSlice(set as any, get as any, api as any),
-          ...createTemplateSlice(set as any, get as any, api as any),
-          ...createSelectionSlice(set as any, get as any, api as any),
-          ...createAnnotationSlice(set as any, get as any, api as any),
-          /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
+          ...createNodeSlice(set, get, api),
+          ...createLinkSlice(set, get, api),
+          ...createLagSlice(set, get, api),
+          ...createEsiLagSlice(set, get, api),
+          ...createSimNodeSlice(set, get, api),
+          ...createTemplateSlice(set, get, api),
+          ...createSelectionSlice(set, get, api),
+          ...createAnnotationSlice(set, get, api),
 
           // Override initial state from base template
           nodeTemplates: baseTemplate.nodeTemplates || [],

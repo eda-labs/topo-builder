@@ -146,7 +146,7 @@ export function validateNetworkTopology(yamlString: string, schemaVersion: numbe
       }
     }
 
-    const unknownPropErrors = validateUnknownProperties(doc, schema as SchemaNode, '');
+    const unknownPropErrors = validateUnknownProperties(doc, schema, '');
     errors.push(...unknownPropErrors);
 
     const semanticErrors = validateCrossReferences(doc as Record<string, unknown>);

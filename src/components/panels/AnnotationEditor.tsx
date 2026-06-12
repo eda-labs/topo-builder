@@ -14,7 +14,7 @@ import { Delete as DeleteIcon } from '@mui/icons-material';
 
 import { useTopologyStore } from '../../lib/store';
 import { COLOR_PALETTE } from '../../lib/constants';
-import type { UIAnnotation, UITextAnnotation, UIShapeAnnotation, AnnotationShapeType, AnnotationStrokeStyle } from '../../types/ui';
+import type { UIAnnotation, UITextAnnotation, UIShapeAnnotation } from '../../types/ui';
 
 import { ColorField, PanelHeader, PanelSection } from './shared';
 
@@ -72,7 +72,7 @@ function ShapeAnnotationFields({ annotation }: { annotation: UIShapeAnnotation }
         <Select
           value={annotation.shapeType}
           label="Shape"
-          onChange={e => { updateAnnotation(annotation.id, { shapeType: e.target.value as AnnotationShapeType }); }}
+          onChange={e => { updateAnnotation(annotation.id, { shapeType: e.target.value }); }}
         >
           <MenuItem value="rectangle">Rectangle</MenuItem>
           <MenuItem value="circle">Circle</MenuItem>
@@ -145,7 +145,7 @@ function ShapeAnnotationFields({ annotation }: { annotation: UIShapeAnnotation }
             <Select
               value={annotation.strokeStyle}
               label="Style"
-              onChange={e => { updateAnnotation(annotation.id, { strokeStyle: e.target.value as AnnotationStrokeStyle }); }}
+              onChange={e => { updateAnnotation(annotation.id, { strokeStyle: e.target.value }); }}
             >
               <MenuItem value="solid">Solid</MenuItem>
               <MenuItem value="dashed">Dashed</MenuItem>

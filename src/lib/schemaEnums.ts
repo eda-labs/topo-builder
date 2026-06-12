@@ -41,7 +41,7 @@ export function getSchemaEnums(version: number = activeVersion) {
 }
 
 export function getSchema(version: number = activeVersion): object {
-  return (schemas[version] ?? schemaV26) as object;
+  return (schemas[version] ?? schemaV26);
 }
 
 export const supportedVersions = Object.keys(schemas).map(Number);

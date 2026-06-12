@@ -215,9 +215,9 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
         const id = generateAnnotationId();
         const offsetPos = { x: ann.position.x + offset.x, y: ann.position.y + offset.y };
         if (ann.type === 'text') {
-          return { id, type: ann.type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor } as UIAnnotation;
+          return { id, type: ann.type, position: offsetPos, text: ann.text, fontSize: ann.fontSize, fontColor: ann.fontColor };
         }
-        return { id, type: ann.type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, fillColor: ann.fillColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle } as UIAnnotation;
+        return { id, type: ann.type, position: offsetPos, shapeType: ann.shapeType, width: ann.width, height: ann.height, strokeColor: ann.strokeColor, fillColor: ann.fillColor, strokeWidth: ann.strokeWidth, strokeStyle: ann.strokeStyle };
       });
       const newIds = new Set(newAnnotations.map(a => a.id));
       const currentAnnotations = useTopologyStore.getState().annotations;

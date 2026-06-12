@@ -1,6 +1,5 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import stylistic from '@stylistic/eslint-plugin';
 import sonarjs from 'eslint-plugin-sonarjs';
@@ -21,7 +20,6 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {
-      react,
       'react-hooks': reactHooks,
       '@stylistic': stylistic,
       sonarjs,
@@ -38,7 +36,6 @@ export default tseslint.config(
     },
     rules: {
       // ─── React ───
-      'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
@@ -102,11 +99,6 @@ export default tseslint.config(
       '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0 }],
       '@stylistic/jsx-quotes': ['error', 'prefer-double'],
     },
-    settings: {
-      react: {
-        version: 'detect',
-      },
-    },
   },
 
   /* ─── Max-lines for src/ files ──────────────────────────────── */
@@ -122,7 +114,7 @@ export default tseslint.config(
     files: ['src/components/**/*.tsx'],
     plugins: { unicorn },
     rules: {
-      'unicorn/filename-case': ['error', { case: 'pascalCase', ignore: ['^shared\\.tsx$'] }],
+      'unicorn/filename-case': ['error', { case: 'pascalCase', checkDirectories: false, ignore: ['^shared\\.tsx$'] }],
     },
   },
 
@@ -131,7 +123,7 @@ export default tseslint.config(
     files: ['src/hooks/**/*.ts'],
     plugins: { unicorn },
     rules: {
-      'unicorn/filename-case': ['error', { case: 'camelCase' }],
+      'unicorn/filename-case': ['error', { case: 'camelCase', checkDirectories: false }],
     },
   },
 

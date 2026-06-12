@@ -421,7 +421,7 @@ export function EdgeEditor({
       return (
         <Box>
           <PanelHeader title={`${nodeA} ↔ ${nodeB}`} />
-          <Typography color="text.secondary" textAlign="center" py="1rem">
+          <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
             No member links
           </Typography>
         </Box>
@@ -439,7 +439,7 @@ export function EdgeEditor({
               </Button>
             }
           />
-          <Typography color="text.secondary" textAlign="center" py="1rem">
+          <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
             Select a link to edit
           </Typography>
         </Box>

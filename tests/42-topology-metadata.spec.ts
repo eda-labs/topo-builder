@@ -35,8 +35,8 @@ test('Settings dialog updates operation in YAML', async ({ page }) => {
   await openSettings(page);
   await page.getByRole('heading', { name: 'Settings' }).waitFor();
 
-  // MUI Select: click the displayed value within the dialog to open the dropdown
-  await page.locator('[role="dialog"]').getByText('ReplaceAll').click();
+  // MUI Select: click the combobox within the dialog to open the dropdown.
+  await page.locator('[role="dialog"]').getByRole('combobox').click();
   await page.getByRole('option', { name: 'Create' }).click();
 
   await page.getByRole('button', { name: 'Save' }).click();

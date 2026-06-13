@@ -39,7 +39,7 @@ export function LagCard({
       onClick={handleClick}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: '0.25rem' }}>
-        <Typography variant="body2" fontWeight={500}>
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
           {lag.name || 'Unnamed LAG'}
         </Typography>
         <Chip label="LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />

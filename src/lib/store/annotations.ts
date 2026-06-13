@@ -44,7 +44,7 @@ export const createAnnotationSlice: AnnotationSliceCreator = (set, get) => ({
   addAnnotation: input => {
     get().saveToUndoHistory();
     const id = generateAnnotationId();
-    const annotation = { ...input, id } as UIAnnotation;
+    const annotation = { ...input, id };
     set({
       annotations: [...get().annotations, annotation],
       selectedAnnotationId: id,
@@ -57,7 +57,7 @@ export const createAnnotationSlice: AnnotationSliceCreator = (set, get) => ({
     get().saveToUndoHistory();
     set({
       annotations: get().annotations.map(a =>
-        a.id === id ? { ...a, ...update } as UIAnnotation : a,
+        a.id === id ? { ...a, ...update } : a,
       ),
     });
     get().triggerYamlRefresh();

@@ -1210,7 +1210,7 @@ function TopologyEditorInner({
             onSelectionChange={handleSelectionChange}
           >
             <TopologyControls
-              nodes={nodes as Node<UINodeData>[]}
+              nodes={nodes}
               edges={edges}
               showSimNodes={showSimNodes}
               setShowSimNodes={setShowSimNodes}

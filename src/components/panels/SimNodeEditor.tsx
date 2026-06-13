@@ -120,7 +120,7 @@ export function SimNodeEditor({
                     onClick={() => { useTopologyStore.getState().selectEdge(edge.id); }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: SPACE_BETWEEN, alignItems: 'center' }}>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {esiName}
                       </Typography>
                       <Chip label="ESI-LAG" size="small" sx={{ height: 16, fontSize: 10 }} color="primary" />
@@ -167,7 +167,7 @@ export function SimNodeEditor({
                         store.selectMemberLink(edge.id, idx, false);
                       }}
                     >
-                      <Typography variant="body2" fontWeight={500} sx={{ mb: '0.25rem' }}>
+                      <Typography variant="body2" sx={{ mb: '0.25rem', fontWeight: 500 }}>
                         {link.name}
                       </Typography>
                       <LinkDiagram

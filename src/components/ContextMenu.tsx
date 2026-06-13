@@ -1,6 +1,7 @@
 import {
   Paper,
   MenuItem,
+  MenuList,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -60,17 +61,19 @@ function TemplateSubmenu({
       </MenuItem>
 
       {open && (
-        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 140 }}>
-          {templates.map(template => (
-            <MenuItem
-              key={template.name}
-              disabled={template.name === currentTemplate}
-              onClick={() => { onChoose(template.name); onClose(); }}
-              sx={{ opacity: template.name === currentTemplate ? 0.5 : 1 }}
-            >
-              <ListItemText>{template.name}</ListItemText>
-            </MenuItem>
-          ))}
+        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, minWidth: 140 }}>
+          <MenuList dense disablePadding sx={{ py: 0.5 }}>
+            {templates.map(template => (
+              <MenuItem
+                key={template.name}
+                disabled={template.name === currentTemplate}
+                onClick={() => { onChoose(template.name); onClose(); }}
+                sx={{ opacity: template.name === currentTemplate ? 0.5 : 1 }}
+              >
+                <ListItemText>{template.name}</ListItemText>
+              </MenuItem>
+            ))}
+          </MenuList>
         </Paper>
       )}
     </Box>
@@ -121,12 +124,14 @@ function ShapeSubmenu({
       </MenuItem>
 
       {open && (
-        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, py: 0.5, minWidth: 160 }}>
-          {shapes.map(s => (
-            <MenuItem key={s.shapeType} onClick={() => { handleAdd(s.shapeType); }}>
-              <ListItemText>{s.label}</ListItemText>
-            </MenuItem>
-          ))}
+        <Paper elevation={8} sx={{ position: 'absolute', left: '100%', top: 0, minWidth: 160 }}>
+          <MenuList dense disablePadding sx={{ py: 0.5 }}>
+            {shapes.map(s => (
+              <MenuItem key={s.shapeType} onClick={() => { handleAdd(s.shapeType); }}>
+                <ListItemText>{s.label}</ListItemText>
+              </MenuItem>
+            ))}
+          </MenuList>
         </Paper>
       )}
     </Box>
@@ -675,51 +680,53 @@ export default function ContextMenu({
       <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" className="z-1300" transition>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={200}>
-            <Paper ref={paperRef} elevation={8} onContextMenu={e => { e.preventDefault(); }} sx={{ py: 0.5, minWidth: 180 }}>
-              <ContextMenuSelectionSection
-                hasSelection={hasSelection}
-                onClose={onClose}
-                onAddNode={onAddNode}
-                onAddSimNode={onAddSimNode}
-                onDeleteNode={onDeleteNode}
-                onDeleteSimNode={onDeleteSimNode}
-                onDeleteEdge={onDeleteEdge}
-                onDeleteAnnotation={onDeleteAnnotation}
-                onChangeNodeTemplate={onChangeNodeTemplate}
-                onChangeSimNodeTemplate={onChangeSimNodeTemplate}
-                onChangeLinkTemplate={onChangeLinkTemplate}
-                onCreateLag={onCreateLag}
-                onCreateEsiLag={onCreateEsiLag}
-                onAddAnnotation={onAddAnnotation}
-                nodeTemplates={nodeTemplates}
-                currentNodeTemplate={currentNodeTemplate}
-                simNodeTemplates={simNodeTemplates}
-                currentSimNodeTemplate={currentSimNodeTemplate}
-                linkTemplates={linkTemplates}
-                currentLinkTemplate={currentLinkTemplate}
-                selectedMemberLinkCount={selectedMemberLinkCount}
-                canCreateEsiLag={canCreateEsiLag}
-                isMergeIntoEsiLag={isMergeIntoEsiLag}
-                contextMenuFlowPosition={contextMenuFlowPosition}
-              />
+            <Paper ref={paperRef} elevation={8} onContextMenu={e => { e.preventDefault(); }} sx={{ minWidth: 180 }}>
+              <MenuList dense disablePadding sx={{ py: 0.5 }}>
+                <ContextMenuSelectionSection
+                  hasSelection={hasSelection}
+                  onClose={onClose}
+                  onAddNode={onAddNode}
+                  onAddSimNode={onAddSimNode}
+                  onDeleteNode={onDeleteNode}
+                  onDeleteSimNode={onDeleteSimNode}
+                  onDeleteEdge={onDeleteEdge}
+                  onDeleteAnnotation={onDeleteAnnotation}
+                  onChangeNodeTemplate={onChangeNodeTemplate}
+                  onChangeSimNodeTemplate={onChangeSimNodeTemplate}
+                  onChangeLinkTemplate={onChangeLinkTemplate}
+                  onCreateLag={onCreateLag}
+                  onCreateEsiLag={onCreateEsiLag}
+                  onAddAnnotation={onAddAnnotation}
+                  nodeTemplates={nodeTemplates}
+                  currentNodeTemplate={currentNodeTemplate}
+                  simNodeTemplates={simNodeTemplates}
+                  currentSimNodeTemplate={currentSimNodeTemplate}
+                  linkTemplates={linkTemplates}
+                  currentLinkTemplate={currentLinkTemplate}
+                  selectedMemberLinkCount={selectedMemberLinkCount}
+                  canCreateEsiLag={canCreateEsiLag}
+                  isMergeIntoEsiLag={isMergeIntoEsiLag}
+                  contextMenuFlowPosition={contextMenuFlowPosition}
+                />
 
-              <ContextMenuClipboardSection
-                onClose={onClose}
-                canCopy={canCopy}
-                canPaste={canPaste}
-                onCopy={onCopy}
-                onPaste={onPaste}
-                canUndo={canUndo}
-                canRedo={canRedo}
-                onUndo={onUndo}
-                onRedo={onRedo}
-              />
+                <ContextMenuClipboardSection
+                  onClose={onClose}
+                  canCopy={canCopy}
+                  canPaste={canPaste}
+                  onCopy={onCopy}
+                  onPaste={onPaste}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
+                  onUndo={onUndo}
+                  onRedo={onRedo}
+                />
 
-              <ContextMenuClearAllSection
-                hasContent={hasContent}
-                onClearAll={onClearAll}
-                onClose={onClose}
-              />
+                <ContextMenuClearAllSection
+                  hasContent={hasContent}
+                  onClearAll={onClearAll}
+                  onClose={onClose}
+                />
+              </MenuList>
             </Paper>
           </Fade>
         )}

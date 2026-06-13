@@ -125,7 +125,7 @@ export function SelectionPanel() {
   // Don't show properties panel when multiple items are selected
   if (hasMultipleSelected) {
     return (
-      <Typography color="text.secondary" textAlign="center" py="1rem">
+      <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
         Select a node or link
       </Typography>
     );
@@ -185,7 +185,7 @@ export function SelectionPanel() {
   }
 
   return (
-    <Typography color="text.secondary" textAlign="center" py="1rem">
+    <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
       Select a node or link
     </Typography>
   );
@@ -402,7 +402,7 @@ function NodeTemplateEditor({
               mb: '0.5rem',
             }}
           >
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Labels
             </Typography>
             <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
@@ -434,7 +434,7 @@ function NodeTemplateEditor({
               mb: '0.5rem',
             }}
           >
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Components
             </Typography>
 
@@ -553,7 +553,7 @@ export function NodeTemplatesPanel() {
       />
 
       {nodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
+        <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
           No templates
         </Typography>
       ) : (
@@ -678,7 +678,7 @@ function LinkTemplateEditor({
               mb: '0.5rem',
             }}
           >
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Labels
             </Typography>
             <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>
@@ -771,7 +771,7 @@ export function LinkTemplatesPanel() {
       />
 
       {linkTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
+        <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
           No templates
         </Typography>
       ) : (
@@ -945,7 +945,7 @@ export function SimNodeTemplatesPanel() {
       />
 
       {simNodeTemplates.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" py="1rem">
+        <Typography color="text.secondary" sx={{ py: '1rem', textAlign: 'center' }}>
           No sim templates
         </Typography>
       ) : (

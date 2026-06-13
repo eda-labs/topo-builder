@@ -37,7 +37,7 @@ export function PanelHeader({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Typography variant="h6" fontSize={16} fontWeight={600}>
+          <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 600 }}>
             {title}
           </Typography>
           {chip}
@@ -70,7 +70,7 @@ export function PanelSection({
           minHeight: 32,
         }}
       >
-        <Typography variant="subtitle2" fontWeight={600}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {title}{count !== undefined ? ` (${count})` : ''}
         </Typography>
         {actions}
@@ -144,7 +144,7 @@ export function EditableLabelsSection({
           alignItems: 'center',
         }}
       >
-        <Typography variant="body2" fontWeight={600}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
           Labels
         </Typography>
         <Button size="small" startIcon={<AddIcon />} onClick={handleAddLabel}>

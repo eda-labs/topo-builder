@@ -70,6 +70,10 @@ function buildEmptyYamlToUIResult(): YamlToUIResult {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function indexExistingNodesById(existingNodes: UINode[]): Map<string, UINode> {
   const map = new Map<string, UINode>();
   for (const node of existingNodes) {
@@ -314,7 +318,11 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
 
     let annotations: UIAnnotation[] = [];
-    const metadataAnnotations = (parsed.metadata as Record<string, unknown> | undefined)?.annotations as Record<string, unknown> | undefined;
+    const metadataAnnotations = parsed.metadata &&
+      'annotations' in parsed.metadata &&
+      isRecord(parsed.metadata.annotations)
+      ? parsed.metadata.annotations
+      : undefined;
     const drawingData = metadataAnnotations?.[ANNOTATION_DRAWING];
     if (Array.isArray(drawingData)) {
       annotations = drawingData as UIAnnotation[];

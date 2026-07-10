@@ -14,10 +14,12 @@ export const isSrosNode = (
   nodeTemplates: NodeTemplate[],
 ): boolean => {
   if (!node?.data) return false;
-  const nodeProfile = node.data.nodeProfile
-    || nodeTemplates.find(t => t.name === node.data.template)?.nodeProfile;
-  if (!nodeProfile) return false;
-  return nodeProfile.toLowerCase().startsWith('sros');
+  const template = nodeTemplates.find(t => t.name === node.data.template);
+  const nodeProfile = node.data.nodeProfile || template?.nodeProfile;
+  if (nodeProfile) return nodeProfile.toLowerCase().startsWith('sros');
+  // Catalog nodes may carry only a platform; all 7750s run SR OS.
+  const platform = node.data.platform || template?.platform;
+  return !!platform?.trim().toLowerCase().startsWith('7750');
 };
 
 export const getGeneratorForNode = (

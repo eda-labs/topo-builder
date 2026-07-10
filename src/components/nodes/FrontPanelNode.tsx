@@ -3,6 +3,7 @@ import { Handle, Position, useStore, useUpdateNodeInternals } from '@xyflow/reac
 import { Divider, ListSubheader, Menu, MenuItem } from '@mui/material';
 
 import { useTopologyStore } from '../../lib/store';
+import { breakoutOptionsFor } from '../../lib/connectors';
 import {
   FP_HEADER_H,
   FP_PAD,
@@ -412,14 +413,17 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
               </MenuItem>,
             ];
           }
+          const options = breakoutOptionsFor(panel, cage, sros);
           return [
             <ListSubheader key="h" sx={{ lineHeight: '28px', bgcolor: 'transparent' }}>{`Port ${cageLabel}`}</ListSubheader>,
             <Divider key="d" />,
-            ...[2, 4, 8].map(n => (
-              <MenuItem key={n} disabled={cabled} onClick={() => { setBreakout(cage, n); close(); }}>
-                {cabled ? `Break out into ${n} channels (un-cable first)` : `Break out into ${n} channels`}
-              </MenuItem>
-            )),
+            ...(options.length === 0
+              ? [<MenuItem key="none" disabled>No breakout available</MenuItem>]
+              : options.map(option => (
+                <MenuItem key={option.channels} disabled={cabled} onClick={() => { setBreakout(cage, option.channels); close(); }}>
+                  {cabled ? `Break out into ${option.label} (un-cable first)` : `Break out into ${option.label}`}
+                </MenuItem>
+              ))),
           ];
         })()}
       </Menu>

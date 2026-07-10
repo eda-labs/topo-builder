@@ -46,6 +46,10 @@ export const DEFAULT_INTERFACE = 'ethernet-1-1';
 export const DEFAULT_SROS_INTERFACE = 'ethernet-1-a-1';
 export const DEFAULT_SIM_INTERFACE = 'eth1';
 
+// Node profiles preselected for catalog nodes (match the base template / cluster fixtures).
+export const DEFAULT_NODE_PROFILE_SRL = 'srlinux-ghcr-26.3.1';
+export const DEFAULT_NODE_PROFILE_SROS = 'sros-ghcr-25.7.r1';
+
 export const NAME_MAX_LENGTH = 63;
 export const NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 export const ESI_LAG_MIN_EDGES = 2;

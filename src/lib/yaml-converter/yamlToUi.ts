@@ -23,6 +23,7 @@ import type {
   UIAnnotation,
 } from '../../types/ui';
 import { DEFAULT_INTERFACE, ANNOTATION_DRAWING, ANNOTATION_BREAKOUTS } from '../constants';
+import { deriveBreakoutsFromComponents } from '../connectors';
 import { parseBreakouts } from '../frontpanel';
 
 import {
@@ -201,6 +202,7 @@ function parseYamlTopoNodes(options: {
         nodeProfile,
         labels: userLabels,
         breakouts: parseBreakouts(node.annotations?.[ANNOTATION_BREAKOUTS]),
+        components: node.components?.length ? node.components : undefined,
       },
     });
   }
@@ -350,6 +352,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     attachEdgeLinksToNodes(nodes, edgeLinksByNode);
 
     const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
+    deriveBreakoutsFromComponents(nodes, nodeTemplates);
     inferBreakoutsFromEdges(nodes, edges);
 
     let annotations: UIAnnotation[] = [];

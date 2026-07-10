@@ -1220,6 +1220,7 @@ function TopologyEditorInner({
       styleVariables={styleVariables}
     >
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <PalettePanel />
         <Box
           onContextMenu={e => { e.preventDefault(); }}
           onDragOver={handleCanvasDragOver}
@@ -1279,7 +1280,6 @@ function TopologyEditorInner({
             <LayoutHandler layoutVersion={layoutVersion} />
             <EmptyCanvasHint show={nodes.length === 0} />
           </ReactFlow>
-          <PalettePanel />
         </Box>
 
         <SidePanel

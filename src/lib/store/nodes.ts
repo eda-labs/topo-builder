@@ -11,14 +11,22 @@ import { applyNodeChanges } from '@xyflow/react';
 import type { UINodeData, UINode, UIEdge } from '../../types/ui';
 import { generateUniqueName, validateNodeName } from '../utils';
 import { ANNOTATION_NAME_PREFIX } from '../constants';
-import type { NodeTemplate } from '../../types/schema';
+import type { Component, NodeTemplate } from '../../types/schema';
 
 export interface NodeState {
   nodes: UINode[];
 }
 
+export interface CatalogNodePayload {
+  platform: string;
+  nodeProfile?: string;
+  components?: Component[];
+  namePrefix?: string;
+}
+
 export interface NodeActions {
   addNode: (position: { x: number; y: number }, templateName?: string) => void;
+  addCatalogNode: (position: { x: number; y: number }, payload: CatalogNodePayload) => void;
   updateNode: (id: string, data: Partial<UINodeData>) => void;
   deleteNode: (id: string) => void;
   onNodesChange: (changes: NodeChange<Node<UINodeData>>[]) => void;
@@ -67,6 +75,40 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
       position,
       selected: true,
       data: { id, name, template, isNew: true },
+    };
+
+    const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));
+    const deselectedEdges = get().edges.map(e => ({ ...e, selected: false }));
+    set({
+      nodes: [...deselectedNodes, newNode],
+      edges: deselectedEdges,
+      selectedNodeId: id,
+      selectedEdgeId: null,
+      selectedSimNodeName: null,
+    } as Partial<NodeSlice>);
+    get().triggerYamlRefresh();
+  },
+
+  // Catalog nodes carry their platform/profile/components directly instead of a template.
+  addCatalogNode: (position: { x: number; y: number }, payload: CatalogNodePayload) => {
+    get().saveToUndoHistory();
+    const id = generateNodeId();
+    const allNodeNames = get().nodes.map(n => n.data.name);
+    const name = generateUniqueName(payload.namePrefix || 'node', allNodeNames, 1);
+
+    const newNode: UINode = {
+      id,
+      type: 'topoNode',
+      position,
+      selected: true,
+      data: {
+        id,
+        name,
+        platform: payload.platform,
+        nodeProfile: payload.nodeProfile,
+        components: payload.components?.length ? payload.components : undefined,
+        isNew: true,
+      },
     };
 
     const deselectedNodes = get().nodes.map(n => ({ ...n, selected: false }));

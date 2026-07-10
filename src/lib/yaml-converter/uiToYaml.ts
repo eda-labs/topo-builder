@@ -32,6 +32,7 @@ import {
 } from '../constants';
 import { downloadTextFile } from '../download';
 import { formatBreakouts } from '../frontpanel';
+import { exportNodeComponents } from '../connectors';
 import { migrateValue } from '../schemaEnums';
 
 import { asArray, fallbackIfEmptyString } from './shared';
@@ -153,12 +154,17 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.labels = node.data.labels;
     }
 
+    // SR OS breakouts materialise as connector components; only what connectors cannot
+    // express (SR Linux breakouts, unresolved faceplates) stays in the annotation.
+    const { components, residualBreakouts } = exportNodeComponents(node, nodeTemplates);
+    if (components.length > 0) yamlNode.components = components;
+
     if (!disableAnnotations) {
       yamlNode.annotations = {
         [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
         [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
       };
-      const breakouts = formatBreakouts(node.data.breakouts);
+      const breakouts = formatBreakouts(residualBreakouts);
       if (breakouts) yamlNode.annotations[ANNOTATION_BREAKOUTS] = breakouts;
     }
 

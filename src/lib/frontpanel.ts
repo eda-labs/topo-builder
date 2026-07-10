@@ -25,6 +25,9 @@ export interface FrontPanelMeta {
 const FP_META = frontpanelMeta as Record<string, FrontPanelMeta>;
 const FP_LABEL_STYLE = frontpanelLabels as Record<string, Record<string, 'c' | ''>>;
 
+/** Every known faceplate stencil key — the raw material for the platform catalog. */
+export const frontPanelKeys: readonly string[] = Object.keys(FP_META);
+
 // Platform strings in topologies are not case-normalised ("7250 IXR-X1B" vs the meta's
 // "7250 IXR-X1b"), so all lookups go through a lowercase index.
 const KEY_BY_LOWER = new Map<string, string>(Object.keys(FP_META).map(k => [k.toLowerCase(), k]));
@@ -35,7 +38,7 @@ const metaKeyOf = (name: string | undefined): string | null => {
 };
 
 // 7750 SR-1 integrated variants: the line card fixes the faceplate.
-const SR1_LINECARD_STENCIL: Record<string, string> = {
+export const SR1_LINECARD_STENCILS: Record<string, string> = {
   'i24-800g-qsfpdd-1': '7750 SR-1-24D',
   'i40-200g-sfpdd+6-800g-qsfpdd-1': '7750 SR-1-46S',
   'i48-400g-qsfpdd-1': '7750 SR-1-48D',
@@ -45,8 +48,10 @@ const SR1_LINECARD_STENCIL: Record<string, string> = {
   'imm36-800g-qsfpdd': '7750 SR-1se',
 };
 
-// '/' and '+' are flattened to '-' in the pre-generated composite stencil names.
-const sanitise = (t: string) => t.replace(/[/+]/g, '-');
+// '/' and '+' are flattened to '-' in the pre-generated composite stencil names, and capacity
+// suffixes ("x2-s36-800g-qsfpdd-18.0t") are dropped.
+export const sanitiseCardType = (t: string) => t.replace(/[/+]/g, '-').replace(/-\d+(?:\.\d+)?t$/i, '');
+const sanitise = sanitiseCardType;
 
 const mdaBay = (slot: string | undefined): '1' | '2' | null => {
   const tail = (slot ?? '').split('/').pop() ?? '';
@@ -60,11 +65,14 @@ const mdaBay = (slot: string | undefined): '1' | '2' | null => {
 function sr1LineCardStencil(components?: Component[]): string | null {
   const lineCard = components?.find(c => c.kind === 'lineCard')?.type;
   if (!lineCard) return null;
-  const variant = SR1_LINECARD_STENCIL[lineCard] ?? SR1_LINECARD_STENCIL[sanitise(lineCard)];
+  const sanitised = sanitise(lineCard);
+  const variant = SR1_LINECARD_STENCILS[lineCard]
+    ?? Object.entries(SR1_LINECARD_STENCILS).find(([card]) => sanitise(card) === sanitised)?.[1];
   return metaKeyOf(variant);
 }
 
-// Two-bay MDA chassis (7750 SR-1 / SR-1s): "<platform> <mda1>_<mda2>", empty bay -> "blank".
+// Two-bay MDA chassis (7750 SR-1/SR-1s/SR-2s/SR-2se): "<platform> <mda1>_<mda2>", empty bay ->
+// "blank". Full-width cards (SR-1s s18/s36) have a bare "<platform> <mda1>" stencil instead.
 function twoBayStencil(platform: string, components?: Component[]): string | null {
   const bays = new Map<string, string>();
   for (const c of components ?? []) {
@@ -73,7 +81,11 @@ function twoBayStencil(platform: string, components?: Component[]): string | nul
     if (bay && !bays.has(bay)) bays.set(bay, sanitise(c.type));
   }
   if (!bays.size) return null;
-  return metaKeyOf(`${platform} ${bays.get('1') ?? 'blank'}_${bays.get('2') ?? 'blank'}`);
+  const bay1 = bays.get('1');
+  const bay2 = bays.get('2');
+  const combo = metaKeyOf(`${platform} ${bay1 ?? 'blank'}_${bay2 ?? 'blank'}`);
+  if (combo) return combo;
+  return bay1 && !bay2 ? metaKeyOf(`${platform} ${bay1}`) : null;
 }
 
 /**
@@ -88,7 +100,7 @@ export function resolveFrontPanel(platform?: string, components?: Component[]): 
     const lineCardKey = sr1LineCardStencil(components);
     if (lineCardKey) return lineCardKey;
   }
-  if (trimmed === '7750 SR-1' || trimmed === '7750 SR-1s') {
+  if (['7750 SR-1', '7750 SR-1s', '7750 SR-2s', '7750 SR-2se'].includes(trimmed)) {
     return twoBayStencil(trimmed, components);
   }
 
@@ -221,6 +233,27 @@ const SROS_EDA_RE = /^ethernet-(\d+)-([a-z])-(\d+)(?:-(\d+))?$/i;
 const SRL_RE = /^ethernet-(\d+)-(\d+)(?:-(\d+))?$/i;
 
 const mdaNumber = (letter: string): number => letter.toLowerCase().charCodeAt(0) - 96;
+export const mdaBayOfLetter = mdaNumber;
+export const mdaLetterOfBay = (bay: number): string => String.fromCharCode(96 + bay);
+
+/**
+ * SR OS line-card/MDA/port address for a front-panel cage. Slotted cage ids are "<bay>-<port>"
+ * (bay -> MDA letter); fixed faceplates use the fitted MDA's slot, defaulting to "1-a".
+ */
+export function srosCageAddress(
+  cage: string,
+  components?: Component[],
+): { lc: string; letter: string; port: string } | null {
+  const parts = cage.split('-');
+  const port = parts.at(-1);
+  if (!port || !/^\d+$/.test(port)) return null;
+  const bay = parts.length > 1 ? Number(parts[0]) : null;
+  const mda = components?.find(c => c.kind === 'mda' && c.slot)?.slot?.match(/^(\d+)-([a-z])$/);
+  const lc = mda ? mda[1] : '1';
+  let letter = mda ? mda[2] : 'a';
+  if (bay) letter = mdaLetterOfBay(bay);
+  return { lc, letter, port };
+}
 
 export interface InterfacePortAddress { cage: string; channel?: number }
 
@@ -265,9 +298,9 @@ export interface InterfaceForCageOptions {
  * cards), fall through its channels.
  */
 export function interfaceForCage(cage: string, opts: InterfaceForCageOptions): string | null {
-  const parts = cage.split('-');
-  const port = parts.at(-1);
-  if (!port || !/^\d+$/.test(port)) return null;
+  const address = srosCageAddress(cage, opts.components);
+  if (!address) return null;
+  const { lc, letter, port } = address;
 
   const used = new Set(opts.usedInterfaces);
   if (!opts.sros) {
@@ -275,13 +308,7 @@ export function interfaceForCage(cage: string, opts: InterfaceForCageOptions): s
     return used.has(iface) ? null : iface;
   }
 
-  const bay = parts.length > 1 ? Number(parts[0]) : null;
-  const mda = opts.components?.find(c => c.kind === 'mda' && c.slot)?.slot?.match(/^(\d+)-([a-z])$/);
-  const linecard = mda ? mda[1] : '1';
-  let letter = mda ? mda[2] : 'a';
-  if (bay) letter = String.fromCharCode(96 + bay);
-
-  const base = `ethernet-${linecard}-${letter}-${port}`;
+  const base = `ethernet-${lc}-${letter}-${port}`;
   if (opts.channel) {
     const iface = `${base}-${opts.channel}`;
     return used.has(iface) ? null : iface;

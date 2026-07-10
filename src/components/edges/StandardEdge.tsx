@@ -1,10 +1,11 @@
 import type { Position } from '@xyflow/react';
-import { getBezierPath, EdgeLabelRenderer } from '@xyflow/react';
+import { getBezierPath, getSmoothStepPath, EdgeLabelRenderer } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
 import { Chip } from '@mui/material';
 
 import { getControlPoint } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
+import type { EdgeRouting } from '../../lib/store/createStore';
 
 interface StandardEdgeProps {
   testId?: string;
@@ -14,6 +15,7 @@ interface StandardEdgeProps {
   targetY: number;
   sourcePosition: Position;
   targetPosition: Position;
+  routing?: EdgeRouting;
   isSelected: boolean;
   isSimNodeEdge: boolean;
   isConnectedToSelectedNode?: boolean;
@@ -29,6 +31,7 @@ export default function StandardEdge({
   targetY,
   sourcePosition,
   targetPosition,
+  routing = 'curved',
   isSelected,
   isSimNodeEdge,
   isConnectedToSelectedNode,
@@ -38,7 +41,19 @@ export default function StandardEdge({
   let edgePath: string;
   let edgeMidpoint: { x: number; y: number };
 
-  if (sourcePosition === targetPosition) {
+  if (routing === 'elbow') {
+    const [path, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+      targetPosition,
+      borderRadius: 6,
+    });
+    edgePath = path;
+    edgeMidpoint = { x: labelX, y: labelY };
+  } else if (sourcePosition === targetPosition) {
     const distance = Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2);
     const curvature = Math.max(50, distance * 0.5);
     const c1 = getControlPoint(sourceX, sourceY, sourcePosition, curvature);

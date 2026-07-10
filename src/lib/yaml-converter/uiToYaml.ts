@@ -21,6 +21,7 @@ import type {
 import {
   ANNOTATION_POS_X,
   ANNOTATION_POS_Y,
+  ANNOTATION_BREAKOUTS,
   ANNOTATION_EDGE_ID,
   ANNOTATION_MEMBER_INDEX,
   ANNOTATION_SRC_HANDLE,
@@ -30,6 +31,7 @@ import {
   DEFAULT_SIM_INTERFACE,
 } from '../constants';
 import { downloadTextFile } from '../download';
+import { formatBreakouts } from '../frontpanel';
 import { migrateValue } from '../schemaEnums';
 
 import { asArray, fallbackIfEmptyString } from './shared';
@@ -156,6 +158,8 @@ export function buildCrd(options: UIToYamlOptions): Topology {
         [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
         [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
       };
+      const breakouts = formatBreakouts(node.data.breakouts);
+      if (breakouts) yamlNode.annotations[ANNOTATION_BREAKOUTS] = breakouts;
     }
 
     return yamlNode;

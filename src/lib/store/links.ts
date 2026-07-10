@@ -51,28 +51,33 @@ function toSourceHandle(handle: string | null | undefined): string | undefined {
   return handle.replace(/-target$/, '') || undefined;
 }
 
-// Handle ids of front-panel port cages ("port:<cage>" / "port:<cage>-target"). Connections made
-// from these cable the exact port instead of auto-picking the next free interface.
+// Handle ids of front-panel port cages ("port:<cage>[_channel]" / "...-target"). Connections made
+// from these cable the exact port instead of auto-picking the next free interface. Cage ids only
+// contain digits and "-", so "_" unambiguously separates the breakout channel.
 const PORT_HANDLE_PREFIX = 'port:';
 
-function cageFromPortHandle(handle: string | null | undefined): string | null {
+function cageFromPortHandle(handle: string | null | undefined): { cage: string; channel?: number } | null {
   if (!handle?.startsWith(PORT_HANDLE_PREFIX)) return null;
-  const cage = handle.slice(PORT_HANDLE_PREFIX.length).replace(/-target$/, '');
-  return cage || null;
+  const ref = handle.slice(PORT_HANDLE_PREFIX.length).replace(/-target$/, '');
+  if (!ref) return null;
+  const [cage, channel] = ref.split('_');
+  if (!cage) return null;
+  return channel ? { cage, channel: Number(channel) } : { cage };
 }
 
 function interfaceForPortCage(
   node: UINode | undefined,
   nodeTemplates: NodeTemplate[],
-  cage: string,
+  port: { cage: string; channel?: number },
   usedInterfaces: string[],
 ): string | null {
   if (!node || node.id.startsWith('sim-')) return null;
   const panel = resolveNodePanel(node.data, nodeTemplates);
-  return interfaceForCage(cage, {
+  return interfaceForCage(port.cage, {
     sros: isSrosNode(node, nodeTemplates),
     components: panel?.components,
     usedInterfaces,
+    channel: port.channel,
   });
 }
 
@@ -210,16 +215,23 @@ function hasAnyEdgeBetween(edges: UIEdge[], nodeIdA: string, nodeIdB: string): b
 function getNextLinkNumberForPair(edges: UIEdge[], sourceNodeName: string, targetNodeName: string): number {
   const pairKey = getEdgePairKey(sourceNodeName, targetNodeName);
   let memberLinkCount = 0;
+  let maxSuffix = 0;
 
   for (const edge of edges) {
     const edgeSource = edge.data?.sourceNode;
     const edgeTarget = edge.data?.targetNode;
     if (!edgeSource || !edgeTarget) continue;
     if (getEdgePairKey(edgeSource, edgeTarget) !== pairKey) continue;
-    memberLinkCount += edge.data?.memberLinks?.length ?? 0;
+    for (const member of edge.data?.memberLinks ?? []) {
+      memberLinkCount += 1;
+      // deleting a link frees its count but not its name — track used suffixes so a new
+      // link never reuses the name of a surviving one
+      const suffix = member.name?.match(/-(\d+)$/);
+      if (suffix) maxSuffix = Math.max(maxSuffix, Number(suffix[1]));
+    }
   }
 
-  return memberLinkCount + 1;
+  return Math.max(memberLinkCount, maxSuffix) + 1;
 }
 
 function selectExistingEdgeWithNewMemberLink({

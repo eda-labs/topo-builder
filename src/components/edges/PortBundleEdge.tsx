@@ -1,7 +1,8 @@
-import { Position, EdgeLabelRenderer, getBezierPath } from '@xyflow/react';
+import { Position, EdgeLabelRenderer, getBezierPath, getSmoothStepPath } from '@xyflow/react';
 import { Chip } from '@mui/material';
 
-import { cageForInterface, portCenterInNode, type NodePanel } from '../../lib/frontpanel';
+import type { EdgeRouting } from '../../lib/store/createStore';
+import { portAddressForInterface, portCenterInNode, type NodePanel } from '../../lib/frontpanel';
 import { getFloatingEdgeParams } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { UILagGroup, UIMemberLink } from '../../types/ui';
@@ -11,15 +12,16 @@ interface NodeLike {
   position: { x: number; y: number };
   internals?: { positionAbsolute?: { x: number; y: number } };
   measured?: { width?: number; height?: number };
+  data?: { breakouts?: Record<string, number> };
 }
 
 interface CableEnd { x: number; y: number; anchored: boolean; fallbackPosition: Position }
 
 const nodeOrigin = (node: NodeLike) => node.internals?.positionAbsolute ?? node.position;
 
-// Cable endpoint for one side of a member link: the exact port centre when the node renders a
-// front panel and the interface maps onto it, otherwise the node-boundary point of the
-// floating edge between the two nodes.
+// Cable endpoint for one side of a member link: the exact port centre (or breakout-channel
+// sliver) when the node renders a front panel and the interface maps onto it, otherwise the
+// node-boundary point of the floating edge between the two nodes.
 function cableEnd(
   node: NodeLike,
   panel: NodePanel | null,
@@ -27,8 +29,12 @@ function cableEnd(
   fallback: { x: number; y: number; position: Position },
 ): CableEnd {
   if (panel && iface) {
-    const cage = cageForInterface(iface, panel.meta);
-    const center = cage ? portCenterInNode(panel.meta, cage) : null;
+    const address = portAddressForInterface(iface, panel.meta);
+    const channels = address ? node.data?.breakouts?.[address.cage] : undefined;
+    const breakout = address?.channel && channels
+      ? { channel: address.channel, channels: Math.max(channels, address.channel) }
+      : undefined;
+    const center = address ? portCenterInNode(panel.meta, address.cage, breakout) : null;
     if (center) {
       const origin = nodeOrigin(node);
       return { x: origin.x + center.x, y: origin.y + center.y, anchored: true, fallbackPosition: fallback.position };
@@ -88,6 +94,7 @@ interface CableProps {
   tgt: CableEnd;
   edgeNodeA?: string;
   edgeNodeB?: string;
+  routing: EdgeRouting;
   isMemberSelected: boolean;
   isSimNodeEdge: boolean;
   isConnectedToSelectedNode?: boolean;
@@ -105,20 +112,22 @@ function cableTestId({ lag, showLagChip, edgeNodeA, edgeNodeB, index }: Pick<Cab
 
 function Cable(props: CableProps) {
   const {
-    member, index, lag, showLagChip, src, tgt, edgeNodeA, edgeNodeB,
+    member, index, lag, showLagChip, src, tgt, edgeNodeA, edgeNodeB, routing,
     isMemberSelected, isSimNodeEdge, isConnectedToSelectedNode,
     onMemberLinkClick, onMemberLinkContextMenu, onLagClick, onLagContextMenu,
   } = props;
 
-  const [path, labelX, labelY] = getBezierPath({
+  const ends = {
     sourceX: src.x,
     sourceY: src.y,
     targetX: tgt.x,
     targetY: tgt.y,
     sourcePosition: endPosition(src, tgt),
     targetPosition: endPosition(tgt, src),
-    curvature: 0.3,
-  });
+  };
+  const [path, labelX, labelY] = routing === 'elbow'
+    ? getSmoothStepPath({ ...ends, borderRadius: 6, offset: 14 + (index % 8) * 5 })
+    : getBezierPath({ ...ends, curvature: 0.3 });
 
   const handleClick = (e: React.MouseEvent) => {
     if (lag) onLagClick(e, lag.id);
@@ -171,6 +180,7 @@ export interface PortBundleEdgeProps {
   targetPanel: NodePanel | null;
   memberLinks: UIMemberLink[];
   lagGroups: UILagGroup[];
+  routing: EdgeRouting;
   isSelected: boolean;
   isSimNodeEdge: boolean;
   isConnectedToSelectedNode?: boolean;
@@ -191,6 +201,7 @@ export default function PortBundleEdge({
   targetPanel,
   memberLinks,
   lagGroups,
+  routing,
   isSelected,
   isSimNodeEdge,
   isConnectedToSelectedNode,
@@ -228,6 +239,7 @@ export default function PortBundleEdge({
             tgt={cableEnd(targetNode, targetPanel, member.targetInterface, { x: floating.tx, y: floating.ty, position: floating.targetPos })}
             edgeNodeA={edgeNodeA}
             edgeNodeB={edgeNodeB}
+            routing={routing}
             isMemberSelected={isMemberSelected}
             isSimNodeEdge={isSimNodeEdge}
             isConnectedToSelectedNode={isConnectedToSelectedNode}

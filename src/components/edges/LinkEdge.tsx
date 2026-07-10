@@ -62,6 +62,7 @@ export default function LinkEdge({
   const selectLag = useTopologyStore(state => state.selectLag);
   const nodes = useTopologyStore(state => state.nodes);
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
+  const edgeRouting = useTopologyStore(state => state.edgeRouting);
 
   const isConnectedToSelectedNode = selectedNodeId !== null && (source === selectedNodeId || target === selectedNodeId);
 
@@ -179,9 +180,11 @@ export default function LinkEdge({
     selectMemberLink(id, index, e.shiftKey);
   };
 
+  // Right-click selects the cable under the cursor (replacing the selection, like any item
+  // context menu); shift-right-click extends the selection for multi-member actions (LAG).
   const handleMemberLinkContextMenu = (e: React.MouseEvent, index: number) => {
     if (!selectedMemberLinkIndices.includes(index)) {
-      selectMemberLink(id, index, true);
+      selectMemberLink(id, index, e.shiftKey);
     }
   };
 
@@ -213,6 +216,7 @@ export default function LinkEdge({
           targetPanel={targetPanel}
           memberLinks={memberLinks}
           lagGroups={lagGroups}
+          routing={edgeRouting}
           isSelected={isSelected}
           isSimNodeEdge={isSimNodeEdge}
           isConnectedToSelectedNode={isConnectedToSelectedNode}
@@ -239,6 +243,7 @@ export default function LinkEdge({
       targetY={targetY}
       sourcePosition={sourcePosition}
       targetPosition={targetPosition}
+      routing={edgeRouting}
       isSelected={isSelected}
       isSimNodeEdge={isSimNodeEdge}
       isConnectedToSelectedNode={isConnectedToSelectedNode}

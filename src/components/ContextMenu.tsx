@@ -266,17 +266,24 @@ function ContextMenuEdgeSelectionItems({
   linkTemplates,
   currentLinkTemplate,
   selectedMemberLinkCount,
+  memberLinkTotal = 0,
   onCreateLag,
   onDeleteEdge,
+  onDeleteAllLinks,
 }: {
   onClose: () => void;
   onChangeLinkTemplate?: (templateName: string) => void;
   linkTemplates: LinkTemplate[];
   currentLinkTemplate?: string;
   selectedMemberLinkCount: number;
+  memberLinkTotal?: number;
   onCreateLag?: () => void;
   onDeleteEdge?: () => void;
+  onDeleteAllLinks?: () => void;
 }) {
+  // A subset of a bundle is selected when fewer members are selected than the edge carries;
+  // "Delete Link" then removes just those cables, with a separate item for the whole bundle.
+  const partialSelection = selectedMemberLinkCount > 0 && memberLinkTotal > selectedMemberLinkCount;
   return (
     <>
       {linkTemplates.length > 0 && onChangeLinkTemplate && (
@@ -301,7 +308,13 @@ function ContextMenuEdgeSelectionItems({
       {onDeleteEdge && (
         <MenuItem onClick={() => { onDeleteEdge(); onClose(); }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>Delete Link</ListItemText>
+          <ListItemText>{selectedMemberLinkCount > 1 ? `Delete Links (${selectedMemberLinkCount})` : 'Delete Link'}</ListItemText>
+        </MenuItem>
+      )}
+      {partialSelection && onDeleteAllLinks && (
+        <MenuItem onClick={() => { onDeleteAllLinks(); onClose(); }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>{`Delete All Links (${memberLinkTotal})`}</ListItemText>
         </MenuItem>
       )}
     </>
@@ -365,6 +378,8 @@ function ContextMenuSelectionSection({
   linkTemplates,
   currentLinkTemplate,
   selectedMemberLinkCount,
+  memberLinkTotal,
+  onDeleteAllLinks,
   canCreateEsiLag,
   isMergeIntoEsiLag,
   contextMenuFlowPosition,
@@ -390,6 +405,8 @@ function ContextMenuSelectionSection({
   linkTemplates: LinkTemplate[];
   currentLinkTemplate?: string;
   selectedMemberLinkCount: number;
+  memberLinkTotal?: number;
+  onDeleteAllLinks?: () => void;
   canCreateEsiLag: boolean;
   isMergeIntoEsiLag: boolean;
   contextMenuFlowPosition: { x: number; y: number };
@@ -444,8 +461,10 @@ function ContextMenuSelectionSection({
           linkTemplates={linkTemplates}
           currentLinkTemplate={currentLinkTemplate}
           selectedMemberLinkCount={selectedMemberLinkCount}
+          memberLinkTotal={memberLinkTotal}
           onCreateLag={onCreateLag}
           onDeleteEdge={onDeleteEdge}
+          onDeleteAllLinks={onDeleteAllLinks}
         />
       );
     case 'multiEdge':
@@ -587,6 +606,8 @@ interface ContextMenuProps {
   linkTemplates?: LinkTemplate[];
   currentLinkTemplate?: string;
   selectedMemberLinkCount?: number;
+  memberLinkTotal?: number;
+  onDeleteAllLinks?: () => void;
   canCreateEsiLag?: boolean;
   isMergeIntoEsiLag?: boolean;
   contextMenuFlowPosition?: { x: number; y: number };
@@ -626,6 +647,8 @@ export default function ContextMenu({
   linkTemplates = [],
   currentLinkTemplate,
   selectedMemberLinkCount = 0,
+  memberLinkTotal = 0,
+  onDeleteAllLinks,
   canCreateEsiLag = false,
   isMergeIntoEsiLag = false,
   contextMenuFlowPosition = { x: 0, y: 0 },
@@ -704,6 +727,8 @@ export default function ContextMenu({
                   linkTemplates={linkTemplates}
                   currentLinkTemplate={currentLinkTemplate}
                   selectedMemberLinkCount={selectedMemberLinkCount}
+                  memberLinkTotal={memberLinkTotal}
+                  onDeleteAllLinks={onDeleteAllLinks}
                   canCreateEsiLag={canCreateEsiLag}
                   isMergeIntoEsiLag={isMergeIntoEsiLag}
                   contextMenuFlowPosition={contextMenuFlowPosition}

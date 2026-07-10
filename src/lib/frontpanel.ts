@@ -151,12 +151,66 @@ export function portBox(meta: FrontPanelMeta, pos: FrontPanelPortPos): PortBox {
   return { left: pos.x * W - width / 2, top: pos.y * H - height / 2, width, height };
 }
 
-// Cage centre in node-local pixels (panel offset included), for anchoring cables.
-export function portCenterInNode(meta: FrontPanelMeta, cage: string): { x: number; y: number } | null {
+// Broken-out cages split into a small channel grid: one row up to 4 channels, two rows beyond.
+export function breakoutGrid(channels: number): { cols: number; rows: number } {
+  const n = Math.max(1, channels);
+  const rows = n > 4 ? 2 : 1;
+  return { cols: Math.ceil(n / rows), rows };
+}
+
+// Channel sliver rectangle within its cage box (channel is 1-based).
+export function breakoutChannelBox(box: PortBox, channel: number, channels: number): PortBox {
+  const { cols, rows } = breakoutGrid(channels);
+  const ch = Math.max(1, Math.min(channels, channel));
+  const width = box.width / cols;
+  const height = box.height / rows;
+  return {
+    left: box.left + ((ch - 1) % cols) * width,
+    top: box.top + Math.floor((ch - 1) / cols) * height,
+    width,
+    height,
+  };
+}
+
+// Cage (or breakout-channel) centre in node-local pixels, for anchoring cables.
+export function portCenterInNode(
+  meta: FrontPanelMeta,
+  cage: string,
+  breakout?: { channel: number; channels: number },
+): { x: number; y: number } | null {
   const pos = meta.layout.find(p => p.p === cage);
   if (!pos) return null;
   const { w: W, h: H } = panelDims(meta);
-  return { x: FP_PAD + pos.x * W, y: FP_HEADER_H + FP_PAD + pos.y * H };
+  const center = { x: FP_PAD + pos.x * W, y: FP_HEADER_H + FP_PAD + pos.y * H };
+  if (!breakout) return center;
+  const box = portBox(meta, pos);
+  const sliver = breakoutChannelBox(box, breakout.channel, breakout.channels);
+  return {
+    x: center.x - box.width / 2 + (sliver.left - box.left) + sliver.width / 2,
+    y: center.y - box.height / 2 + (sliver.top - box.top) + sliver.height / 2,
+  };
+}
+
+// ---- breakout persistence ("cage:channels,cage:channels") ----------------
+
+export function parseBreakouts(value: string | undefined): Record<string, number> | undefined {
+  if (!value) return undefined;
+  const breakouts: Record<string, number> = {};
+  for (const entry of value.split(',')) {
+    const [cage, channels] = entry.split(':');
+    const n = Number(channels);
+    if (cage && Number.isInteger(n) && n >= 2 && n <= 16) breakouts[cage.trim()] = n;
+  }
+  return Object.keys(breakouts).length ? breakouts : undefined;
+}
+
+export function formatBreakouts(breakouts: Record<string, number> | undefined): string | null {
+  if (!breakouts) return null;
+  const entries = Object.entries(breakouts)
+    .filter(([, n]) => Number.isInteger(n) && n >= 2)
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+  if (!entries.length) return null;
+  return entries.map(([cage, n]) => `${cage}:${n}`).join(',');
 }
 
 // ---- interface name <-> cage id -----------------------------------------
@@ -166,43 +220,58 @@ const SRL_RE = /^ethernet-(\d+)-(\d+)(?:-(\d+))?$/i;
 
 const mdaNumber = (letter: string): number => letter.toLowerCase().charCodeAt(0) - 96;
 
+export interface InterfacePortAddress { cage: string; channel?: number }
+
 /**
- * Front-panel cage id for an EDA interface name, or null when it doesn't parse.
- * SR Linux "ethernet-1-12[-ch]" -> "12"; SR OS "ethernet-1-a-6[-p]" -> "6" on fixed
+ * Front-panel cage id (+ breakout channel) for an EDA interface name, or null when it doesn't
+ * parse. SR Linux "ethernet-1-12[-ch]" -> "12"; SR OS "ethernet-1-a-6[-p]" -> "6" on fixed
  * faceplates and "<bay>-6" on slotted (two-bay MDA) composites.
  */
-export function cageForInterface(iface: string, meta: FrontPanelMeta): string | null {
+export function portAddressForInterface(iface: string, meta: FrontPanelMeta): InterfacePortAddress | null {
   const sros = SROS_EDA_RE.exec(iface.trim());
   if (sros) {
     const connector = sros[3];
-    if (!meta.slotted) return connector;
-    return `${mdaNumber(sros[2])}-${connector}`;
+    const channel = sros[4] == null ? undefined : Number(sros[4]);
+    if (!meta.slotted) return { cage: connector, channel };
+    return { cage: `${mdaNumber(sros[2])}-${connector}`, channel };
   }
   const srl = SRL_RE.exec(iface.trim());
   if (srl) {
-    if (!meta.slotted) return srl[2];
-    return `${srl[1]}-${srl[2]}`;
+    const channel = srl[3] == null ? undefined : Number(srl[3]);
+    if (!meta.slotted) return { cage: srl[2], channel };
+    return { cage: `${srl[1]}-${srl[2]}`, channel };
   }
   return null;
+}
+
+export function cageForInterface(iface: string, meta: FrontPanelMeta): string | null {
+  return portAddressForInterface(iface, meta)?.cage ?? null;
 }
 
 export interface InterfaceForCageOptions {
   sros: boolean;
   components?: Component[];
   usedInterfaces: string[];
+  /** breakout channel (1-based) when cabling a channel sliver of a broken-out cage */
+  channel?: number;
 }
 
 /**
  * EDA interface name for a cage the user cabled directly. SR Linux cages map 1:1 to
- * "ethernet-1-<cage>". SR OS cages map to "ethernet-<lc>-<mda>-<connector>"; when that
- * connector name is taken (multi-port connector cards), fall through its channels.
+ * "ethernet-1-<cage>" ("-<channel>" appended for breakout channels). SR OS cages map to
+ * "ethernet-<lc>-<mda>-<connector>"; when that connector name is taken (multi-port connector
+ * cards), fall through its channels.
  */
 export function interfaceForCage(cage: string, opts: InterfaceForCageOptions): string | null {
   const parts = cage.split('-');
   const port = parts.at(-1);
   if (!port || !/^\d+$/.test(port)) return null;
 
-  if (!opts.sros) return `ethernet-1-${port}`;
+  const used = new Set(opts.usedInterfaces);
+  if (!opts.sros) {
+    const iface = opts.channel ? `ethernet-1-${port}-${opts.channel}` : `ethernet-1-${port}`;
+    return used.has(iface) ? null : iface;
+  }
 
   const bay = parts.length > 1 ? Number(parts[0]) : null;
   const mda = opts.components?.find(c => c.kind === 'mda' && c.slot)?.slot?.match(/^(\d+)-([a-z])$/);
@@ -211,7 +280,10 @@ export function interfaceForCage(cage: string, opts: InterfaceForCageOptions): s
   if (bay) letter = String.fromCharCode(96 + bay);
 
   const base = `ethernet-${linecard}-${letter}-${port}`;
-  const used = new Set(opts.usedInterfaces);
+  if (opts.channel) {
+    const iface = `${base}-${opts.channel}`;
+    return used.has(iface) ? null : iface;
+  }
   if (!used.has(base)) return base;
   for (let channel = 1; channel <= 8; channel++) {
     const candidate = `${base}-${channel}`;

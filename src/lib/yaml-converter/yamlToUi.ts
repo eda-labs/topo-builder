@@ -22,7 +22,8 @@ import type {
   UISimulation,
   UIAnnotation,
 } from '../../types/ui';
-import { DEFAULT_INTERFACE, ANNOTATION_DRAWING } from '../constants';
+import { DEFAULT_INTERFACE, ANNOTATION_DRAWING, ANNOTATION_BREAKOUTS } from '../constants';
+import { parseBreakouts } from '../frontpanel';
 
 import {
   asArray,
@@ -199,6 +200,7 @@ function parseYamlTopoNodes(options: {
         productionAddress: node.productionAddress,
         nodeProfile,
         labels: userLabels,
+        breakouts: parseBreakouts(node.annotations?.[ANNOTATION_BREAKOUTS]),
       },
     });
   }
@@ -267,6 +269,38 @@ function parseYamlSimulation(options: {
   };
 }
 
+// SR Linux breakout channel interface: ethernet-<lc>-<port>-<channel> (three numeric segments).
+const SRL_CHANNEL_RE = /^ethernet-\d+-(\d+)-(\d+)$/;
+
+/**
+ * A channelised SR Linux interface on a link implies its cage is broken out, even when the
+ * topobuilder breakout annotation is absent (hand-written YAML). Infer a sensible channel
+ * count (2/4/8) so the front panel renders the cage split.
+ */
+function inferBreakoutsFromEdges(nodes: UINode[], edges: UIEdge[]): void {
+  const nodesById = new Map(nodes.map(n => [n.id, n]));
+  const note = (nodeId: string, iface: string | undefined) => {
+    const match = iface ? SRL_CHANNEL_RE.exec(iface) : null;
+    if (!match) return;
+    const node = nodesById.get(nodeId);
+    if (!node || node.data.nodeType === 'simnode') return;
+    const cage = match[1];
+    const channel = Number(match[2]);
+    let needed = 8;
+    if (channel <= 2) needed = 2;
+    else if (channel <= 4) needed = 4;
+    const breakouts = node.data.breakouts ?? {};
+    if ((breakouts[cage] ?? 0) >= needed) return;
+    node.data.breakouts = { ...breakouts, [cage]: needed };
+  };
+  for (const edge of edges) {
+    for (const member of edge.data?.memberLinks ?? []) {
+      note(edge.source, member.sourceInterface);
+      note(edge.target, member.targetInterface);
+    }
+  }
+}
+
 /**
  * Convert YAML string to UI state.
  */
@@ -316,6 +350,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     attachEdgeLinksToNodes(nodes, edgeLinksByNode);
 
     const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
+    inferBreakoutsFromEdges(nodes, edges);
 
     let annotations: UIAnnotation[] = [];
     const metadataAnnotations = parsed.metadata &&

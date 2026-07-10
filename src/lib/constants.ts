@@ -12,6 +12,8 @@ export const ANNOTATION_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
 export const ANNOTATION_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
 export const ANNOTATION_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
 export const ANNOTATION_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
+// Per-node port breakouts, serialised as "cage:channels,cage:channels" (e.g. "3:4,7:2").
+export const ANNOTATION_BREAKOUTS = 'topobuilder.eda.labs/breakouts';
 
 export const ANNOTATION_DRAWING = 'topobuilder.eda.labs/drawing';
 

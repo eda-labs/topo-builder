@@ -31,6 +31,8 @@ export interface UINodeData {
   simNodeType?: string;
   image?: string;
   edgeLinks?: UIEdgeLink[];
+  /** front-panel cage id -> breakout channel count (e.g. { "3": 4 }) */
+  breakouts?: Record<string, number>;
 }
 
 export type UINode = Node<UINodeData>;

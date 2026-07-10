@@ -72,12 +72,15 @@ setSimNodeIdGenerator(generateSimNodeId);
 // Core actions that span multiple domains
 export type EdaConnectionStatus = 'disconnected' | 'connected';
 
+export type EdgeRouting = 'elbow' | 'curved';
+
 interface CoreState {
   topologyName: string;
   namespace: string;
   operation: string;
   schemaVersion: number;
   showSimNodes: boolean;
+  edgeRouting: EdgeRouting;
   disableAnnotations: boolean;
   yamlRefreshCounter: number;
   layoutVersion: number;
@@ -95,6 +98,7 @@ interface CoreActions {
   setOperation: (operation: string) => void;
   setSchemaVersion: (version: number) => void;
   setShowSimNodes: (show: boolean) => void;
+  setEdgeRouting: (routing: EdgeRouting) => void;
   setDisableAnnotations: (disable: boolean) => void;
   triggerYamlRefresh: () => void;
   saveToUndoHistory: () => void;
@@ -156,6 +160,7 @@ const initialCoreState: CoreState = {
   operation: baseTemplate.operation || getSchemaEnums(DEFAULT_SCHEMA_VERSION).defaultOperation,
   schemaVersion: DEFAULT_SCHEMA_VERSION,
   showSimNodes: true,
+  edgeRouting: 'elbow',
   disableAnnotations: false,
   yamlRefreshCounter: 0,
   layoutVersion: 0,
@@ -472,6 +477,7 @@ export const createTopologyStore = () => {
             get().triggerYamlRefresh();
           },
           setShowSimNodes: (show: boolean) => set({ showSimNodes: show }),
+          setEdgeRouting: (routing: EdgeRouting) => set({ edgeRouting: routing }),
           setDisableAnnotations: (disable: boolean) => set({ disableAnnotations: disable }),
           triggerYamlRefresh: () => set({ yamlRefreshCounter: get().yamlRefreshCounter + 1 }),
 
@@ -582,7 +588,7 @@ export const createTopologyStore = () => {
             get().saveToUndoHistory();
             setIdCounters(1, 1, 1);
             setAnnotationIdCounter(1);
-            const { showSimNodes, yamlRefreshCounter } = get();
+            const { showSimNodes, edgeRouting, yamlRefreshCounter } = get();
             set({
               ...initialCoreState,
               nodes: [],
@@ -603,6 +609,7 @@ export const createTopologyStore = () => {
               selectedAnnotationId: null,
               selectedAnnotationIds: new Set<string>(),
               showSimNodes,
+              edgeRouting,
               yamlRefreshCounter: yamlRefreshCounter + 1,
             });
           },

@@ -1,17 +1,20 @@
-import { memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
-import { Handle, Position, useStore } from '@xyflow/react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Handle, Position, useStore, useUpdateNodeInternals } from '@xyflow/react';
+import { Divider, ListSubheader, Menu, MenuItem } from '@mui/material';
 
 import { useTopologyStore } from '../../lib/store';
 import {
   FP_HEADER_H,
   FP_PAD,
-  cageForInterface,
+  breakoutChannelBox,
   frontPanelPortLabel,
   interfaceForCage,
   paintPanel,
   panelDims,
+  portAddressForInterface,
   portBox,
   type NodePanel,
+  type PortBox,
 } from '../../lib/frontpanel';
 import type { UIEdge, UINodeData } from '../../types/ui';
 
@@ -25,7 +28,10 @@ const NODE_TEXT = 'var(--color-node-text)';
 // Below this zoom the ports are painted on a single canvas instead of interactive cells.
 const DETAIL_ZOOM = 0.45;
 
-export const portHandleId = (cage: string) => `port:${cage}`;
+// Breakout channels use "_" as the separator — cage ids only contain digits and "-", and React
+// Flow rejects some punctuation (e.g. "#") in handle ids.
+export const portHandleId = (cage: string, channel?: number) =>
+  (channel ? `port:${cage}_${channel}` : `port:${cage}`);
 
 interface Occupant {
   iface: string;
@@ -71,6 +77,13 @@ function portFontSize(width: number, height: number, label: string): number {
   return Math.max(4, Math.min(11, height * 0.72, width / (digits * 0.62)));
 }
 
+function isOccupantHot(occupant: Occupant, selectedEdgeId: string | null, selectedMemberLinkIndices: number[]): boolean {
+  return occupant.edgeSelected === true
+    || (occupant.edgeId === selectedEdgeId
+      && occupant.memberIndex !== undefined
+      && selectedMemberLinkIndices.includes(occupant.memberIndex));
+}
+
 function SummaryCanvas({ panel, occupied, width, height }: {
   panel: NodePanel;
   occupied: ReadonlyMap<string, string>;
@@ -100,15 +113,17 @@ const portHandleStyle = {
   opacity: 1,
 } as const;
 
-function FreePort({ cage, label, iface, box }: {
-  cage: string;
+function FreePort({ handleId, label, iface, box, onCageContextMenu }: {
+  handleId: string;
   label: string;
   iface: string | null;
-  box: { left: number; top: number; width: number; height: number };
+  box: PortBox;
+  onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
       className="fp-port fp-port-free"
+      onContextMenu={onCageContextMenu}
       title={iface ? `${iface} · free — drag or click to cable` : `port ${label} · free`}
       style={{
         position: 'absolute',
@@ -130,14 +145,14 @@ function FreePort({ cage, label, iface, box }: {
       <span style={{ opacity: 0.55, pointerEvents: 'none' }}>{label}</span>
       <Handle
         type="target"
-        id={`${portHandleId(cage)}-target`}
+        id={`${handleId}-target`}
         position={Position.Bottom}
         isConnectableStart={false}
         style={portHandleStyle}
       />
       <Handle
         type="source"
-        id={portHandleId(cage)}
+        id={handleId}
         position={Position.Bottom}
         isConnectableEnd={false}
         style={{ ...portHandleStyle, cursor: 'crosshair' }}
@@ -146,11 +161,12 @@ function FreePort({ cage, label, iface, box }: {
   );
 }
 
-function UsedPort({ occupant, label, hot, box }: {
+function UsedPort({ occupant, label, hot, box, onCageContextMenu }: {
   occupant: Occupant;
   label: string;
   hot: boolean;
-  box: { left: number; top: number; width: number; height: number };
+  box: PortBox;
+  onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
   const fill = PORT_FILL[occupant.kind];
@@ -159,6 +175,7 @@ function UsedPort({ occupant, label, hot, box }: {
   return (
     <div
       className="fp-port"
+      onContextMenu={onCageContextMenu}
       title={`${occupant.iface}${remote}`}
       onClick={e => {
         e.stopPropagation();
@@ -204,28 +221,65 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
   const edges = useTopologyStore(state => state.edges);
   const selectedEdgeId = useTopologyStore(state => state.selectedEdgeId);
   const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);
+  const updateNode = useTopologyStore(state => state.updateNode);
+  const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
   const detailed = useStore(s => s.transform[2] >= DETAIL_ZOOM);
   const isConnecting = useStore(s => s.connection.inProgress);
 
-  const { w: panelW, h: panelH } = panelDims(panel.meta);
+  const [cageMenu, setCageMenu] = useState<{ x: number; y: number; cage: string } | null>(null);
 
+  const { w: panelW, h: panelH } = panelDims(panel.meta);
+  const breakouts = useMemo(() => data.breakouts ?? {}, [data.breakouts]);
+
+  // Occupancy keyed by cage, or "<cage>#<channel>" for channels of broken-out cages. A channelised
+  // interface on a cage with no breakout state still marks the whole cage as used.
   const occupants = useMemo(() => {
     const byIface = collectOccupants(nodeId, data, edges);
     const byCage = new Map<string, Occupant>();
     for (const occupant of byIface.values()) {
-      const cage = cageForInterface(occupant.iface, panel.meta);
-      if (cage && !byCage.has(cage)) byCage.set(cage, occupant);
+      const address = portAddressForInterface(occupant.iface, panel.meta);
+      if (!address) continue;
+      const key = address.channel && breakouts[address.cage] ? `${address.cage}#${address.channel}` : address.cage;
+      if (!byCage.has(key)) byCage.set(key, occupant);
     }
     return byCage;
-  }, [nodeId, data, edges, panel.meta]);
+  }, [nodeId, data, edges, panel.meta, breakouts]);
+
+  const cageHasCables = useMemo(() => {
+    const cages = new Set<string>();
+    for (const key of occupants.keys()) cages.add(key.split('#')[0]);
+    return cages;
+  }, [occupants]);
 
   const summaryFills = useMemo(() => {
     const fills = new Map<string, string>();
-    for (const [cage, occupant] of occupants) fills.set(cage, PORT_FILL[occupant.kind]);
+    for (const [key, occupant] of occupants) fills.set(key.split('#')[0], PORT_FILL[occupant.kind]);
     return fills;
   }, [occupants]);
 
-  const usedCount = occupants.size;
+  const usedCount = cageHasCables.size;
+
+  const setBreakout = (cage: string, channels: number) => {
+    updateNode(nodeId, { breakouts: { ...breakouts, [cage]: channels } });
+    triggerYamlRefresh();
+  };
+  const removeBreakout = (cage: string) => {
+    const next = Object.fromEntries(Object.entries(breakouts).filter(([key]) => key !== cage));
+    updateNode(nodeId, { breakouts: Object.keys(next).length ? next : undefined });
+    triggerYamlRefresh();
+  };
+  const openCageMenu = (cage: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCageMenu({ x: e.clientX, y: e.clientY, cage });
+  };
+
+  // Handles come and go after mount (breakouts split cages, cabling occupies ports, the zoom LOD
+  // swaps ports in and out) — React Flow only knows about handles measured at mount unless told.
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateNodeInternals(nodeId);
+  }, [nodeId, breakouts, occupants, detailed, updateNodeInternals]);
 
   const sideHandleClass = `!w-2.5 !h-2.5 !bg-(--color-handle-bg) !border !border-solid !border-(--color-node-border) transition-opacity duration-150 ${
     selected || isConnecting ? '!opacity-100' : '!opacity-0 group-hover:!opacity-100'
@@ -307,21 +361,68 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
           panel.meta.layout.map(pos => {
             const box = portBox(panel.meta, pos);
             const label = frontPanelPortLabel(panel.stencil, pos.p);
+            const channels = breakouts[pos.p];
+
+            if (channels) {
+              return Array.from({ length: channels }, (_, i) => {
+                const channel = i + 1;
+                const key = `${pos.p}#${channel}`;
+                const sliver = breakoutChannelBox(box, channel, channels);
+                const occupant = occupants.get(key);
+                if (!occupant) {
+                  const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [], channel });
+                  return <FreePort key={key} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
+                }
+                const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
+                return <UsedPort key={key} occupant={occupant} label={String(channel)} hot={hot} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
+              });
+            }
+
             const occupant = occupants.get(pos.p);
             if (!occupant) {
               const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [] });
-              return <FreePort key={pos.p} cage={pos.p} label={label} iface={iface} box={box} />;
+              return <FreePort key={pos.p} handleId={portHandleId(pos.p)} label={label} iface={iface} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
             }
-            const hot = occupant.edgeSelected === true
-              || (occupant.edgeId === selectedEdgeId
-                && occupant.memberIndex !== undefined
-                && selectedMemberLinkIndices.includes(occupant.memberIndex));
-            return <UsedPort key={pos.p} occupant={occupant} label={label} hot={hot} box={box} />;
+            const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
+            return <UsedPort key={pos.p} occupant={occupant} label={label} hot={hot} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
           })
         ) : (
           <SummaryCanvas panel={panel} occupied={summaryFills} width={panelW} height={panelH} />
         )}
       </div>
+
+      <Menu
+        open={cageMenu !== null}
+        onClose={() => { setCageMenu(null); }}
+        anchorReference="anchorPosition"
+        anchorPosition={cageMenu ? { top: cageMenu.y, left: cageMenu.x } : undefined}
+        slotProps={{ list: { dense: true } }}
+      >
+        {cageMenu && (() => {
+          const cage = cageMenu.cage;
+          const cageLabel = frontPanelPortLabel(panel.stencil, cage);
+          const cabled = cageHasCables.has(cage);
+          const close = () => { setCageMenu(null); };
+          if (breakouts[cage]) {
+            return [
+              <ListSubheader key="h" sx={{ lineHeight: '28px', bgcolor: 'transparent' }}>{`Port ${cageLabel} · ${breakouts[cage]}× breakout`}</ListSubheader>,
+              <Divider key="d" />,
+              <MenuItem key="rm" disabled={cabled} onClick={() => { removeBreakout(cage); close(); }}>
+                {cabled ? 'Remove breakout (un-cable channels first)' : 'Remove breakout'}
+              </MenuItem>,
+            ];
+          }
+          return [
+            <ListSubheader key="h" sx={{ lineHeight: '28px', bgcolor: 'transparent' }}>{`Port ${cageLabel}`}</ListSubheader>,
+            <Divider key="d" />,
+            ...[2, 4, 8].map(n => (
+              <MenuItem key={n} disabled={cabled} onClick={() => { setBreakout(cage, n); close(); }}>
+                {cabled ? `Break out into ${n} channels (un-cable first)` : `Break out into ${n} channels`}
+              </MenuItem>
+            )),
+          ];
+        })()}
+      </Menu>
     </div>
   );
 }

@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { Box, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import {
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
+  PushPin as PushPinIcon,
+  PushPinOutlined as PushPinOutlinedIcon,
 } from '@mui/icons-material';
 
 import { useTopologyStore, generateUniqueName } from '../lib/store';
@@ -144,10 +144,13 @@ export default function PalettePanel() {
   const simNodeTemplates = useTopologyStore(state => state.simulation.simNodeTemplates);
   const { screenToFlowPosition } = useReactFlow();
 
-  const [open, setOpen] = useState(() => localStorage.getItem('topology-palette-open') !== '0');
+  // Slim rail by default; expands on hover so it never eats canvas space, with a pin to keep it open.
+  const [pinned, setPinned] = useState(() => localStorage.getItem('topology-palette-pinned') === '1');
+  const [hovered, setHovered] = useState(false);
+  const open = pinned || hovered;
   const toggle = () => {
-    setOpen(prev => {
-      localStorage.setItem('topology-palette-open', prev ? '0' : '1');
+    setPinned(prev => {
+      localStorage.setItem('topology-palette-pinned', prev ? '0' : '1');
       return !prev;
     });
   };
@@ -161,18 +164,30 @@ export default function PalettePanel() {
     addPaletteItem(payload, screenToFlowPosition(center));
   };
 
+  // Floating overlay inside the canvas so the react-flow pane keeps its full geometry
+  // (node coordinates are unaffected by the palette being open or closed).
   return (
     <Box
+      data-testid="palette-panel"
+      onMouseEnter={() => { setHovered(true); }}
+      onMouseLeave={() => { setHovered(false); }}
+      onDragEnd={() => { setHovered(false); }}
       sx={{
-        width: open ? 220 : 28,
-        flexShrink: 0,
+        position: 'absolute',
+        left: 12,
+        top: 12,
+        maxHeight: 'calc(100% - 24px)',
+        zIndex: 5,
+        width: open ? 220 : 34,
         transition: theme.transitions.create('width', { duration: 150 }),
-        borderRight: '1px solid',
+        border: '1px solid',
         borderColor: 'divider',
+        borderRadius: 1,
         bgcolor: 'background.paper',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        boxShadow: 3,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: open ? 'space-between' : 'center', pl: open ? 1 : 0 }}>
@@ -181,12 +196,20 @@ export default function PalettePanel() {
             TEMPLATES
           </Typography>
         )}
-        <Tooltip title={open ? 'Collapse palette' : 'Expand palette'}>
+        <Tooltip title={pinned ? 'Unpin palette' : 'Pin palette open'}>
           <IconButton size="small" onClick={toggle} data-testid="palette-toggle">
-            {open ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+            {pinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
       </Box>
+      {!open && (
+        <Typography
+          variant="caption"
+          sx={{ color: TEXT_SECONDARY, fontWeight: 700, letterSpacing: 1.5, writingMode: 'vertical-rl', mx: 'auto', mt: 1, userSelect: 'none' }}
+        >
+          TEMPLATES
+        </Typography>
+      )}
       {open && (
         <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, p: 1, pt: 0.5 }}>
           {nodeTemplates.map(template => {

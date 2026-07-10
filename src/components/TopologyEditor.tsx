@@ -24,6 +24,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   OpenInFull as OpenInFullIcon,
   CloseFullscreen as CloseFullscreenIcon,
+  Timeline as ElbowRoutingIcon,
+  Gesture as CurvedRoutingIcon,
 } from '@mui/icons-material';
 
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName, saveToUndoHistory } from '../lib/store';
@@ -550,9 +552,18 @@ function TopologyControls({
 }) {
   const hasSimNodes = nodes.some(n => n.data.nodeType === 'simnode');
   const hasExpandableLinks = edges.some(e => (e.data?.memberLinks?.length ?? 0) > 1);
+  const edgeRouting = useTopologyStore(state => state.edgeRouting);
+  const setEdgeRouting = useTopologyStore(state => state.setEdgeRouting);
 
   return (
     <Controls position="top-right">
+      <ControlButton
+        onClick={() => { setEdgeRouting(edgeRouting === 'elbow' ? 'curved' : 'elbow'); }}
+        title={edgeRouting === 'elbow' ? 'Cable routing: elbow — switch to curved' : 'Cable routing: curved — switch to elbow'}
+        data-testid="edge-routing-toggle"
+      >
+        {edgeRouting === 'elbow' ? <ElbowRoutingIcon /> : <CurvedRoutingIcon />}
+      </ControlButton>
       {hasSimNodes && (
         <ControlButton
           onClick={() => { setShowSimNodes(!showSimNodes); }}
@@ -1022,7 +1033,13 @@ function TopologyEditorInner({
     }
     const isExpanded = expandedEdges.has(edge.id);
     const hasMemberLinks = (edge.data?.memberLinks?.length || 0) > 1;
-    if (isExpanded && hasMemberLinks) {
+    // Port-anchored cables select their member link in their own contextmenu handler (which runs
+    // before this one) — read the store fresh and keep that selection instead of clobbering it
+    // with a whole-edge selection.
+    const freshState = useTopologyStore.getState();
+    const memberSelectionActive = freshState.selectedEdgeId === edge.id
+      && (freshState.selectedMemberLinkIndices.length > 0 || freshState.selectedLagId !== null);
+    if ((isExpanded || memberSelectionActive) && hasMemberLinks) {
       setContextMenu({
         open: true,
         position: { x: event.clientX, y: event.clientY },
@@ -1049,7 +1066,24 @@ function TopologyEditorInner({
 
   const handleAddNode = (templateName?: string) => { addNode(contextMenu.flowPosition, templateName); };
   const handleDeleteNode = () => { if (selectedNodeId) deleteNode(selectedNodeId); };
-  const handleDeleteEdge = () => { if (selectedEdgeId) deleteEdge(selectedEdgeId); };
+  // Delete only the selected member link(s) when a subset of a bundle is selected (e.g. a single
+  // cable was clicked); the whole edge goes only when everything on it is selected.
+  const handleDeleteEdge = () => {
+    const state = useTopologyStore.getState();
+    const edgeId = state.selectedEdgeId;
+    if (!edgeId) return;
+    const edge = state.edges.find(e => e.id === edgeId);
+    const memberCount = edge?.data?.memberLinks?.length ?? 0;
+    const indices = state.selectedMemberLinkIndices;
+    if (indices.length > 0 && memberCount > indices.length) {
+      [...indices].sort((a, b) => b - a).forEach(index => { deleteMemberLink(edgeId, index); });
+      clearMemberLinkSelection();
+      triggerYamlRefresh();
+      return;
+    }
+    deleteEdge(edgeId);
+  };
+  const handleDeleteAllEdgeLinks = () => { if (selectedEdgeId) deleteEdge(selectedEdgeId); };
   const handleCreateLag = () => {
     if (selectedEdgeId && selectedMemberLinkIndices.length >= 2) {
       createLagFromMemberLinks(selectedEdgeId, selectedMemberLinkIndices);
@@ -1186,7 +1220,6 @@ function TopologyEditorInner({
       styleVariables={styleVariables}
     >
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <PalettePanel />
         <Box
           onContextMenu={e => { e.preventDefault(); }}
           onDragOver={handleCanvasDragOver}
@@ -1247,6 +1280,7 @@ function TopologyEditorInner({
             <LayoutHandler layoutVersion={layoutVersion} />
             <EmptyCanvasHint show={nodes.length === 0} />
           </ReactFlow>
+          <PalettePanel />
         </Box>
 
         <SidePanel
@@ -1266,6 +1300,8 @@ function TopologyEditorInner({
         onAddSimNode={handleAddSimNode}
         onDeleteNode={handleDeleteNode}
         onDeleteEdge={handleDeleteEdge}
+        onDeleteAllLinks={handleDeleteAllEdgeLinks}
+        memberLinkTotal={selectedEdgeId ? edges.find(e => e.id === selectedEdgeId)?.data?.memberLinks?.length ?? 0 : 0}
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
         onChangeSimNodeTemplate={handleChangeSimNodeTemplate}

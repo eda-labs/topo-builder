@@ -77,3 +77,33 @@
 .react-flow__edge-path.sim-edge {
   stroke-dasharray: 4 4;
 }
+
+/* ---- front-panel ports (v2) ---- */
+.fp-port {
+  box-sizing: border-box;
+}
+
+.fp-port-free {
+  cursor: crosshair;
+}
+
+.fp-port-free:hover {
+  box-shadow: inset 0 0 0 1.5px var(--color-link-stroke-highlight);
+  border-radius: 2px;
+}
+
+.fp-port-free .react-flow__handle {
+  cursor: crosshair;
+}
+
+/* click-to-cable pending port and valid drop target while dragging a cable */
+.fp-port-free .react-flow__handle.clickconnecting,
+.fp-port-free .react-flow__handle.connectingto.valid {
+  box-shadow: inset 0 0 0 1.5px var(--color-link-stroke-selected);
+  animation: fp-port-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes fp-port-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

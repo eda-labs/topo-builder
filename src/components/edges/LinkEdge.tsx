@@ -1,13 +1,16 @@
+import { useMemo } from 'react';
 import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
-import type { UIEdgeData } from '../../types/ui';
+import type { UIEdgeData, UINodeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
 import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
+import { resolveNodePanel } from '../../lib/frontpanel';
 
 import StandardEdge from './StandardEdge';
 import BundleEdge from './BundleEdge';
 import EsiLagEdge from './EsiLagEdge';
+import PortBundleEdge from './PortBundleEdge';
 
 function coalesce<T>(value: T | null | undefined, fallback: T): T {
   if (value == null) return fallback;
@@ -58,8 +61,18 @@ export default function LinkEdge({
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
   const selectLag = useTopologyStore(state => state.selectLag);
   const nodes = useTopologyStore(state => state.nodes);
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
 
   const isConnectedToSelectedNode = selectedNodeId !== null && (source === selectedNodeId || target === selectedNodeId);
+
+  const sourcePanel = useMemo(() => {
+    const data = sourceNode?.data as UINodeData | undefined;
+    return data && !source.startsWith('sim-') ? resolveNodePanel(data, nodeTemplates) : null;
+  }, [sourceNode?.data, source, nodeTemplates]);
+  const targetPanel = useMemo(() => {
+    const data = targetNode?.data as UINodeData | undefined;
+    return data && !target.startsWith('sim-') ? resolveNodePanel(data, nodeTemplates) : null;
+  }, [targetNode?.data, target, nodeTemplates]);
 
   if (!sourceNode || !targetNode) {
     return null;
@@ -185,6 +198,34 @@ export default function LinkEdge({
 
   const esiLagEdgeElement = renderEsiLagEdge();
   if (esiLagEdgeElement) return esiLagEdgeElement;
+
+  // Front-panel mode: as soon as either endpoint renders a real faceplate, every member link
+  // is its own cable anchored at its exact port (no expand/collapse indirection).
+  if (!isEsiLag && (sourcePanel || targetPanel) && linkCount > 0) {
+    return (
+      <g data-testid={edgeTestId}>
+        <PortBundleEdge
+          edgeNodeA={edgeNodeA}
+          edgeNodeB={edgeNodeB}
+          sourceNode={sourceNode}
+          targetNode={targetNode}
+          sourcePanel={sourcePanel}
+          targetPanel={targetPanel}
+          memberLinks={memberLinks}
+          lagGroups={lagGroups}
+          isSelected={isSelected}
+          isSimNodeEdge={isSimNodeEdge}
+          isConnectedToSelectedNode={isConnectedToSelectedNode}
+          selectedMemberLinkIndices={selectedMemberLinkIndices}
+          selectedLagId={selectedLagId}
+          onMemberLinkClick={handleMemberLinkClick}
+          onMemberLinkContextMenu={handleMemberLinkContextMenu}
+          onLagClick={handleLagClick}
+          onLagContextMenu={handleLagContextMenu}
+        />
+      </g>
+    );
+  }
 
   const bundleEdgeElement = renderBundleEdge();
   if (bundleEdgeElement) return bundleEdgeElement;

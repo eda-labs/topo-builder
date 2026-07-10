@@ -10,7 +10,8 @@ import { applyEdgeChanges } from '@xyflow/react';
 
 import type { UIEdgeData, UIEdge, UIMemberLink, UINode } from '../../types/ui';
 import { getNameError, getNodeRole } from '../utils';
-import { generateInterface } from '../interfaces';
+import { generateInterface, isSrosNode } from '../interfaces';
+import { interfaceForCage, resolveNodePanel } from '../frontpanel';
 import type { LinkTemplate, NodeTemplate } from '../../types/schema';
 import { SESSION_NEW_LINK_ID } from '../constants';
 import { getSchemaEnums } from '../schemaEnums';
@@ -48,6 +49,31 @@ export const setEdgeIdGenerator = (fn: () => string) => {
 function toSourceHandle(handle: string | null | undefined): string | undefined {
   if (!handle) return undefined;
   return handle.replace(/-target$/, '') || undefined;
+}
+
+// Handle ids of front-panel port cages ("port:<cage>" / "port:<cage>-target"). Connections made
+// from these cable the exact port instead of auto-picking the next free interface.
+const PORT_HANDLE_PREFIX = 'port:';
+
+function cageFromPortHandle(handle: string | null | undefined): string | null {
+  if (!handle?.startsWith(PORT_HANDLE_PREFIX)) return null;
+  const cage = handle.slice(PORT_HANDLE_PREFIX.length).replace(/-target$/, '');
+  return cage || null;
+}
+
+function interfaceForPortCage(
+  node: UINode | undefined,
+  nodeTemplates: NodeTemplate[],
+  cage: string,
+  usedInterfaces: string[],
+): string | null {
+  if (!node || node.id.startsWith('sim-')) return null;
+  const panel = resolveNodePanel(node.data, nodeTemplates);
+  return interfaceForCage(cage, {
+    sros: isSrosNode(node, nodeTemplates),
+    components: panel?.components,
+    usedInterfaces,
+  });
 }
 
 function toTargetHandle(handle: string | null | undefined): string | undefined {
@@ -351,17 +377,30 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const sourceUsedInterfaces = getUsedInterfacesForNode(edges, sourceId, nodes);
     const targetUsedInterfaces = getUsedInterfacesForNode(edges, targetId, nodes);
 
-    const sourceInterface = formatInterface(sourceNode, nodeTemplates, sourceUsedInterfaces);
-    const targetInterface = formatInterface(targetNode, nodeTemplates, targetUsedInterfaces);
+    const sourceCage = cageFromPortHandle(normalized.sourceHandle);
+    const targetCage = cageFromPortHandle(normalized.targetHandle);
+    const isPortConnection = sourceCage !== null || targetCage !== null;
+
+    const sourceInterface = (sourceCage && interfaceForPortCage(sourceNode, nodeTemplates, sourceCage, sourceUsedInterfaces))
+      || formatInterface(sourceNode, nodeTemplates, sourceUsedInterfaces);
+    const targetInterface = (targetCage && interfaceForPortCage(targetNode, nodeTemplates, targetCage, targetUsedInterfaces))
+      || formatInterface(targetNode, nodeTemplates, targetUsedInterfaces);
 
     const nextLinkNumber = getNextLinkNumberForPair(edges, sourceNodeName, targetNodeName);
-    const existingEdge = findExistingEdge(edges, sourceId, targetId, normalized.sourceHandle, normalized.targetHandle);
+    // Port-level cables always bundle into the one edge between the pair; the port info lives in
+    // the member-link interfaces, so the edge itself keeps no handle.
+    const existingEdge = isPortConnection
+      ? edges.find(e => e.data?.edgeType !== 'esilag'
+        && ((e.source === sourceId && e.target === targetId) || (e.source === targetId && e.target === sourceId)))
+      : findExistingEdge(edges, sourceId, targetId, normalized.sourceHandle, normalized.targetHandle);
 
+    // Member-link interfaces are stored in the existing edge's orientation.
+    const reversed = existingEdge !== undefined && existingEdge.source === targetId;
     const newMemberLink: UIMemberLink = {
       name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
       template: defaultTemplate,
-      sourceInterface,
-      targetInterface,
+      sourceInterface: reversed ? targetInterface : sourceInterface,
+      targetInterface: reversed ? sourceInterface : targetInterface,
     };
 
     if (existingEdge?.data) {
@@ -385,8 +424,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       id,
       source: sourceId,
       target: targetId,
-      sourceHandle: normalized.sourceHandle,
-      targetHandle: normalized.targetHandle,
+      sourceHandle: isPortConnection ? undefined : normalized.sourceHandle,
+      targetHandle: isPortConnection ? undefined : normalized.targetHandle,
       data: {
         id,
         sourceNode: sourceNodeName,

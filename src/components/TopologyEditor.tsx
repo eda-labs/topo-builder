@@ -37,6 +37,7 @@ import AppLayout, { type TopologyThemingProps } from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
 import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
 import ContextMenu from './ContextMenu';
+import PalettePanel, { readPaletteDrag, addPaletteItem } from './PalettePanel';
 
 const nodeTypes: NodeTypes = {
   topoNode: TopoNode,
@@ -713,6 +714,26 @@ function TopologyEditorInner({
     onConnect(connection);
   }, [onConnect]);
 
+  // Self-cabling a node to itself is never a topology link.
+  const isValidConnection = useCallback(
+    (connection: Connection | Edge) => connection.source !== connection.target,
+    [],
+  );
+
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/x-topobuilder-template')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    const payload = readPaletteDrag(e);
+    if (!payload) return;
+    e.preventDefault();
+    addPaletteItem(payload, screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+  }, [screenToFlowPosition]);
+
   useEffect(() => {
     const target = getMemberLinkJumpTarget({
       activeTab,
@@ -1165,8 +1186,11 @@ function TopologyEditorInner({
       styleVariables={styleVariables}
     >
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <PalettePanel />
         <Box
           onContextMenu={e => { e.preventDefault(); }}
+          onDragOver={handleCanvasDragOver}
+          onDrop={handleCanvasDrop}
           data-testid="topology-canvas"
           sx={{
             flex: 1,
@@ -1201,6 +1225,8 @@ function TopologyEditorInner({
             fitView
             snapToGrid
             snapGrid={[15, 15]}
+            isValidConnection={isValidConnection}
+            connectionRadius={24}
             defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
             colorMode={flowColorMode}
             deleteKeyCode={null}

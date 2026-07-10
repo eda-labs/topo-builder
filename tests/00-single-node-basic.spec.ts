@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-import { canvasPane, getNodeCount, getYamlContent, loadExpectedYaml } from './utils';
+import { canvasPane, getNodeCount, getYamlContent, expectYamlToMatchFixture } from './utils';
 
 test('Add a single node', async ({ page }) => {
   await page.goto('/');
@@ -15,5 +15,5 @@ test('Add a single node', async ({ page }) => {
   expect(nodes).toBe(1);
 
   const yaml = await getYamlContent(page);
-  expect(yaml).toBe(loadExpectedYaml('00-single-node.yaml'));
+  expectYamlToMatchFixture(yaml, '00-single-node.yaml');
 });

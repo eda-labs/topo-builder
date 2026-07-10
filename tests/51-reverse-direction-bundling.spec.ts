@@ -49,7 +49,8 @@ test.describe('Reverse direction connections bundle into the same edge', () => {
     // Should still be 1 edge (bundled), not 2 separate edges
     expect(await getEdgeCount(page)).toBe(1);
 
-    // The bundle should show "2 links" indicator
-    await page.waitForSelector('[title*="links - click to expand"]');
+    // v2: both member links render as their own cables
+    await page.waitForSelector('[data-testid="topology-memberlink-leaf1--leaf2-0"]');
+    await page.waitForSelector('[data-testid="topology-memberlink-leaf1--leaf2-1"]');
   });
 });

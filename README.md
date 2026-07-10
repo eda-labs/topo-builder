@@ -17,8 +17,17 @@ cable-map stencil metadata (`src/generated/frontpanel-meta.json`; geometry only,
 - **Cables anchor at their ports**: every member link renders as its own cable attached to its port
   on the faceplate; used ports are coloured (green = fabric link, purple = sim edge, blue = edge
   link), and clicking a used port or cable selects that member link.
-- **Template palette**: the left rail lists node/sim templates with a mini front-panel preview —
-  drag one onto the canvas (or click) to add a node.
+- **Breakouts**: right-click a free cage to break it out into 2/4/8 channels; channels cable
+  individually as `ethernet-<lc>-<port>-<channel>`. Breakouts are stored in the
+  `topobuilder.eda.labs/breakouts` node annotation and re-inferred from channelised interface
+  names when importing hand-written YAML.
+- **Elbow cables**: cables route orthogonally by default; the canvas control toggles
+  elbow/curved routing.
+- **Member-level delete**: clicking or right-clicking a cable selects just that member link —
+  Delete (or "Delete Link") removes only it; "Delete All Links (N)" removes the whole bundle.
+- **Template palette**: a hover-expanding rail on the canvas lists node/sim templates with a mini
+  front-panel preview — drag one onto the canvas (or click) to add a node; pin it open if you
+  prefer.
 - **Zoom-aware detail**: zoomed out, panels paint as a lightweight canvas with the same footprint;
   zoomed in, ports become interactive.
 - Platforms without faceplate metadata (and sim nodes) keep the v1 icon rendering, and the YAML

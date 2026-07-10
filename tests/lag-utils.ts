@@ -12,9 +12,11 @@ import {
 
 import { canvasPane } from './utils';
 
+// v2 front-panel nodes are wider than the old 80x80 boxes (a 7220 IXR-D3L is ~400px),
+// so the canonical positions keep clear of each other's footprints.
 export const NODE1_POS = { x: 200, y: 300 };
-export const NODE2_POS = { x: 600, y: 300 };
-export const NODE3_POS = { x: 400, y: 470 };
+export const NODE2_POS = { x: 640, y: 300 };
+export const NODE3_POS = { x: 400, y: 480 };
 export const SIM_POS = { x: 420, y: 120 };
 export const EMPTY_POS = { x: 60, y: 60 };
 
@@ -74,13 +76,56 @@ export const selectEdgesByNames = async (page: Page, pairs: Array<[string, strin
   }, pairs);
 };
 
+// v2 renders every member link as its own cable; a locator's bounding-box centre often misses
+// the 10px stroke (or sits under a node), so clicks sample actual points along the path.
+export const clickPathAt = async (
+  page: Page,
+  locator: ReturnType<Page['locator']>,
+  options: { button?: 'left' | 'right'; modifiers?: Array<'Shift' | 'Alt' | 'Control' | 'Meta'> } = {},
+) => {
+  const handle = await locator.first().elementHandle();
+  if (!handle) throw new Error('path not found');
+  const pt = await handle.evaluate(el => {
+    let p = el as SVGGeometryElement;
+    // an edge wrapper <g> matched: sample its first real path instead
+    if (typeof p.getTotalLength !== 'function') {
+      const inner = el.querySelector('path');
+      if (!inner) return null;
+      p = inner as SVGGeometryElement;
+    }
+    const total = p.getTotalLength();
+    for (let f = 0.08; f <= 0.92; f += 0.04) {
+      const m = p.getPointAtLength(total * f);
+      const ctm = p.getScreenCTM();
+      if (!ctm) return null;
+      const sp = new DOMPoint(m.x, m.y).matrixTransform(ctm);
+      const under = document.elementFromPoint(sp.x, sp.y);
+      if (under === p || under?.closest?.('.react-flow__edge')) return { x: sp.x, y: sp.y };
+    }
+    return null;
+  });
+  if (!pt) throw new Error('no visible point on path');
+  for (const mod of options.modifiers ?? []) await page.keyboard.down(mod);
+  await page.mouse.click(pt.x, pt.y, { button: options.button ?? 'left' });
+  for (const mod of options.modifiers ?? []) await page.keyboard.up(mod);
+};
+
+// A path belonging to the edge between two nodes: a member cable when the edge renders
+// port-anchored cables, else the edge's own path (ESI-LAG, non-panel fallbacks).
+const edgePathByLabels = (page: Page, a: string, b: string) => {
+  const key = topologyEdgeKey(a, b);
+  return page.locator(
+    `[data-testid^="topology-memberlink-${key}-"], [data-testid^="topology-lag-${key}-"], [data-testid="topology-edge-${key}"], [data-testid="topology-edge-${key}"] path`,
+  );
+};
+
 export const clickEdgeBetween = async (
   page: Page,
   sourceLabel: string,
   targetLabel: string,
   options: { button?: 'left' | 'right'; modifiers?: Array<'Shift' | 'Alt' | 'Control' | 'Meta'> } = {},
 ) => {
-  await edgeByLabels(page, sourceLabel, targetLabel).click({ ...options, force: true });
+  await clickPathAt(page, edgePathByLabels(page, sourceLabel, targetLabel), options);
 };
 
 export const connectNodes = async (page: Page, sourceLabel: string, targetLabel: string) => {
@@ -133,18 +178,35 @@ export async function createLocalLagBetween(page: Page, nodeA: string, nodeB: st
   await openEdgeContextMenu(page, nodeA, nodeB);
   await pasteSelected(page);
 
-  await page.waitForSelector('[title*="links - click to expand"]');
-  await page.getByTitle(/links - click to expand/i).click();
-
+  // v2 renders member links as individual cables right away — no bundle chip to expand.
   await memberLinkByIndex(page, nodeA, nodeB, 0).waitFor();
   await memberLinkByIndex(page, nodeA, nodeB, 1).waitFor();
 
-  await memberLinkByIndex(page, nodeA, nodeB, 0).click();
-  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ modifiers: ['Shift'] });
+  await clickPathAt(page, memberLinkByIndex(page, nodeA, nodeB, 0));
+  await clickPathAt(page, memberLinkByIndex(page, nodeA, nodeB, 1), { modifiers: ['Shift'] });
 
-  await memberLinkByIndex(page, nodeA, nodeB, 1).click({ button: 'right' });
+  await clickPathAt(page, memberLinkByIndex(page, nodeA, nodeB, 1), { button: 'right', modifiers: ['Shift'] });
   await page.getByRole('menuitem', { name: 'Create Local LAG' }).click();
 }
+
+// v2 nodes are front panels: their body is full of port cells (connection handles), so
+// selecting or dragging a node targets its header strip instead of the element centre.
+export const clickNodeHeader = async (page: Page, label: string, options: { button?: 'left' | 'right' } = {}) => {
+  const box = await nodeByLabel(page, label).boundingBox();
+  if (!box) throw new Error(`Could not find node ${label}`);
+  await page.mouse.click(box.x + Math.min(60, box.width / 4), box.y + 10, options);
+};
+
+export const dragNodeBy = async (page: Page, label: string, dx: number, dy: number) => {
+  const box = await nodeByLabel(page, label).boundingBox();
+  if (!box) throw new Error(`Could not find node ${label}`);
+  const startX = box.x + Math.min(60, box.width / 4);
+  const startY = box.y + 10;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + dx, startY + dy, { steps: 10 });
+  await page.mouse.up();
+};
 
 export async function undoViaContextMenu(page: Page): Promise<void> {
   await canvasPane(page).click({ button: 'right', position: EMPTY_POS });

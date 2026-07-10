@@ -126,8 +126,10 @@ export function frontPanelPortLabel(stencil: string, cage: string): string {
 // ---- pixel geometry ------------------------------------------------------
 
 // Panel height scales with the physical cage-row count so port cells stay legible;
-// width follows from the faceplate aspect ratio (same rule as cable-map).
-const LAYOUT_ROW = 19;
+// width follows from the faceplate aspect ratio (same rule as cable-map, but more compact:
+// an editor canvas holds many nodes and users zoom in to cable, so a 7220 IXR-D3L renders
+// ~380px wide instead of the viewer's ~800px).
+const LAYOUT_ROW = 12;
 export const FP_PAD = 8;
 export const FP_HEADER_H = 26;
 

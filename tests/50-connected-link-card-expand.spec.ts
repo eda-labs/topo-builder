@@ -5,6 +5,7 @@ import {
   addTwoNodesAndConnect,
   createLocalLagBetween,
   addContextMenuItem,
+  clickNodeHeader,
   connectNodes,
   EMPTY_POS,
   NODE1_POS,
@@ -34,14 +35,14 @@ test.describe('Connected link cards expand bundle on click', () => {
       });
     });
 
-    // Wait for the bundle indicator
-    await page.waitForSelector('[title*="links - click to expand"]');
+    // v2: member cables render individually — wait for the second one
+    await page.waitForSelector('[data-testid$="-1"][data-testid^="topology-memberlink-"]');
 
     // Click empty space to deselect everything
     await canvasPane(page).click({ position: EMPTY_POS });
 
     // Click leaf1 node to show its NodeEditor
-    await nodeByLabel(page, 'leaf1').click();
+    await clickNodeHeader(page, 'leaf1');
 
     // Verify the Connected Links section is visible
     await expect(page.getByText('Connected Links')).toBeVisible();
@@ -67,7 +68,7 @@ test.describe('Connected link cards expand bundle on click', () => {
     await canvasPane(page).click({ position: EMPTY_POS });
 
     // Click leaf1 node to show its NodeEditor
-    await nodeByLabel(page, 'leaf1').click();
+    await clickNodeHeader(page, 'leaf1');
 
     // Verify the Connected Links section and LAG card are visible
     await expect(page.getByText('Connected Links')).toBeVisible();
@@ -114,11 +115,11 @@ test.describe('Connected link cards expand bundle on click', () => {
       });
     });
 
-    await page.waitForSelector('[title*="links - click to expand"]');
+    await page.waitForSelector('[data-testid$="-1"][data-testid^="topology-memberlink-"]');
     await canvasPane(page).click({ position: EMPTY_POS });
 
     // Click testman1 simnode to show its SimNodeEditor
-    await nodeByLabel(page, 'testman1').click();
+    await clickNodeHeader(page, 'testman1');
     await expect(page.getByText('Connected Links')).toBeVisible();
 
     // Get first link name and click it
@@ -165,7 +166,7 @@ test.describe('Connected link cards expand bundle on click', () => {
     await canvasPane(page).click({ position: EMPTY_POS });
 
     // Click testman1 simnode to show its SimNodeEditor
-    await nodeByLabel(page, 'testman1').click();
+    await clickNodeHeader(page, 'testman1');
     await expect(page.getByText('Connected Links')).toBeVisible();
 
     // Find and click the LAG card by its name
@@ -207,11 +208,11 @@ test.describe('Connected link cards expand bundle on click', () => {
       state.createLagFromMemberLinks(edge.id, [0, 1]);
     });
 
-    await page.waitForSelector('[title*="links - click to expand"]');
+    await page.waitForSelector('[data-testid$="-1"][data-testid^="topology-memberlink-"]');
     await canvasPane(page).click({ position: EMPTY_POS });
 
     // Click leaf1 node to show its NodeEditor
-    await nodeByLabel(page, 'leaf1').click();
+    await clickNodeHeader(page, 'leaf1');
     await expect(page.getByText('Connected Links')).toBeVisible();
 
     // The standalone link (index 2, not in the LAG) should be visible

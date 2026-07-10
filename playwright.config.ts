@@ -27,6 +27,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4321',
 
+    /* v2 front-panel nodes are wider than the v1 boxes; give the canvas room for the
+       canonical two-nodes-side-by-side layouts. */
+    viewport: { width: 1920, height: 1080 },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

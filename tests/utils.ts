@@ -15,14 +15,30 @@ export async function waitForAppReady(page: Page): Promise<void> {
   await page.getByTestId('topology-canvas').waitFor();
   // Pane is still ReactFlow-internal; we scope it under a stable wrapper.
   await page.getByTestId('topology-canvas').locator('.react-flow__pane').waitFor();
-  await page.getByTestId('yaml-editor').locator('.monaco-editor .view-lines').waitFor();
 }
 
 export async function getYamlContent(page: Page): Promise<string> {
-  await page.getByTestId('yaml-editor').locator('.monaco-editor .view-lines').waitFor();
-  const content = await page.evaluate(() => {
-    const models = (window as any).monaco?.editor?.getModels();
-    return models?.[0]?.getValue() || '';
+  // Generate the YAML from the live store exactly the way the editor does — reading the
+  // Monaco buffer would couple every test to the CDN-loaded editor being up.
+  const content = await page.evaluate(async () => {
+    // @ts-expect-error - Vite serves source files at this path in dev mode
+    const storeMod = await import('/src/lib/store/index.ts');
+    // @ts-expect-error - Vite serves source files at this path in dev mode
+    const converter = await import('/src/lib/yaml-converter.ts');
+    const s = storeMod.useTopologyStore.getState();
+    return converter.exportToYaml({
+      topologyName: s.topologyName,
+      namespace: s.namespace,
+      operation: s.operation,
+      nodes: s.nodes,
+      edges: s.edges,
+      nodeTemplates: s.nodeTemplates,
+      linkTemplates: s.linkTemplates,
+      simulation: s.simulation,
+      annotations: s.annotations,
+      disableAnnotations: s.disableAnnotations,
+      schemaVersion: s.schemaVersion,
+    }) as string;
   });
   return content.trimEnd();
 }
@@ -41,8 +57,18 @@ export function canvasPane(page: Page) {
   return page.getByTestId('topology-canvas').locator('.react-flow__pane');
 }
 
+// Node coordinates depend on canvas geometry (node footprints changed with v2's front panels),
+// so YAML comparisons normalise the position annotations and assert everything else exactly.
+export function normalizeCoordinates(yamlText: string): string {
+  return yamlText.replace(/(topobuilder\.eda\.labs\/[xy]): "-?\d+"/g, '$1: "X"');
+}
+
+export function expectYamlToMatchFixture(yaml: string, fixtureFilename: string): void {
+  expect(normalizeCoordinates(yaml)).toBe(normalizeCoordinates(loadExpectedYaml(fixtureFilename)));
+}
+
 export async function expectYamlEquals(page: Page, fixtureFilename: string): Promise<void> {
   await page.getByRole('tab', { name: 'YAML' }).click();
   const yaml = await getYamlContent(page);
-  expect(yaml).toBe(loadExpectedYaml(fixtureFilename));
+  expectYamlToMatchFixture(yaml, fixtureFilename);
 }

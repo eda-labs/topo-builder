@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { canvasPane, getNodeCount, expectYamlEquals } from './utils';
-import { SIM_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
+import { SIM_POS, addContextMenuItem, nodeByLabel, clickNodeHeader } from './lag-utils';
 
 test('Delete SimNode', async ({ page }) => {
   await page.goto('/');
@@ -12,7 +12,7 @@ test('Delete SimNode', async ({ page }) => {
   expect(await getNodeCount(page)).toBe(1);
 
   // Delete via context menu
-  await nodeByLabel(page, 'testman1').click({ button: 'right' });
+  await clickNodeHeader(page, 'testman1', { button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete Node' }).click();
 
   expect(await getNodeCount(page)).toBe(0);

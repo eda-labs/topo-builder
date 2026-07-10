@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import yaml from 'js-yaml';
 
-import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
+import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu, clickNodeHeader } from './lag-utils';
 import { canvasPane, getNodeCount, getYamlContent } from './utils';
 
 test('Delete node, undo, redo', async ({ page }) => {
@@ -15,7 +15,7 @@ test('Delete node, undo, redo', async ({ page }) => {
   expect(await getNodeCount(page)).toBe(2);
 
   // Delete leaf2 via node context menu.
-  await nodeByLabel(page, 'leaf2').click({ button: 'right' });
+  await clickNodeHeader(page, 'leaf2', { button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete Node' }).click();
 
   expect(await getNodeCount(page)).toBe(1);

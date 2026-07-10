@@ -1255,7 +1255,6 @@ function TopologyEditorInner({
             nodesDraggable
             nodeDragThreshold={2}
             elevateNodesOnSelect={false}
-            fitView
             snapToGrid
             snapGrid={[15, 15]}
             isValidConnection={isValidConnection}

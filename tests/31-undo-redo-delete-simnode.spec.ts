@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { canvasPane, getNodeCount } from './utils';
-import { SIM_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu } from './lag-utils';
+import { SIM_POS, addContextMenuItem, nodeByLabel, undoViaContextMenu, redoViaContextMenu, clickNodeHeader } from './lag-utils';
 
 test('Undo/redo delete SimNode', async ({ page }) => {
   await page.goto('/');
@@ -12,7 +12,7 @@ test('Undo/redo delete SimNode', async ({ page }) => {
   expect(await getNodeCount(page)).toBe(1);
 
   // Delete SimNode
-  await nodeByLabel(page, 'testman1').click({ button: 'right' });
+  await clickNodeHeader(page, 'testman1', { button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete Node' }).click();
   expect(await getNodeCount(page)).toBe(0);
 

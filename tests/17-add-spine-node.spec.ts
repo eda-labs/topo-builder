@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 
 import { canvasPane, expectYamlEquals } from './utils';
-import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
+import { NODE1_POS, NODE2_POS, addContextMenuItem, nodeByLabel, clickNodeHeader } from './lag-utils';
 
 test('Add leaf and spine nodes', async ({ page }) => {
   await page.goto('/');
@@ -13,7 +13,7 @@ test('Add leaf and spine nodes', async ({ page }) => {
   await addContextMenuItem(page, NODE2_POS, 'Add Node');
   await nodeByLabel(page, 'leaf2').waitFor();
 
-  await nodeByLabel(page, 'leaf2').click({ button: 'right' });
+  await clickNodeHeader(page, 'leaf2', { button: 'right' });
   await page.getByRole('menuitem', { name: 'Template' }).hover();
   await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
   await nodeByLabel(page, 'spine1').waitFor();

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { waitForAppReady, getYamlContent } from './utils';
-import { NODE1_POS, NODE2_POS, NODE3_POS, addContextMenuItem, nodeByLabel } from './lag-utils';
+import { NODE1_POS, NODE2_POS, NODE3_POS, addContextMenuItem, nodeByLabel, clickNodeHeader } from './lag-utils';
 
 test('Node numbering after switching template', async ({ page }) => {
   await page.goto('/');
@@ -16,7 +16,7 @@ test('Node numbering after switching template', async ({ page }) => {
   await nodeByLabel(page, 'leaf2').waitFor();
 
   // Change leaf2 to spine via context menu
-  await nodeByLabel(page, 'leaf2').click({ button: 'right' });
+  await clickNodeHeader(page, 'leaf2', { button: 'right' });
   await page.getByRole('menuitem', { name: 'Template' }).hover();
   await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
 

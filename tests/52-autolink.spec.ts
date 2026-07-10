@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { canvasPane, getYamlContent, getEdgeCount, getNodeCount } from './utils';
-import { addContextMenuItem, nodeByLabel, NODE1_POS, NODE2_POS, NODE3_POS, SIM_POS, parseLinks } from './lag-utils';
+import { addContextMenuItem, nodeByLabel, NODE1_POS, NODE2_POS, NODE3_POS, SIM_POS, parseLinks, clickNodeHeader } from './lag-utils';
 
 test.describe('AutoLink', () => {
   test('connects leaf to spine with ISL template', async ({ page }) => {
@@ -15,7 +15,7 @@ test.describe('AutoLink', () => {
     // Add a second node and change it to spine
     await addContextMenuItem(page, NODE2_POS, 'Add Node');
     await nodeByLabel(page, 'leaf2').waitFor();
-    await nodeByLabel(page, 'leaf2').click({ button: 'right' });
+    await clickNodeHeader(page, 'leaf2', { button: 'right' });
     await page.getByRole('menuitem', { name: 'Template' }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();
@@ -77,7 +77,7 @@ test.describe('AutoLink', () => {
     await nodeByLabel(page, 'leaf1').waitFor();
     await addContextMenuItem(page, NODE2_POS, 'Add Node');
     await nodeByLabel(page, 'leaf2').waitFor();
-    await nodeByLabel(page, 'leaf2').click({ button: 'right' });
+    await clickNodeHeader(page, 'leaf2', { button: 'right' });
     await page.getByRole('menuitem', { name: 'Template' }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();
@@ -125,7 +125,7 @@ test.describe('AutoLink', () => {
     // Add a spine node
     await addContextMenuItem(page, NODE3_POS, 'Add Node');
     await nodeByLabel(page, 'leaf3').waitFor();
-    await nodeByLabel(page, 'leaf3').click({ button: 'right' });
+    await clickNodeHeader(page, 'leaf3', { button: 'right' });
     await page.getByRole('menuitem', { name: 'Template' }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();

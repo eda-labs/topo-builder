@@ -220,6 +220,8 @@ export default function LinkEdge({
           targetNode={targetNode}
           sourcePanel={sourcePanel}
           targetPanel={targetPanel}
+          sourceHandleId={sourceHandleId}
+          targetHandleId={targetHandleId}
           memberLinks={memberLinks}
           lagGroups={lagGroups}
           routing={edgeRouting}

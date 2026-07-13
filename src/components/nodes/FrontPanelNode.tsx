@@ -118,7 +118,7 @@ const portHandleStyle = {
   opacity: 1,
 } as const;
 
-function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, onCageContextMenu }: {
+function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, connecting = false, onCageContextMenu }: {
   nodeId: string;
   nodeName: string;
   handleId: string;
@@ -126,6 +126,8 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, on
   iface: string | null;
   speedGbps: number | null;
   box: PortBox;
+  /** a connection drag is in progress — let drops reach the target handle underneath */
+  connecting?: boolean;
   onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const setHover = useHoverTrace(state => state.setHover);
@@ -169,12 +171,14 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, on
         isConnectableStart={false}
         style={portHandleStyle}
       />
+      {/* The source handle covers the target handle; while a drag from elsewhere is in
+          progress it must not swallow the drop, or sim-node -> port connections never land. */}
       <Handle
         type="source"
         id={handleId}
         position={Position.Bottom}
         isConnectableEnd={false}
-        style={{ ...portHandleStyle, cursor: 'crosshair' }}
+        style={{ ...portHandleStyle, cursor: 'crosshair', pointerEvents: connecting ? 'none' : undefined }}
       />
     </div>
   );
@@ -374,9 +378,10 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
     updateNodeInternals(nodeId);
   }, [nodeId, breakouts, occupants, detailed, updateNodeInternals]);
 
-  const sideHandleClass = `!w-2.5 !h-2.5 !bg-(--color-handle-bg) !border !border-solid !border-(--color-node-border) transition-opacity duration-150 ${
-    selected || isConnecting ? '!opacity-100' : '!opacity-0 group-hover:!opacity-100'
-  }`;
+  // Panel nodes cable at their ports only. The whole-node handles stay in the DOM invisible and
+  // non-connectable purely so edges from older topologies that anchored to a node side ("top",
+  // "right", …) still resolve their handle and render.
+  const legacyHandleClass = '!opacity-0 !w-1 !h-1 !pointer-events-none';
 
   return (
     <div
@@ -392,15 +397,14 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
         boxSizing: 'border-box',
       }}
     >
-      {/* whole-node handles: drag from the chassis border to auto-pick the next free port */}
-      <Handle type="source" position={Position.Top} id="top" className={sideHandleClass} />
-      <Handle type="target" position={Position.Top} id="top-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Right} id="right" className={sideHandleClass} />
-      <Handle type="target" position={Position.Right} id="right-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={sideHandleClass} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Left} id="left" className={sideHandleClass} />
-      <Handle type="target" position={Position.Left} id="left-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="target" position={Position.Top} id="top-target" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="target" position={Position.Right} id="right-target" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={false} className={legacyHandleClass} />
+      <Handle type="target" position={Position.Left} id="left-target" isConnectable={false} className={legacyHandleClass} />
 
       <div
         style={{
@@ -493,7 +497,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
                 const occupant = occupants.get(key);
                 if (!occupant) {
                   const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [], channel });
-                  return <FreePort key={key} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
+                  return <FreePort key={key} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} speedGbps={sliverSpeed} box={sliver} connecting={isConnecting} onCageContextMenu={openCageMenu(pos.p)} />;
                 }
                 const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
                 return <UsedPort key={key} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={String(channel)} hot={hot} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
@@ -504,7 +508,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
             const occupant = occupants.get(pos.p);
             if (!occupant) {
               const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [] });
-              return <FreePort key={pos.p} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p)} label={label} iface={iface} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
+              return <FreePort key={pos.p} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p)} label={label} iface={iface} speedGbps={cageSpeed} box={box} connecting={isConnecting} onCageContextMenu={openCageMenu(pos.p)} />;
             }
             const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
             return <UsedPort key={pos.p} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={label} hot={hot} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;

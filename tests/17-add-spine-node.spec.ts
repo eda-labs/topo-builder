@@ -14,7 +14,7 @@ test('Add leaf and spine nodes', async ({ page }) => {
   await nodeByLabel(page, 'leaf2').waitFor();
 
   await clickNodeHeader(page, 'leaf2', { button: 'right' });
-  await page.getByRole('menuitem', { name: 'Template' }).hover();
+  await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
   await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
   await nodeByLabel(page, 'spine1').waitFor();
 

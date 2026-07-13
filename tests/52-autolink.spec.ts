@@ -16,7 +16,7 @@ test.describe('AutoLink', () => {
     await addContextMenuItem(page, NODE2_POS, 'Add Node');
     await nodeByLabel(page, 'leaf2').waitFor();
     await clickNodeHeader(page, 'leaf2', { button: 'right' });
-    await page.getByRole('menuitem', { name: 'Template' }).hover();
+    await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();
 
@@ -78,7 +78,7 @@ test.describe('AutoLink', () => {
     await addContextMenuItem(page, NODE2_POS, 'Add Node');
     await nodeByLabel(page, 'leaf2').waitFor();
     await clickNodeHeader(page, 'leaf2', { button: 'right' });
-    await page.getByRole('menuitem', { name: 'Template' }).hover();
+    await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();
 
@@ -126,7 +126,7 @@ test.describe('AutoLink', () => {
     await addContextMenuItem(page, NODE3_POS, 'Add Node');
     await nodeByLabel(page, 'leaf3').waitFor();
     await clickNodeHeader(page, 'leaf3', { button: 'right' });
-    await page.getByRole('menuitem', { name: 'Template' }).hover();
+    await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
     await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
     await nodeByLabel(page, 'spine1').waitFor();
 

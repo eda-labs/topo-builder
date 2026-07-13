@@ -97,23 +97,23 @@ function normalizeConnectionForSimNodes(connection: Connection): {
   const target = connection.target;
   if (!source || !target) return null;
 
-  const sourceIsSimNode = source.startsWith('sim-');
-  const targetIsSimNode = target.startsWith('sim-');
-
-  if (targetIsSimNode && !sourceIsSimNode) {
+  // Edge convention: sim nodes are always the edge source, and for topo-topo links the drag
+  // origin is the edge target (exported YAML puts the target as the "local" endpoint and names
+  // links "<origin>-<destination>"). A drag that already starts at a sim node fits both rules.
+  if (source.startsWith('sim-')) {
     return {
-      sourceId: target,
-      targetId: source,
-      sourceHandle: toSourceHandle(connection.targetHandle),
-      targetHandle: toTargetHandle(connection.sourceHandle),
+      sourceId: source,
+      targetId: target,
+      sourceHandle: connection.sourceHandle ?? undefined,
+      targetHandle: connection.targetHandle ?? undefined,
     };
   }
 
   return {
-    sourceId: source,
-    targetId: target,
-    sourceHandle: connection.sourceHandle ?? undefined,
-    targetHandle: connection.targetHandle ?? undefined,
+    sourceId: target,
+    targetId: source,
+    sourceHandle: toSourceHandle(connection.targetHandle),
+    targetHandle: toTargetHandle(connection.sourceHandle),
   };
 }
 
@@ -436,8 +436,11 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
       id,
       source: sourceId,
       target: targetId,
-      sourceHandle: isPortConnection ? undefined : normalized.sourceHandle,
-      targetHandle: isPortConnection ? undefined : normalized.targetHandle,
+      // Port ends keep their cable info in the member-link interface, so the edge stores no
+      // handle for them; a non-port end (sim node side) keeps its handle so the cable stays
+      // anchored where the user connected it, wherever the node moves.
+      sourceHandle: sourceCage ? undefined : normalized.sourceHandle,
+      targetHandle: targetCage ? undefined : normalized.targetHandle,
       data: {
         id,
         sourceNode: sourceNodeName,

@@ -7,7 +7,6 @@ import {
   IconButton,
   Link,
   Popover,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -15,14 +14,11 @@ import {
   Close as CloseIcon,
   Description as DatasheetIcon,
   MenuBook as DocsIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 
 import { frontPanelMetaOf, paintPanel, panelDims, type FrontPanelMeta } from '../lib/frontpanel';
 import { panelBreakoutSummary, speedGroupsLabel } from '../lib/connectors';
 import { platformLinks } from '../lib/platformInfo';
-import { favoriteId, useFavoritesStore } from '../lib/favorites';
 import type { CatalogOS } from '../lib/catalog';
 import type { Component } from '../types/schema';
 
@@ -33,37 +29,6 @@ export interface PlatformDetail {
   os: CatalogOS;
   stencil: string | null;
   components?: Component[];
-  /** palette label used when starring this entry; omitted -> no favorite toggle shown */
-  favoriteLabel?: string;
-}
-
-/** Star toggle for a platform + component fit; shared by palette items and the details card. */
-export function FavoriteToggle({ label, platform, components, testId }: {
-  label: string;
-  platform: string;
-  components?: Component[];
-  testId?: string;
-}) {
-  const id = favoriteId(platform, components);
-  const isFavorite = useFavoritesStore(state => state.favorites.some(f => f.id === id));
-  const toggleFavorite = useFavoritesStore(state => state.toggleFavorite);
-  return (
-    <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
-      <IconButton
-        size="small"
-        data-testid={testId}
-        onClick={e => {
-          e.stopPropagation();
-          toggleFavorite({ label, platform, components });
-        }}
-        sx={{ p: 0.25, flexShrink: 0 }}
-      >
-        {isFavorite
-          ? <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-          : <StarBorderIcon sx={{ fontSize: 16 }} />}
-      </IconButton>
-    </Tooltip>
-  );
 }
 
 const POPOVER_WIDTH = 560;
@@ -176,14 +141,6 @@ export default function PlatformDetailsPopover({ anchorEl, anchorPosition, detai
           sx={{ height: 20, fontSize: 10, flexShrink: 0 }}
         />
         <Box sx={{ flex: 1 }} />
-        {detail.favoriteLabel && (
-          <FavoriteToggle
-            label={detail.favoriteLabel}
-            platform={detail.platform}
-            components={detail.components}
-            testId="platform-details-favorite"
-          />
-        )}
         {onAdd && (
           <Button
             size="small"

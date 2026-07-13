@@ -53,8 +53,6 @@ import {
 import { frontPanelMetaOf, paintPanel, panelDims, resolveFrontPanel } from '../lib/frontpanel';
 import type { Component } from '../types/schema';
 
-import { FavoriteToggle } from './PlatformDetailsPopover';
-
 const NESTED_SLOT_COUNT = 2;
 const FIELD_FONT = { fontSize: 12 } as const;
 const MENU_PROPS = { slotProps: { paper: { sx: { maxHeight: 320 } } } } as const;
@@ -62,7 +60,6 @@ const MENU_PROPS = { slotProps: { paper: { sx: { maxHeight: 320 } } } } as const
 export interface SrosWizardResult {
   platform: string;
   components: Component[];
-  label: string;
 }
 
 function withoutEmptyNested(component: SrsimComponent): SrsimComponent {
@@ -282,10 +279,6 @@ export default function SrosWizardDialog({ open, onClose, onAdd }: {
     () => resolveFrontPanel(platform, edaComponents),
     [platform, edaComponents],
   );
-  const cardTypes = edaComponents
-    .filter(c => c.kind === 'mda' || c.kind === 'lineCard' || c.kind === 'controlCard')
-    .map(c => c.type);
-  const favoriteLabel = [platform, ...cardTypes.slice(0, 3)].join(' · ');
   const canAdd = Boolean(platform && edaComponents.length);
 
   // ---- edit helpers ----
@@ -334,7 +327,7 @@ export default function SrosWizardDialog({ open, onClose, onAdd }: {
 
   const handleAdd = () => {
     if (!canAdd) return;
-    onAdd({ platform, components: edaComponents, label: favoriteLabel });
+    onAdd({ platform, components: edaComponents });
   };
 
   // ---- nested editors ----
@@ -487,9 +480,6 @@ export default function SrosWizardDialog({ open, onClose, onAdd }: {
         <Typography component="span" sx={{ fontWeight: 700, flex: 1 }}>
           SR OS chassis wizard
         </Typography>
-        {canAdd && (
-          <FavoriteToggle label={favoriteLabel} platform={platform} components={edaComponents} testId="sros-wizard-favorite" />
-        )}
         <IconButton size="small" onClick={onClose} aria-label="Close wizard">
           <CloseIcon fontSize="small" />
         </IconButton>

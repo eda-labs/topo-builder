@@ -25,6 +25,7 @@ import {
   TextFields as TextFieldsIcon,
   Category as ShapeIcon,
   InfoOutlined as InfoIcon,
+  BookmarkAddOutlined as SaveTemplateIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState, type ReactNode } from 'react';
 
@@ -200,6 +201,7 @@ function ContextMenuNodeSelectionItems({
   currentNodeTemplate,
   onDeleteNode,
   onShowNodeDetails,
+  onSaveNodeAsTemplate,
 }: {
   onClose: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
@@ -207,6 +209,7 @@ function ContextMenuNodeSelectionItems({
   currentNodeTemplate?: string;
   onDeleteNode?: () => void;
   onShowNodeDetails?: () => void;
+  onSaveNodeAsTemplate?: () => void;
 }) {
   return (
     <>
@@ -214,6 +217,13 @@ function ContextMenuNodeSelectionItems({
         <MenuItem data-testid="context-menu-node-details" onClick={() => { onShowNodeDetails(); onClose(); }}>
           <ListItemIcon><InfoIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Platform Details</ListItemText>
+        </MenuItem>
+      )}
+
+      {onSaveNodeAsTemplate && (
+        <MenuItem data-testid="context-menu-save-template" onClick={() => { onSaveNodeAsTemplate(); onClose(); }}>
+          <ListItemIcon><SaveTemplateIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Save as Template</ListItemText>
         </MenuItem>
       )}
 
@@ -373,6 +383,7 @@ function ContextMenuSelectionSection({
   onAddSimNode,
   onDeleteNode,
   onShowNodeDetails,
+  onSaveNodeAsTemplate,
   onDeleteSimNode,
   onDeleteEdge,
   onDeleteAnnotation,
@@ -401,6 +412,7 @@ function ContextMenuSelectionSection({
   onAddSimNode?: () => void;
   onDeleteNode?: () => void;
   onShowNodeDetails?: () => void;
+  onSaveNodeAsTemplate?: () => void;
   onDeleteSimNode?: () => void;
   onDeleteEdge?: () => void;
   onDeleteAnnotation?: () => void;
@@ -454,6 +466,7 @@ function ContextMenuSelectionSection({
           currentNodeTemplate={currentNodeTemplate}
           onDeleteNode={onDeleteNode}
           onShowNodeDetails={onShowNodeDetails}
+          onSaveNodeAsTemplate={onSaveNodeAsTemplate}
         />
       );
     case 'simNode':
@@ -593,6 +606,7 @@ interface ContextMenuProps {
   onAddSimNode?: () => void;
   onDeleteNode?: () => void;
   onShowNodeDetails?: () => void;
+  onSaveNodeAsTemplate?: () => void;
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
   onDeleteAnnotation?: () => void;
@@ -635,6 +649,7 @@ export default function ContextMenu({
   onAddSimNode,
   onDeleteNode,
   onShowNodeDetails,
+  onSaveNodeAsTemplate,
   onDeleteEdge,
   onDeleteSimNode,
   onDeleteAnnotation,
@@ -727,6 +742,7 @@ export default function ContextMenu({
                   onAddSimNode={onAddSimNode}
                   onDeleteNode={onDeleteNode}
                   onShowNodeDetails={onShowNodeDetails}
+                  onSaveNodeAsTemplate={onSaveNodeAsTemplate}
                   onDeleteSimNode={onDeleteSimNode}
                   onDeleteEdge={onDeleteEdge}
                   onDeleteAnnotation={onDeleteAnnotation}

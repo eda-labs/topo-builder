@@ -93,10 +93,10 @@ test('cabling an SR Linux breakout channel derives a breakout link template', as
 
   await page.getByRole('tab', { name: 'YAML' }).click();
   const yaml = await getYamlContent(page);
-  expect(yaml).toContain('name: isl-r4x25g');
+  expect(yaml).toContain('name: isl-l4x25g');
   expect(yaml).toContain('topobuilder.eda.labs/breakout-variant: isl');
   expect(yaml).toContain('channels: 4');
   expect(yaml).toContain('speed: 25G');
   expect(yaml).toContain('interface: ethernet-1-3-2');
-  expect(yaml).toContain('template: isl-r4x25g');
+  expect(yaml).toContain('template: isl-l4x25g');
 });

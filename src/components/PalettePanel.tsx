@@ -4,8 +4,6 @@ import {
   Box,
   IconButton,
   InputAdornment,
-  MenuItem,
-  Select,
   TextField,
   Tooltip,
   Typography,
@@ -15,13 +13,13 @@ import {
   AutoFixHigh as WizardIcon,
   ChevronLeft as CollapseIcon,
   ChevronRight as ExpandIcon,
+  Delete as DeleteIcon,
   ExpandLess as GroupOpenIcon,
   ExpandMore as GroupClosedIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
 
 import { useTopologyStore, generateUniqueName } from '../lib/store';
-import { useFavoritesStore, type FavoriteEntry } from '../lib/favorites';
 import {
   frontPanelMetaOf,
   paintPanel,
@@ -30,11 +28,9 @@ import {
   type FrontPanelMeta,
 } from '../lib/frontpanel';
 import {
-  componentsForCombo,
   namePrefixForPlatform,
   osOfPlatform,
   platformCatalog,
-  type CatalogChassisItem,
   type CatalogFixedItem,
 } from '../lib/catalog';
 import { DEFAULT_NODE_PROFILE_SRL, DEFAULT_NODE_PROFILE_SROS } from '../lib/constants';
@@ -42,7 +38,7 @@ import { exampleTopologies, type ExampleTopology } from '../samples';
 import type { Component, NodeTemplate, SimNodeTemplate } from '../types/schema';
 
 import { RoleIcons } from './nodes/roleIcons';
-import PlatformDetailsPopover, { FavoriteToggle, type PlatformDetail } from './PlatformDetailsPopover';
+import PlatformDetailsPopover, { type PlatformDetail } from './PlatformDetailsPopover';
 import SrosWizardDialog, { type SrosWizardResult } from './SrosWizardDialog';
 
 export const PALETTE_DND_TYPE = 'application/x-topobuilder-template';
@@ -162,7 +158,7 @@ function PaletteItem({
   roleIcon?: string;
   meta?: FrontPanelMeta;
   previewWidth?: number;
-  /** extra header buttons (favorite star) rendered before the add button */
+  /** extra header buttons (e.g. template delete) rendered before the add button */
   actions?: React.ReactNode;
   onAdd: () => void;
   /** click target — omitted (sim nodes) means clicking does nothing */
@@ -220,129 +216,6 @@ function PaletteItem({
 
 const slugify = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-// Card types are long ("ms16-100gb-sfpdd+4-100gb-qsfp28"); drop nothing but render small.
-function BaySelect({ bay, value, options, onChange }: {
-  bay: number;
-  value: string;
-  options: string[];
-  onChange: (card: string) => void;
-}) {
-  return (
-    <Select
-      size="small"
-      value={value}
-      displayEmpty
-      data-testid={`palette-bay-${bay}`}
-      onChange={e => { onChange(e.target.value); }}
-      sx={{ fontSize: 11, '.MuiSelect-select': { py: 0.5 } }}
-      MenuProps={{ slotProps: { paper: { sx: { maxHeight: 320 } } } }}
-      renderValue={selected => (selected === '' ? `Bay ${bay}: empty` : `Bay ${bay}: ${selected}`)}
-    >
-      <MenuItem value="" sx={{ fontSize: 11 }}>empty</MenuItem>
-      {options.map(card => (
-        <MenuItem key={card} value={card} sx={{ fontSize: 11 }}>{card}</MenuItem>
-      ))}
-    </Select>
-  );
-}
-
-/** Modular SR OS chassis: pick a card per MDA bay, then drag/add the combination. */
-function ChassisConfigurator({ item, previewWidth, onAdd, onOpenDetails }: {
-  item: CatalogChassisItem;
-  previewWidth?: number;
-  onAdd: (payload: PaletteDragPayload) => void;
-  onOpenDetails: (anchor: HTMLElement, detail: PlatformDetail, payload: PaletteDragPayload) => void;
-}) {
-  const [bay1, setBay1] = useState(item.bays[0][0] ?? '');
-  const [bay2, setBay2] = useState('');
-
-  const components = useMemo(() => componentsForCombo(bay1 || null, bay2 || null), [bay1, bay2]);
-  const stencil = useMemo(() => resolveFrontPanel(item.platform, components), [item.platform, components]);
-  const meta = stencil ? frontPanelMetaOf(stencil) : undefined;
-  const valid = !!meta?.layout.length && components.length > 0;
-  const payload: PaletteDragPayload = { kind: 'catalog', platform: item.platform, components };
-
-  const comboLabel = [item.platform, bay1, bay2].filter(Boolean).join(' · ');
-
-  const openDetails = (anchor: HTMLElement) => {
-    if (!valid || !stencil) return;
-    onOpenDetails(anchor, {
-      title: item.platform,
-      platform: item.platform,
-      os: 'sros',
-      stencil,
-      components,
-      favoriteLabel: comboLabel,
-    }, payload);
-  };
-
-  return (
-    <Box
-      draggable={valid}
-      data-testid={`palette-chassis-${slugify(item.platform)}`}
-      onDragStart={e => {
-        if (!valid) return;
-        setDragPayload(e, payload);
-      }}
-      onClick={e => { openDetails(e.currentTarget); }}
-      title={valid ? ITEM_HINT : 'Pick at least one card'}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0.75,
-        p: 1,
-        borderRadius: 1,
-        border: '1px solid',
-        borderColor: 'divider',
-        cursor: valid ? 'grab' : 'default',
-        userSelect: 'none',
-        '&:hover': HOVER_SX,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700, ...ELLIPSIS_SX }}>
-          {item.platform}
-        </Typography>
-        <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontSize: 10, flexShrink: 0 }}>
-          modular
-        </Typography>
-        <Box sx={{ flex: 1 }} />
-        {meta && (
-          <Typography variant="caption" sx={{ color: TEXT_SECONDARY, flexShrink: 0, fontSize: 10 }}>
-            {meta.ports} ports
-          </Typography>
-        )}
-        {valid && (
-          <FavoriteToggle
-            label={comboLabel}
-            platform={item.platform}
-            components={components}
-            testId={`palette-chassis-favorite-${slugify(item.platform)}`}
-          />
-        )}
-        <Tooltip title={valid ? 'Add to canvas' : 'Pick at least one card'}>
-          <span>
-            <IconButton
-              size="small"
-              disabled={!valid}
-              data-testid={`palette-chassis-add-${slugify(item.platform)}`}
-              onClick={e => { e.stopPropagation(); onAdd(payload); }}
-              sx={{ p: 0.25 }}
-            >
-              <AddIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Box>
-      <Box onClick={e => { e.stopPropagation(); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        <BaySelect bay={1} value={bay1} options={item.bays[0]} onChange={setBay1} />
-        <BaySelect bay={2} value={bay2} options={item.bays[1]} onChange={setBay2} />
-      </Box>
-      {valid && meta && <PanelPreview meta={meta} width={previewWidth} />}
-    </Box>
-  );
-}
-
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontWeight: 700, letterSpacing: 0.5, mt: 0.5 }}>
@@ -367,14 +240,6 @@ function FixedCatalogItem({ item, previewWidth, onAdd, onOpenDetails }: {
       subtitle={item.os === 'sros' ? 'SR OS' : 'SR Linux'}
       meta={meta?.layout.length ? meta : undefined}
       previewWidth={previewWidth}
-      actions={(
-        <FavoriteToggle
-          label={item.label}
-          platform={item.platform}
-          components={item.components}
-          testId={`palette-favorite-${slugify(item.label)}`}
-        />
-      )}
       onAdd={() => { onAdd(payload); }}
       onOpenDetails={anchor => {
         onOpenDetails(anchor, {
@@ -383,48 +248,6 @@ function FixedCatalogItem({ item, previewWidth, onAdd, onOpenDetails }: {
           os: item.os,
           stencil: item.stencil,
           components: item.components,
-          favoriteLabel: item.label,
-        }, payload);
-      }}
-    />
-  );
-}
-
-/** A starred platform/combo pinned to the top of the palette. */
-function FavoriteItem({ entry, previewWidth, onAdd, onOpenDetails }: {
-  entry: FavoriteEntry;
-  previewWidth?: number;
-  onAdd: (payload: PaletteDragPayload) => void;
-  onOpenDetails: (anchor: HTMLElement, detail: PlatformDetail, payload: PaletteDragPayload) => void;
-}) {
-  const stencil = resolveFrontPanel(entry.platform, entry.components);
-  const meta = stencil ? frontPanelMetaOf(stencil) : undefined;
-  const payload: PaletteDragPayload = { kind: 'catalog', platform: entry.platform, components: entry.components };
-  return (
-    <PaletteItem
-      payload={payload}
-      testId={`palette-item-favorite-${slugify(entry.label)}`}
-      title={entry.label}
-      subtitle={entry.platform === entry.label ? undefined : entry.platform}
-      meta={meta?.layout.length ? meta : undefined}
-      previewWidth={previewWidth}
-      actions={(
-        <FavoriteToggle
-          label={entry.label}
-          platform={entry.platform}
-          components={entry.components}
-          testId={`palette-favorite-${slugify(entry.label)}`}
-        />
-      )}
-      onAdd={() => { onAdd(payload); }}
-      onOpenDetails={anchor => {
-        onOpenDetails(anchor, {
-          title: entry.label,
-          platform: entry.platform,
-          os: osOfPlatform(entry.platform),
-          stencil,
-          components: entry.components,
-          favoriteLabel: entry.label,
         }, payload);
       }}
     />
@@ -437,11 +260,13 @@ interface CatalogItemHandlers {
   previewWidth?: number;
 }
 
-function CatalogGroupSection({ family, items, expanded, onToggle, onAdd, onOpenDetails, previewWidth }: CatalogItemHandlers & {
+function CatalogGroupSection({ family, items, expanded, onToggle, onAdd, onOpenDetails, previewWidth, leadItem }: CatalogItemHandlers & {
   family: string;
-  items: (CatalogFixedItem | CatalogChassisItem)[];
+  items: CatalogFixedItem[];
   expanded: boolean;
   onToggle: () => void;
+  /** rendered above the items when expanded (SR OS wizard entry in the 7750 SR group) */
+  leadItem?: React.ReactNode;
 }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -465,10 +290,9 @@ function CatalogGroupSection({ family, items, expanded, onToggle, onAdd, onOpenD
           ({items.length})
         </Typography>
       </Box>
+      {expanded && leadItem}
       {expanded && items.map(item => (
-        item.kind === 'chassis'
-          ? <ChassisConfigurator key={item.label} item={item} previewWidth={previewWidth} onAdd={onAdd} onOpenDetails={onOpenDetails} />
-          : <FixedCatalogItem key={item.label} item={item} previewWidth={previewWidth} onAdd={onAdd} onOpenDetails={onOpenDetails} />
+        <FixedCatalogItem key={item.label} item={item} previewWidth={previewWidth} onAdd={onAdd} onOpenDetails={onOpenDetails} />
       ))}
     </Box>
   );
@@ -521,7 +345,7 @@ function matchesQuery(label: string, query: string): boolean {
 export default function PalettePanel() {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const simNodeTemplates = useTopologyStore(state => state.simulation.simNodeTemplates);
-  const favorites = useFavoritesStore(state => state.favorites);
+  const deleteNodeTemplate = useTopologyStore(state => state.deleteNodeTemplate);
   const { screenToFlowPosition, fitView } = useReactFlow();
 
   const [open, setOpen] = useState(() => localStorage.getItem('topology-palette-open') !== '0');
@@ -619,12 +443,6 @@ export default function PalettePanel() {
       matchesQuery(t.name, normalizedQuery) || matchesQuery(t.platform ?? '', normalizedQuery));
   }, [nodeTemplates, searching, normalizedQuery]);
 
-  const visibleFavorites = useMemo(() => {
-    if (!searching) return favorites;
-    return favorites.filter(f =>
-      matchesQuery(f.label, normalizedQuery) || matchesQuery(f.platform, normalizedQuery));
-  }, [favorites, searching, normalizedQuery]);
-
   if (!open) {
     return (
       <Box
@@ -710,17 +528,6 @@ export default function PalettePanel() {
         />
       </Box>
       <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, p: 1, pt: 0.5 }}>
-        {visibleFavorites.length > 0 && <SectionHeader>FAVORITES</SectionHeader>}
-        {visibleFavorites.map(entry => (
-          <FavoriteItem
-            key={entry.id}
-            entry={entry}
-            previewWidth={previewWidth}
-            onAdd={addAtCanvasCenter}
-            onOpenDetails={openDetails}
-          />
-        ))}
-
         {visibleTemplates.length > 0 && <SectionHeader>TEMPLATES</SectionHeader>}
         {visibleTemplates.map(template => {
           const stencil = resolveFrontPanel(template.platform, template.components);
@@ -737,6 +544,21 @@ export default function PalettePanel() {
               roleIcon={role ? RoleIcons[role] : undefined}
               meta={meta?.layout.length ? meta : undefined}
               previewWidth={previewWidth}
+              actions={(
+                <Tooltip title="Delete template">
+                  <IconButton
+                    size="small"
+                    data-testid={`palette-template-delete-${template.name}`}
+                    onClick={e => {
+                      e.stopPropagation();
+                      deleteNodeTemplate(template.name);
+                    }}
+                    sx={{ p: 0.25, flexShrink: 0 }}
+                  >
+                    <DeleteIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               onAdd={() => { addAtCanvasCenter(payload); }}
               onOpenDetails={anchor => {
                 openDetails(anchor, {
@@ -745,7 +567,6 @@ export default function PalettePanel() {
                   os: osOfPlatform(template.platform ?? ''),
                   stencil,
                   components: template.components,
-                  favoriteLabel: template.platform ? template.name : undefined,
                 }, payload);
               }}
             />
@@ -753,34 +574,6 @@ export default function PalettePanel() {
         })}
 
         <SectionHeader>CATALOG</SectionHeader>
-        {!searching && (
-          <Box
-            data-testid="palette-sros-wizard"
-            onClick={() => { setWizardOpen(true); }}
-            title="Configure an SR OS chassis (cards, MDAs, XIOMs) and add it to the canvas"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              p: 1,
-              borderRadius: 1,
-              border: '1px dashed',
-              borderColor: 'divider',
-              cursor: 'pointer',
-              userSelect: 'none',
-              '&:hover': HOVER_SX,
-            }}
-          >
-            <WizardIcon sx={{ fontSize: 16, color: TEXT_SECONDARY }} />
-            <Typography variant="body2" sx={{ fontWeight: 700, ...ELLIPSIS_SX }}>
-              SR OS chassis wizard
-            </Typography>
-            <Box sx={{ flex: 1 }} />
-            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontSize: 10, flexShrink: 0 }}>
-              SR-7s, SR-12…
-            </Typography>
-          </Box>
-        )}
         {visibleCatalog.map(group => (
           <CatalogGroupSection
             key={group.family}
@@ -791,9 +584,39 @@ export default function PalettePanel() {
             onAdd={addAtCanvasCenter}
             onOpenDetails={openDetails}
             previewWidth={previewWidth}
+            leadItem={group.family === '7750 SR'
+              ? (
+                <Box
+                  data-testid="palette-sros-wizard"
+                  onClick={() => { setWizardOpen(true); }}
+                  title="Configure an SR OS chassis (cards, MDAs, XIOMs) and add it to the canvas"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    p: 1,
+                    borderRadius: 1,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    '&:hover': HOVER_SX,
+                  }}
+                >
+                  <WizardIcon sx={{ fontSize: 16, color: TEXT_SECONDARY }} />
+                  <Typography variant="body2" sx={{ fontWeight: 700, ...ELLIPSIS_SX }}>
+                    SR OS chassis wizard
+                  </Typography>
+                  <Box sx={{ flex: 1 }} />
+                  <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontSize: 10, flexShrink: 0 }}>
+                    SR-7s, SR-12…
+                  </Typography>
+                </Box>
+              )
+              : undefined}
           />
         ))}
-        {searching && visibleCatalog.length === 0 && visibleFavorites.length === 0 && visibleTemplates.length === 0 && (
+        {searching && visibleCatalog.length === 0 && visibleTemplates.length === 0 && (
           <Typography variant="caption" sx={{ color: TEXT_SECONDARY }}>
             No platforms match “{query.trim()}”.
           </Typography>

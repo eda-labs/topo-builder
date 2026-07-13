@@ -58,8 +58,6 @@ spec:
       annotations:
         topobuilder.eda.labs/edgeId: edge-1
         topobuilder.eda.labs/memberIndex: "0"
-        topobuilder.eda.labs/srcHandle: left
-        topobuilder.eda.labs/dstHandle: right-target
       endpoints:
         - local:
             node: leaf1
@@ -78,8 +76,6 @@ spec:
       annotations:
         topobuilder.eda.labs/edgeId: edge-2
         topobuilder.eda.labs/memberIndex: "0"
-        topobuilder.eda.labs/srcHandle: bottom
-        topobuilder.eda.labs/dstHandle: top-target
       endpoints:
         - local:
             node: leaf2

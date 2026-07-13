@@ -12,7 +12,7 @@ test('Change link template from isl to edge', async ({ page }) => {
   // Select edge, right-click, change template
   await clickEdgeBetween(page, 'leaf1', 'leaf2');
   await clickEdgeBetween(page, 'leaf1', 'leaf2', { button: 'right' });
-  await page.getByRole('menuitem', { name: 'Template' }).hover();
+  await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
   await page.getByRole('menuitem', { name: 'edge', exact: true }).click();
 
   await expectYamlEquals(page, '22-change-link-template.yaml');

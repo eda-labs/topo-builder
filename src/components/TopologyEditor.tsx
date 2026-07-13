@@ -1138,7 +1138,6 @@ function TopologyEditorInner({
     const panel = resolveNodePanel(node.data, state.nodeTemplates);
     const platform = panel?.platform ?? node.data.platform ?? template?.platform ?? '';
     const components = panel?.components ?? node.data.components ?? template?.components;
-    const cards = (components ?? []).filter(c => c.kind === 'mda' || c.kind === 'lineCard').map(c => c.type);
     setNodeDetails({
       position: { top: contextMenu.position.y, left: contextMenu.position.x },
       detail: {
@@ -1147,8 +1146,28 @@ function TopologyEditorInner({
         os: osOfPlatform(platform),
         stencil: panel?.stencil ?? null,
         components,
-        favoriteLabel: platform ? [platform, ...cards].join(' · ') : undefined,
       },
+    });
+  };
+
+  // "Save as Template" on a node's context menu: capture the node's platform/profile/components
+  // as a reusable node template (it appears in the palette's TEMPLATES section).
+  const handleSaveNodeAsTemplate = () => {
+    const state = useTopologyStore.getState();
+    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+    if (!node) return;
+    const template = node.data.template ? state.nodeTemplates.find(t => t.name === node.data.template) : undefined;
+    const existing = new Set(state.nodeTemplates.map(t => t.name));
+    const base = `${node.data.name}-tpl`;
+    let name = base;
+    for (let i = 2; existing.has(name); i++) name = `${base}-${i}`;
+    const labels = { ...template?.labels, ...node.data.labels };
+    state.addNodeTemplate({
+      name,
+      platform: node.data.platform ?? template?.platform,
+      nodeProfile: node.data.nodeProfile ?? template?.nodeProfile,
+      components: node.data.components ?? template?.components,
+      labels: Object.keys(labels).length ? labels : undefined,
     });
   };
   // Delete only the selected member link(s) when a subset of a bundle is selected (e.g. a single
@@ -1385,6 +1404,7 @@ function TopologyEditorInner({
         onAddSimNode={handleAddSimNode}
         onDeleteNode={handleDeleteNode}
         onShowNodeDetails={handleShowNodeDetails}
+        onSaveNodeAsTemplate={handleSaveNodeAsTemplate}
         onDeleteEdge={handleDeleteEdge}
         onDeleteAllLinks={handleDeleteAllEdgeLinks}
         memberLinkTotal={selectedEdgeId ? edges.find(e => e.id === selectedEdgeId)?.data?.memberLinks?.length ?? 0 : 0}

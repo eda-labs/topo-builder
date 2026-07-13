@@ -145,7 +145,12 @@ export default function BaseNode({
 
   const getHandleClassName = (position: Position) => {
     const isConnected = connectedPositions.has(position);
-    const baseClass = '!w-2.5 !h-2.5 !bg-(--color-handle-bg) !border !border-solid !border-(--color-node-border) transition-opacity duration-150';
+    // While a drag from elsewhere is in progress the source handles must not swallow the drop:
+    // they sit on top of the target handles (so connections start from a source), and drops
+    // need to fall through to the target underneath.
+    const baseClass = `!w-2.5 !h-2.5 !bg-(--color-handle-bg) !border !border-solid !border-(--color-node-border) transition-opacity duration-150 ${
+      isConnecting ? '!pointer-events-none' : ''
+    }`;
 
     if (alwaysShowAll || isConnected) {
       return `${baseClass} !opacity-100`;
@@ -161,14 +166,14 @@ export default function BaseNode({
         selected ? 'border-(--color-node-border-selected)' : 'border-(--color-node-border)'
       } ${className || 'border-solid'}`}
     >
-      <Handle type="source" position={Position.Top} id="top" className={getHandleClassName(Position.Top)} />
       <Handle type="target" position={Position.Top} id="top-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName(Position.Right)} />
+      <Handle type="source" position={Position.Top} id="top" className={getHandleClassName(Position.Top)} />
       <Handle type="target" position={Position.Right} id="right-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={getHandleClassName(Position.Bottom)} />
+      <Handle type="source" position={Position.Right} id="right" className={getHandleClassName(Position.Right)} />
       <Handle type="target" position={Position.Bottom} id="bottom-target" className="!opacity-0 !w-2.5 !h-2.5" />
-      <Handle type="source" position={Position.Left} id="left" className={getHandleClassName(Position.Left)} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={getHandleClassName(Position.Bottom)} />
       <Handle type="target" position={Position.Left} id="left-target" className="!opacity-0 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Left} id="left" className={getHandleClassName(Position.Left)} />
 
       <div
         onDoubleClick={() => window.dispatchEvent(new CustomEvent('focusNodeName'))}

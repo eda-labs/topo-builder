@@ -128,20 +128,30 @@ export const clickEdgeBetween = async (
   await clickPathAt(page, edgePathByLabels(page, sourceLabel, targetLabel), options);
 };
 
-export const connectNodes = async (page: Page, sourceLabel: string, targetLabel: string) => {
-  const source = nodeByLabel(page, sourceLabel);
-  const target = nodeByLabel(page, targetLabel);
-
-  const sourceBox = await source.boundingBox();
-  const targetBox = await target.boundingBox();
-
-  if (!sourceBox || !targetBox) {
-    throw new Error(`Could not get bounds for ${sourceLabel} or ${targetLabel}`);
+// Front-panel nodes cable at their port cells only (no chassis-border anchors); sim/base nodes
+// still connect from their side handles. Each end aims at the node's first free port when it
+// renders a faceplate, else at the node border.
+const connectPoint = async (page: Page, label: string, side: 'source' | 'target') => {
+  const node = nodeByLabel(page, label);
+  const freePort = node.locator('.fp-port-free').first();
+  if (await freePort.count()) {
+    const box = await freePort.boundingBox();
+    if (box) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   }
+  const box = await node.boundingBox();
+  if (!box) throw new Error(`Could not get bounds for ${label}`);
+  return side === 'source'
+    ? { x: box.x + box.width, y: box.y + box.height / 2 }
+    : { x: box.x, y: box.y + box.height / 2 };
+};
 
-  await page.mouse.move(sourceBox.x + sourceBox.width, sourceBox.y + sourceBox.height / 2);
+export const connectNodes = async (page: Page, sourceLabel: string, targetLabel: string) => {
+  const from = await connectPoint(page, sourceLabel, 'source');
+  const to = await connectPoint(page, targetLabel, 'target');
+
+  await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.mouse.move(targetBox.x, targetBox.y + targetBox.height / 2, { steps: 10 });
+  await page.mouse.move(to.x, to.y, { steps: 10 });
   await page.mouse.up();
 };
 

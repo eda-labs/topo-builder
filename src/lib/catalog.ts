@@ -1,12 +1,11 @@
 /**
  * Platform catalog derived from the cable-map front-panel metadata.
  *
- * Every stencil key in frontpanel-meta.json is reachable from here: fixed-faceplate platforms
- * (SR Linux 7220/7250/7215/7730 and the 7750 SR-1 line-card variants) become single catalog
- * items, and the modular SR OS chassis (SR-1, SR-1s, SR-2s, SR-2se) become configurable items
- * whose per-bay card choices are extracted from the composite stencil names. Card types are
- * mapped back to their canonical component spelling ("ms16-100gb-sfpdd+4-100gb-qsfp28") so the
- * emitted YAML matches what the cluster's TopoNodes use.
+ * Fixed-faceplate platforms (SR Linux 7220/7250/7215/7730 and the 7750 SR-1 line-card variants)
+ * become single catalog items. The modular SR OS chassis (SR-1, SR-1s, SR-2s, SR-2se) appear
+ * once each with a sensible default card fit — anything beyond the default is the SR OS chassis
+ * wizard's job. Card types are mapped back to their canonical component spelling
+ * ("ms16-100gb-sfpdd+4-100gb-qsfp28") so the emitted YAML matches the cluster's TopoNodes.
  */
 import type { Component } from '../types/schema';
 
@@ -14,6 +13,7 @@ import {
   SR1_LINECARD_STENCILS,
   frontPanelKeys,
   frontPanelMetaOf,
+  resolveFrontPanel,
   sanitiseCardType,
 } from './frontpanel';
 
@@ -29,16 +29,7 @@ export interface CatalogFixedItem {
   components?: Component[];
 }
 
-export interface CatalogChassisItem {
-  kind: 'chassis';
-  label: string;
-  platform: string;
-  os: 'sros';
-  /** canonical card types selectable per MDA bay */
-  bays: [string[], string[]];
-}
-
-export type CatalogItem = CatalogFixedItem | CatalogChassisItem;
+export type CatalogItem = CatalogFixedItem;
 
 export interface CatalogGroup {
   family: string;
@@ -167,20 +158,44 @@ function collectFixedItems(chassisBays: Map<string, [Set<string>, Set<string>]>)
   return items;
 }
 
+// Preferred default card fit per modular chassis (SR-1 mirrors the SR OS default layout);
+// anything unresolvable falls back to the first bay-card whose composite stencil exists.
+const S36_400G_CARD = 's36-400gb-qsfpdd';
+const DEFAULT_CHASSIS_CARDS: Record<string, [string, string | null]> = {
+  '7750 SR-1': ['me6-100gb-qsfp28', 'me12-100gb-qsfp28'],
+  '7750 SR-1s': [S36_400G_CARD, null],
+  '7750 SR-2s': [S36_400G_CARD, null],
+  '7750 SR-2se': ['x2-s36-800g-qsfpdd-18.0t', null],
+};
+
+/** One default item per modular chassis; other card combinations come from the SR OS wizard. */
+function defaultChassisItem(chassis: string, bays: [Set<string>, Set<string>]): CatalogFixedItem | null {
+  const candidates: [string, string | null][] = [];
+  const preferred = DEFAULT_CHASSIS_CARDS[chassis];
+  if (preferred) candidates.push(preferred);
+  for (const bay1 of bays[0]) candidates.push([bay1, null]);
+  for (const bay1 of bays[0]) {
+    for (const bay2 of bays[1]) candidates.push([bay1, bay2]);
+  }
+
+  for (const [bay1, bay2] of candidates) {
+    const components = componentsForCombo(bay1, bay2);
+    const stencil = resolveFrontPanel(chassis, components);
+    const meta = stencil ? frontPanelMetaOf(stencil) : undefined;
+    if (stencil && meta?.layout.length) {
+      return { kind: 'fixed', label: chassis, platform: chassis, os: 'sros', stencil, ports: meta.ports, components };
+    }
+  }
+  return null;
+}
+
 function buildCatalog(): CatalogGroup[] {
   const chassisBays = new Map<string, [Set<string>, Set<string>]>();
   const fixedItems = collectFixedItems(chassisBays);
 
-  const chassisItems: CatalogChassisItem[] = [...chassisBays.entries()].map(([chassis, bays]) => ({
-    kind: 'chassis',
-    label: `${chassis} (modular)`,
-    platform: chassis,
-    os: 'sros',
-    bays: [
-      [...bays[0]].sort((a, b) => a.localeCompare(b)),
-      [...bays[1]].sort((a, b) => a.localeCompare(b)),
-    ],
-  }));
+  const chassisItems: CatalogFixedItem[] = [...chassisBays.entries()]
+    .map(([chassis, bays]) => defaultChassisItem(chassis, bays))
+    .filter((item): item is CatalogFixedItem => item !== null);
 
   const byLabel = (a: CatalogItem, b: CatalogItem) =>
     a.label.localeCompare(b.label, undefined, { numeric: true });

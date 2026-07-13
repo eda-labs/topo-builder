@@ -17,7 +17,7 @@ test('Node numbering after switching template', async ({ page }) => {
 
   // Change leaf2 to spine via context menu
   await clickNodeHeader(page, 'leaf2', { button: 'right' });
-  await page.getByRole('menuitem', { name: 'Template' }).hover();
+  await page.getByRole('menuitem', { name: 'Template', exact: true }).hover();
   await page.getByRole('menuitem', { name: 'spine', exact: true }).click();
 
   // Add another node -> should be leaf2 again (no leaf3)

@@ -71,21 +71,29 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
 
   const detail = useMemo(() => {
     if (!panel) return null;
-    const cards = (panel.components ?? [])
-      .filter(c => c.kind === 'mda' || c.kind === 'lineCard')
-      .map(c => c.type);
     return {
       title: nodeData.name,
       platform: panel.platform,
       os: sros ? ('sros' as const) : ('srl' as const),
       stencil: panel.stencil,
       components: panel.components,
-      favoriteLabel: [panel.platform, ...cards].join(' · '),
     };
   }, [panel, nodeData.name, sros]);
 
   const icon = iconSvg
     ? <span style={{ lineHeight: 0, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: iconSvg }} />
+    : undefined;
+
+  // The raw role icons are 28px — scaled down to sit inside the 26px faceplate header strip.
+  const headerIcon = iconSvg
+    ? (
+      <span
+        style={{ lineHeight: 0, flexShrink: 0 }}
+        dangerouslySetInnerHTML={{
+          __html: iconSvg.replace(/width="\d+"/, 'width="14"').replace(/height="\d+"/, 'height="14"'),
+        }}
+      />
+    )
     : undefined;
 
   return (
@@ -97,7 +105,7 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
           selected={selected ?? false}
           panel={panel}
           sros={sros}
-          icon={icon}
+          icon={headerIcon}
           testId={topologyNodeTestId(nodeData.name)}
           headerExtra={showEdgeLinkIcon
             ? <EdgeLinksButton count={edgeLinks.length} onClick={() => { setEdgeLinksModalOpen(true); }} />

@@ -5,7 +5,7 @@ import { Chip } from '@mui/material';
 import type { EdgeRouting } from '../../lib/store/createStore';
 import { memberHoverKey, useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 import { portAddressForInterface, portCenterInNode, type NodePanel } from '../../lib/frontpanel';
-import { getFloatingEdgeParams } from '../../lib/edgeUtils';
+import { getFloatingEdgeParams, getHandleCoordinates } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { UILagGroup, UIMemberLink } from '../../types/ui';
 import { topologyLagTestId, topologyMemberLinkTestId } from '../../lib/testIds';
@@ -224,6 +224,9 @@ export interface PortBundleEdgeProps {
   targetNode: NodeLike;
   sourcePanel: NodePanel | null;
   targetPanel: NodePanel | null;
+  /** stored edge handles — a non-port end (sim node) with a handle keeps that fixed anchor */
+  sourceHandleId?: string | null;
+  targetHandleId?: string | null;
   memberLinks: UIMemberLink[];
   lagGroups: UILagGroup[];
   routing: EdgeRouting;
@@ -246,6 +249,8 @@ export default function PortBundleEdge({
   targetNode,
   sourcePanel,
   targetPanel,
+  sourceHandleId,
+  targetHandleId,
   memberLinks,
   lagGroups,
   routing,
@@ -260,6 +265,20 @@ export default function PortBundleEdge({
   onLagContextMenu,
 }: PortBundleEdgeProps) {
   const floating = getFloatingEdgeParams(sourceNode, targetNode);
+
+  // Non-panel ends with a stored handle (sim nodes) anchor there for good; ends without one
+  // float with the relative node positions.
+  const fallbackFor = (
+    node: NodeLike,
+    handleId: string | null | undefined,
+    floatingEnd: { x: number; y: number; position: Position },
+  ) => {
+    if (!handleId || handleId.startsWith('port:')) return floatingEnd;
+    const coords = getHandleCoordinates(node, handleId);
+    return { x: coords.x, y: coords.y, position: coords.position };
+  };
+  const sourceFallback = fallbackFor(sourceNode, sourceHandleId, { x: floating.sx, y: floating.sy, position: floating.sourcePos });
+  const targetFallback = fallbackFor(targetNode, targetHandleId, { x: floating.tx, y: floating.ty, position: floating.targetPos });
 
   const lagByIndex = new Map<number, UILagGroup>();
   const lagChipIndex = new Map<string, number>();
@@ -283,8 +302,8 @@ export default function PortBundleEdge({
             index={index}
             lag={lag}
             showLagChip={lag != null && lagChipIndex.get(lag.id) === index}
-            src={cableEnd(sourceNode, sourcePanel, member.sourceInterface, { x: floating.sx, y: floating.sy, position: floating.sourcePos })}
-            tgt={cableEnd(targetNode, targetPanel, member.targetInterface, { x: floating.tx, y: floating.ty, position: floating.targetPos })}
+            src={cableEnd(sourceNode, sourcePanel, member.sourceInterface, sourceFallback)}
+            tgt={cableEnd(targetNode, targetPanel, member.targetInterface, targetFallback)}
             edgeNodeA={edgeNodeA}
             edgeNodeB={edgeNodeB}
             routing={routing}

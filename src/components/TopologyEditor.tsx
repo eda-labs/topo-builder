@@ -27,11 +27,14 @@ import {
   Timeline as ElbowRoutingIcon,
   Gesture as CurvedRoutingIcon,
 } from '@mui/icons-material';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName, saveToUndoHistory } from '../lib/store';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES, SESSION_NEW_LINK_ID } from '../lib/constants';
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
+import { resolveNodePanel } from '../lib/frontpanel';
+import { osOfPlatform } from '../lib/catalog';
 
 import { TopoNode, SimNode, TextAnnotation, ShapeAnnotation } from './nodes';
 import { LinkEdge } from './edges';
@@ -40,6 +43,8 @@ import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEdit
 import { SelectionPanel, NodeTemplatesPanel, LinkTemplatesPanel, SimNodeTemplatesPanel } from './PropertiesPanel';
 import ContextMenu from './ContextMenu';
 import PalettePanel, { readPaletteDrag, addPaletteItem } from './PalettePanel';
+import PlatformDetailsPopover, { type PlatformDetail } from './PlatformDetailsPopover';
+import CableHoverHud from './CableHoverHud';
 
 const nodeTypes: NodeTypes = {
   topoNode: TopoNode,
@@ -56,6 +61,61 @@ export interface TopologyEditorProps extends TopologyThemingProps {
   renderYamlPanel?: () => ReactNode;
   reactFlowColorMode?: 'light' | 'dark';
 }
+
+// Everything the editor shell reads from the store, picked shallowly: a bare useTopologyStore()
+// re-renders the whole canvas on every store write (each yamlRefreshCounter bump, EDA status
+// poll, error toast), which is the single biggest render hotspot.
+const pickEditorState = (state: ReturnType<typeof useTopologyStore.getState>) => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  onNodesChange: state.onNodesChange,
+  onEdgesChange: state.onEdgesChange,
+  onConnect: state.onConnect,
+  selectNode: state.selectNode,
+  selectEdge: state.selectEdge,
+  selectSimNode: state.selectSimNode,
+  selectSimNodes: state.selectSimNodes,
+  selectedNodeId: state.selectedNodeId,
+  selectedEdgeId: state.selectedEdgeId,
+  selectedEdgeIds: state.selectedEdgeIds,
+  selectedSimNodeName: state.selectedSimNodeName,
+  selectedSimNodeNames: state.selectedSimNodeNames,
+  selectedMemberLinkIndices: state.selectedMemberLinkIndices,
+  addNode: state.addNode,
+  deleteNode: state.deleteNode,
+  deleteEdge: state.deleteEdge,
+  updateMemberLink: state.updateMemberLink,
+  deleteMemberLink: state.deleteMemberLink,
+  clearMemberLinkSelection: state.clearMemberLinkSelection,
+  selectedLagId: state.selectedLagId,
+  updateEdge: state.updateEdge,
+  addSimNode: state.addSimNode,
+  deleteSimNode: state.deleteSimNode,
+  simulation: state.simulation,
+  showSimNodes: state.showSimNodes,
+  setShowSimNodes: state.setShowSimNodes,
+  expandedEdges: state.expandedEdges,
+  toggleEdgeExpanded: state.toggleEdgeExpanded,
+  toggleAllEdgesExpanded: state.toggleAllEdgesExpanded,
+  clearAll: state.clearAll,
+  layoutVersion: state.layoutVersion,
+  triggerYamlRefresh: state.triggerYamlRefresh,
+  nodeTemplates: state.nodeTemplates,
+  linkTemplates: state.linkTemplates,
+  createLagFromMemberLinks: state.createLagFromMemberLinks,
+  createMultihomedLag: state.createMultihomedLag,
+  mergeEdgesIntoEsiLag: state.mergeEdgesIntoEsiLag,
+  setError: state.setError,
+  syncSelectionFromReactFlow: state.syncSelectionFromReactFlow,
+  annotations: state.annotations,
+  selectedAnnotationId: state.selectedAnnotationId,
+  selectedAnnotationIds: state.selectedAnnotationIds,
+  addAnnotation: state.addAnnotation,
+  updateAnnotation: state.updateAnnotation,
+  deleteAnnotation: state.deleteAnnotation,
+  selectAnnotation: state.selectAnnotation,
+  selectAnnotations: state.selectAnnotations,
+});
 
 function resolveReactFlowColorMode({
   reactFlowColorMode,
@@ -655,7 +715,7 @@ function TopologyEditorInner({
     deleteAnnotation,
     selectAnnotation,
     selectAnnotations,
-  } = useTopologyStore();
+  } = useTopologyStore(useShallow(pickEditorState));
 
   const { screenToFlowPosition } = useReactFlow();
 
@@ -1066,6 +1126,31 @@ function TopologyEditorInner({
 
   const handleAddNode = (templateName?: string) => { addNode(contextMenu.flowPosition, templateName); };
   const handleDeleteNode = () => { if (selectedNodeId) deleteNode(selectedNodeId); };
+
+  // "Platform Details" on a node's context menu — same card as the palette, anchored where the
+  // menu opened (canvas clicks stay reserved for selection).
+  const [nodeDetails, setNodeDetails] = useState<{ position: { top: number; left: number }; detail: PlatformDetail } | null>(null);
+  const handleShowNodeDetails = () => {
+    const state = useTopologyStore.getState();
+    const node = state.nodes.find(n => n.id === state.selectedNodeId);
+    if (!node) return;
+    const template = node.data.template ? state.nodeTemplates.find(t => t.name === node.data.template) : undefined;
+    const panel = resolveNodePanel(node.data, state.nodeTemplates);
+    const platform = panel?.platform ?? node.data.platform ?? template?.platform ?? '';
+    const components = panel?.components ?? node.data.components ?? template?.components;
+    const cards = (components ?? []).filter(c => c.kind === 'mda' || c.kind === 'lineCard').map(c => c.type);
+    setNodeDetails({
+      position: { top: contextMenu.position.y, left: contextMenu.position.x },
+      detail: {
+        title: node.data.name,
+        platform,
+        os: osOfPlatform(platform),
+        stencil: panel?.stencil ?? null,
+        components,
+        favoriteLabel: platform ? [platform, ...cards].join(' · ') : undefined,
+      },
+    });
+  };
   // Delete only the selected member link(s) when a subset of a bundle is selected (e.g. a single
   // cable was clicked); the whole edge goes only when everything on it is selected.
   const handleDeleteEdge = () => {
@@ -1279,6 +1364,7 @@ function TopologyEditorInner({
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <LayoutHandler layoutVersion={layoutVersion} />
             <EmptyCanvasHint show={nodes.length === 0} />
+            <CableHoverHud />
           </ReactFlow>
         </Box>
 
@@ -1298,6 +1384,7 @@ function TopologyEditorInner({
         onAddNode={handleAddNode}
         onAddSimNode={handleAddSimNode}
         onDeleteNode={handleDeleteNode}
+        onShowNodeDetails={handleShowNodeDetails}
         onDeleteEdge={handleDeleteEdge}
         onDeleteAllLinks={handleDeleteAllEdgeLinks}
         memberLinkTotal={selectedEdgeId ? edges.find(e => e.id === selectedEdgeId)?.data?.memberLinks?.length ?? 0 : 0}
@@ -1331,6 +1418,14 @@ function TopologyEditorInner({
         onDeleteAnnotation={handleDeleteAnnotation}
         contextMenuFlowPosition={contextMenu.flowPosition}
       />
+
+      {nodeDetails && (
+        <PlatformDetailsPopover
+          anchorPosition={nodeDetails.position}
+          detail={nodeDetails.detail}
+          onClose={() => { setNodeDetails(null); }}
+        />
+      )}
     </AppLayout>
   );
 }

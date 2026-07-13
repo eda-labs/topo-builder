@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  AutoFixHigh as WizardIcon,
   ChevronLeft as CollapseIcon,
   ChevronRight as ExpandIcon,
   ExpandLess as GroupOpenIcon,
@@ -20,6 +21,7 @@ import {
 } from '@mui/icons-material';
 
 import { useTopologyStore, generateUniqueName } from '../lib/store';
+import { useFavoritesStore, type FavoriteEntry } from '../lib/favorites';
 import {
   frontPanelMetaOf,
   paintPanel,
@@ -40,7 +42,8 @@ import { exampleTopologies, type ExampleTopology } from '../samples';
 import type { Component, NodeTemplate, SimNodeTemplate } from '../types/schema';
 
 import { RoleIcons } from './nodes/roleIcons';
-import PlatformDetailsPopover, { type PlatformDetail } from './PlatformDetailsPopover';
+import PlatformDetailsPopover, { FavoriteToggle, type PlatformDetail } from './PlatformDetailsPopover';
+import SrosWizardDialog, { type SrosWizardResult } from './SrosWizardDialog';
 
 export const PALETTE_DND_TYPE = 'application/x-topobuilder-template';
 
@@ -148,6 +151,7 @@ function PaletteItem({
   roleIcon,
   meta,
   previewWidth,
+  actions,
   onAdd,
   onOpenDetails,
 }: {
@@ -158,6 +162,8 @@ function PaletteItem({
   roleIcon?: string;
   meta?: FrontPanelMeta;
   previewWidth?: number;
+  /** extra header buttons (favorite star) rendered before the add button */
+  actions?: React.ReactNode;
   onAdd: () => void;
   /** click target — omitted (sim nodes) means clicking does nothing */
   onOpenDetails?: (anchor: HTMLElement) => void;
@@ -199,6 +205,7 @@ function PaletteItem({
             {meta.ports} ports
           </Typography>
         )}
+        {actions}
         <QuickAddButton onAdd={onAdd} />
       </Box>
       {subtitle && (
@@ -255,6 +262,8 @@ function ChassisConfigurator({ item, previewWidth, onAdd, onOpenDetails }: {
   const valid = !!meta?.layout.length && components.length > 0;
   const payload: PaletteDragPayload = { kind: 'catalog', platform: item.platform, components };
 
+  const comboLabel = [item.platform, bay1, bay2].filter(Boolean).join(' · ');
+
   const openDetails = (anchor: HTMLElement) => {
     if (!valid || !stencil) return;
     onOpenDetails(anchor, {
@@ -263,6 +272,7 @@ function ChassisConfigurator({ item, previewWidth, onAdd, onOpenDetails }: {
       os: 'sros',
       stencil,
       components,
+      favoriteLabel: comboLabel,
     }, payload);
   };
 
@@ -301,6 +311,14 @@ function ChassisConfigurator({ item, previewWidth, onAdd, onOpenDetails }: {
           <Typography variant="caption" sx={{ color: TEXT_SECONDARY, flexShrink: 0, fontSize: 10 }}>
             {meta.ports} ports
           </Typography>
+        )}
+        {valid && (
+          <FavoriteToggle
+            label={comboLabel}
+            platform={item.platform}
+            components={components}
+            testId={`palette-chassis-favorite-${slugify(item.platform)}`}
+          />
         )}
         <Tooltip title={valid ? 'Add to canvas' : 'Pick at least one card'}>
           <span>
@@ -349,6 +367,14 @@ function FixedCatalogItem({ item, previewWidth, onAdd, onOpenDetails }: {
       subtitle={item.os === 'sros' ? 'SR OS' : 'SR Linux'}
       meta={meta?.layout.length ? meta : undefined}
       previewWidth={previewWidth}
+      actions={(
+        <FavoriteToggle
+          label={item.label}
+          platform={item.platform}
+          components={item.components}
+          testId={`palette-favorite-${slugify(item.label)}`}
+        />
+      )}
       onAdd={() => { onAdd(payload); }}
       onOpenDetails={anchor => {
         onOpenDetails(anchor, {
@@ -357,6 +383,48 @@ function FixedCatalogItem({ item, previewWidth, onAdd, onOpenDetails }: {
           os: item.os,
           stencil: item.stencil,
           components: item.components,
+          favoriteLabel: item.label,
+        }, payload);
+      }}
+    />
+  );
+}
+
+/** A starred platform/combo pinned to the top of the palette. */
+function FavoriteItem({ entry, previewWidth, onAdd, onOpenDetails }: {
+  entry: FavoriteEntry;
+  previewWidth?: number;
+  onAdd: (payload: PaletteDragPayload) => void;
+  onOpenDetails: (anchor: HTMLElement, detail: PlatformDetail, payload: PaletteDragPayload) => void;
+}) {
+  const stencil = resolveFrontPanel(entry.platform, entry.components);
+  const meta = stencil ? frontPanelMetaOf(stencil) : undefined;
+  const payload: PaletteDragPayload = { kind: 'catalog', platform: entry.platform, components: entry.components };
+  return (
+    <PaletteItem
+      payload={payload}
+      testId={`palette-item-favorite-${slugify(entry.label)}`}
+      title={entry.label}
+      subtitle={entry.platform === entry.label ? undefined : entry.platform}
+      meta={meta?.layout.length ? meta : undefined}
+      previewWidth={previewWidth}
+      actions={(
+        <FavoriteToggle
+          label={entry.label}
+          platform={entry.platform}
+          components={entry.components}
+          testId={`palette-favorite-${slugify(entry.label)}`}
+        />
+      )}
+      onAdd={() => { onAdd(payload); }}
+      onOpenDetails={anchor => {
+        onOpenDetails(anchor, {
+          title: entry.label,
+          platform: entry.platform,
+          os: osOfPlatform(entry.platform),
+          stencil,
+          components: entry.components,
+          favoriteLabel: entry.label,
         }, payload);
       }}
     />
@@ -453,11 +521,13 @@ function matchesQuery(label: string, query: string): boolean {
 export default function PalettePanel() {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const simNodeTemplates = useTopologyStore(state => state.simulation.simNodeTemplates);
+  const favorites = useFavoritesStore(state => state.favorites);
   const { screenToFlowPosition, fitView } = useReactFlow();
 
   const [open, setOpen] = useState(() => localStorage.getItem('topology-palette-open') !== '0');
   const [query, setQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [details, setDetails] = useState<{
     anchor: HTMLElement;
     detail: PlatformDetail;
@@ -543,11 +613,17 @@ export default function PalettePanel() {
       .filter(group => group.items.length > 0);
   }, [searching, normalizedQuery]);
 
-  const visibleFavorites = useMemo(() => {
+  const visibleTemplates = useMemo(() => {
     if (!searching) return nodeTemplates;
     return nodeTemplates.filter(t =>
       matchesQuery(t.name, normalizedQuery) || matchesQuery(t.platform ?? '', normalizedQuery));
   }, [nodeTemplates, searching, normalizedQuery]);
+
+  const visibleFavorites = useMemo(() => {
+    if (!searching) return favorites;
+    return favorites.filter(f =>
+      matchesQuery(f.label, normalizedQuery) || matchesQuery(f.platform, normalizedQuery));
+  }, [favorites, searching, normalizedQuery]);
 
   if (!open) {
     return (
@@ -635,7 +711,18 @@ export default function PalettePanel() {
       </Box>
       <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, p: 1, pt: 0.5 }}>
         {visibleFavorites.length > 0 && <SectionHeader>FAVORITES</SectionHeader>}
-        {visibleFavorites.map(template => {
+        {visibleFavorites.map(entry => (
+          <FavoriteItem
+            key={entry.id}
+            entry={entry}
+            previewWidth={previewWidth}
+            onAdd={addAtCanvasCenter}
+            onOpenDetails={openDetails}
+          />
+        ))}
+
+        {visibleTemplates.length > 0 && <SectionHeader>TEMPLATES</SectionHeader>}
+        {visibleTemplates.map(template => {
           const stencil = resolveFrontPanel(template.platform, template.components);
           const meta = stencil ? frontPanelMetaOf(stencil) : undefined;
           const role = templateRole(template);
@@ -658,6 +745,7 @@ export default function PalettePanel() {
                   os: osOfPlatform(template.platform ?? ''),
                   stencil,
                   components: template.components,
+                  favoriteLabel: template.platform ? template.name : undefined,
                 }, payload);
               }}
             />
@@ -665,6 +753,34 @@ export default function PalettePanel() {
         })}
 
         <SectionHeader>CATALOG</SectionHeader>
+        {!searching && (
+          <Box
+            data-testid="palette-sros-wizard"
+            onClick={() => { setWizardOpen(true); }}
+            title="Configure an SR OS chassis (cards, MDAs, XIOMs) and add it to the canvas"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              p: 1,
+              borderRadius: 1,
+              border: '1px dashed',
+              borderColor: 'divider',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': HOVER_SX,
+            }}
+          >
+            <WizardIcon sx={{ fontSize: 16, color: TEXT_SECONDARY }} />
+            <Typography variant="body2" sx={{ fontWeight: 700, ...ELLIPSIS_SX }}>
+              SR OS chassis wizard
+            </Typography>
+            <Box sx={{ flex: 1 }} />
+            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontSize: 10, flexShrink: 0 }}>
+              SR-7s, SR-12…
+            </Typography>
+          </Box>
+        )}
         {visibleCatalog.map(group => (
           <CatalogGroupSection
             key={group.family}
@@ -677,7 +793,7 @@ export default function PalettePanel() {
             previewWidth={previewWidth}
           />
         ))}
-        {searching && visibleCatalog.length === 0 && visibleFavorites.length === 0 && (
+        {searching && visibleCatalog.length === 0 && visibleFavorites.length === 0 && visibleTemplates.length === 0 && (
           <Typography variant="caption" sx={{ color: TEXT_SECONDARY }}>
             No platforms match “{query.trim()}”.
           </Typography>
@@ -717,6 +833,16 @@ export default function PalettePanel() {
           setDetails(null);
         }}
       />
+      {wizardOpen && (
+        <SrosWizardDialog
+          open={wizardOpen}
+          onClose={() => { setWizardOpen(false); }}
+          onAdd={(result: SrosWizardResult) => {
+            addAtCanvasCenter({ kind: 'catalog', platform: result.platform, components: result.components });
+            setWizardOpen(false);
+          }}
+        />
+      )}
     </Box>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useTopologyStore } from '../lib/store';
 import { ANNOTATION_EDGE_ID, ANNOTATION_MEMBER_INDEX } from '../lib/constants';
@@ -232,7 +233,21 @@ export default function YamlEditor() {
     topologyName, namespace, operation, nodes, edges,
     nodeTemplates, linkTemplates, simulation, annotations,
     importFromYaml, yamlRefreshCounter, disableAnnotations, schemaVersion,
-  } = useTopologyStore();
+  } = useTopologyStore(useShallow(state => ({
+    topologyName: state.topologyName,
+    namespace: state.namespace,
+    operation: state.operation,
+    nodes: state.nodes,
+    edges: state.edges,
+    nodeTemplates: state.nodeTemplates,
+    linkTemplates: state.linkTemplates,
+    simulation: state.simulation,
+    annotations: state.annotations,
+    importFromYaml: state.importFromYaml,
+    yamlRefreshCounter: state.yamlRefreshCounter,
+    disableAnnotations: state.disableAnnotations,
+    schemaVersion: state.schemaVersion,
+  })));
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

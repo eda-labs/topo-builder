@@ -6,6 +6,7 @@ import { Chip } from '@mui/material';
 import { getControlPoint } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { EdgeRouting } from '../../lib/store/createStore';
+import { useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 
 interface StandardEdgeProps {
   testId?: string;
@@ -21,6 +22,9 @@ interface StandardEdgeProps {
   isConnectedToSelectedNode?: boolean;
   linkCount: number;
   onDoubleClick?: () => void;
+  /** hover-trace identity + HUD payload (edges without one stay inert but still dim) */
+  hoverKey?: string;
+  hoverHud?: HoverHudInfo;
 }
 
 export default function StandardEdge({
@@ -37,7 +41,12 @@ export default function StandardEdge({
   isConnectedToSelectedNode,
   linkCount,
   onDoubleClick,
+  hoverKey,
+  hoverHud,
 }: StandardEdgeProps) {
+  const hoverMode = useHoverMode(hoverKey ?? null);
+  const setHover = useHoverTrace(state => state.setHover);
+  const clearHover = useHoverTrace(state => state.clearHover);
   let edgePath: string;
   let edgeMidpoint: { x: number; y: number };
 
@@ -87,8 +96,9 @@ export default function StandardEdge({
     onDoubleClick?.();
   };
 
+  const hovered = hoverMode === 'on';
   let strokeColor = 'var(--color-link-stroke)';
-  if (isConnectedToSelectedNode) {
+  if (isConnectedToSelectedNode || hovered) {
     strokeColor = 'var(--color-link-stroke-highlight)';
   }
   if (isSelected) {
@@ -108,13 +118,17 @@ export default function StandardEdge({
           fill="none"
           stroke="transparent"
           strokeWidth={EDGE_INTERACTION_WIDTH}
+          onMouseEnter={hoverKey ? () => { setHover(hoverKey, hoverHud ?? null); } : undefined}
+          onMouseLeave={hoverKey ? () => { clearHover(hoverKey); } : undefined}
         />
         <path
           d={edgePath}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={1}
+          strokeWidth={hovered ? 2 : 1}
           strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+          opacity={hoverMode === 'dim' ? 0.15 : 1}
+          style={{ transition: 'opacity 120ms, stroke-width 120ms' }}
         />
       </g>
       {linkCount > 1 && (

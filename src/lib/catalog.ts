@@ -101,8 +101,11 @@ const familyOf = (label: string): string => {
   return `${generation} ${model?.split('-')[0] ?? ''}`.trim();
 };
 
+// 7750 plus the wizard-only SR OS families; 7250/7220 stay SR Linux in this app.
+const SROS_PLATFORM_PREFIX = /^(?:7750|7450|7705|7950)\b/;
+
 export const osOfPlatform = (platform: string): CatalogOS =>
-  platform.trim().startsWith('7750') ? 'sros' : 'srl';
+  SROS_PLATFORM_PREFIX.test(platform.trim()) ? 'sros' : 'srl';
 
 /** MDA components for a modular-chassis combo; bays are numbered 1/2 like the cluster fixtures. */
 export function componentsForCombo(bay1?: string | null, bay2?: string | null): Component[] {

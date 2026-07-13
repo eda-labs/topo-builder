@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Position, EdgeLabelRenderer, getBezierPath, getSmoothStepPath } from '@xyflow/react';
 import { Chip } from '@mui/material';
 
 import type { EdgeRouting } from '../../lib/store/createStore';
+import { memberHoverKey, useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 import { portAddressForInterface, portCenterInNode, type NodePanel } from '../../lib/frontpanel';
 import { getFloatingEdgeParams } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
@@ -86,6 +88,7 @@ function CableLabel({ x, y, label, title }: { x: number; y: number; label: strin
 }
 
 interface CableProps {
+  edgeId: string;
   member: UIMemberLink;
   index: number;
   lag?: UILagGroup;
@@ -110,12 +113,27 @@ function cableTestId({ lag, showLagChip, edgeNodeA, edgeNodeB, index }: Pick<Cab
   return showLagChip ? topologyLagTestId(edgeNodeA, edgeNodeB, lag.name) : undefined;
 }
 
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+function cableStrokeWidth(hovered: boolean, selected: boolean): number {
+  if (hovered) return 2;
+  return selected ? 1.5 : 1;
+}
+
 function Cable(props: CableProps) {
   const {
-    member, index, lag, showLagChip, src, tgt, edgeNodeA, edgeNodeB, routing,
+    edgeId, member, index, lag, showLagChip, src, tgt, edgeNodeA, edgeNodeB, routing,
     isMemberSelected, isSimNodeEdge, isConnectedToSelectedNode,
     onMemberLinkClick, onMemberLinkContextMenu, onLagClick, onLagContextMenu,
   } = props;
+
+  const hoverKey = memberHoverKey(edgeId, index);
+  const hoverMode = useHoverMode(hoverKey);
+  const setHover = useHoverTrace(state => state.setHover);
+  const clearHover = useHoverTrace(state => state.clearHover);
+
+  // A cable deleted mid-hover never fires mouseleave — drop its trace on unmount.
+  useEffect(() => () => { clearHover(hoverKey); }, [hoverKey, clearHover]);
 
   const ends = {
     sourceX: src.x,
@@ -137,8 +155,25 @@ function Cable(props: CableProps) {
     if (lag) onLagContextMenu(lag.id);
     else onMemberLinkContextMenu(e, index);
   };
+  const handleMouseEnter = () => {
+    const hud: HoverHudInfo = {
+      nodeA: edgeNodeA ?? '',
+      ifaceA: member.sourceInterface,
+      nodeB: edgeNodeB ?? '',
+      ifaceB: member.targetInterface,
+      kind: isSimNodeEdge ? 'sim' : 'link',
+      linkName: member.name,
+      lagName: lag?.name,
+    };
+    setHover(hoverKey, hud);
+  };
 
-  const showLabel = isMemberSelected && !lag;
+  const hovered = hoverMode === 'on';
+  const showLabel = isMemberSelected && !lag && !hovered;
+
+  const stroke = hovered && !isMemberSelected
+    ? 'var(--color-link-stroke-highlight)'
+    : memberStroke(isMemberSelected, isConnectedToSelectedNode);
 
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -152,13 +187,17 @@ function Cable(props: CableProps) {
         strokeWidth={EDGE_INTERACTION_WIDTH}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => { clearHover(hoverKey); }}
       />
       <path
         d={path}
         fill="none"
-        stroke={memberStroke(isMemberSelected, isConnectedToSelectedNode)}
-        strokeWidth={isMemberSelected ? 1.5 : 1}
+        stroke={stroke}
+        strokeWidth={cableStrokeWidth(hovered, isMemberSelected)}
         strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
+        opacity={hoverMode === 'dim' ? 0.15 : 1}
+        style={{ transition: 'opacity 120ms, stroke-width 120ms' }}
         pointerEvents="none"
       />
       {showLagChip && lag && (
@@ -167,11 +206,18 @@ function Cable(props: CableProps) {
       {showLabel && (
         <CableLabel x={labelX} y={labelY} label={`${member.sourceInterface} ↔ ${member.targetInterface}`} title={member.name} />
       )}
+      {hovered && (
+        <>
+          <CableLabel x={lerp(src.x, tgt.x, 0.18)} y={lerp(src.y, tgt.y, 0.18)} label={member.sourceInterface} title={`${edgeNodeA ?? ''} ${member.sourceInterface}`} />
+          <CableLabel x={lerp(src.x, tgt.x, 0.82)} y={lerp(src.y, tgt.y, 0.82)} label={member.targetInterface} title={`${edgeNodeB ?? ''} ${member.targetInterface}`} />
+        </>
+      )}
     </g>
   );
 }
 
 export interface PortBundleEdgeProps {
+  edgeId: string;
   edgeNodeA?: string;
   edgeNodeB?: string;
   sourceNode: NodeLike;
@@ -193,6 +239,7 @@ export interface PortBundleEdgeProps {
 }
 
 export default function PortBundleEdge({
+  edgeId,
   edgeNodeA,
   edgeNodeB,
   sourceNode,
@@ -231,6 +278,7 @@ export default function PortBundleEdge({
         return (
           <Cable
             key={member.name || index}
+            edgeId={edgeId}
             member={member}
             index={index}
             lag={lag}

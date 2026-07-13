@@ -115,7 +115,7 @@ const SRL_BREAKOUTS: Record<number, { channels: number; gbps: number }[]> = {
 const GENERIC_CHANNEL_COUNTS = [2, 4, 8];
 
 const isSrosPlatform = (platform: string): boolean =>
-  platform.trim().toLowerCase().startsWith('7750');
+  /^(?:7750|7450|7705|7950)\b/.test(platform.trim());
 
 const breakoutTableFor = (sros: boolean) => (sros ? SROS_BREAKOUTS : SRL_BREAKOUTS);
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
-import type { UIEdgeData, UINodeData } from '../../types/ui';
+import type { UIEdgeData, UINode, UINodeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
 import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
 import { resolveNodePanel } from '../../lib/frontpanel';
@@ -35,6 +35,8 @@ function getEdgeNodes(edgeData: UIEdgeData | undefined, source: string, target: 
   };
 }
 
+const NO_NODES: UINode[] = [];
+
 export default function LinkEdge({
   id,
   source,
@@ -60,7 +62,10 @@ export default function LinkEdge({
   const toggleEdgeExpanded = useTopologyStore(state => state.toggleEdgeExpanded);
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
   const selectLag = useTopologyStore(state => state.selectLag);
-  const nodes = useTopologyStore(state => state.nodes);
+  // Only ESI-LAG edges need the node list (to anchor their leaves); a plain edge subscribing to
+  // it would re-render on every drag frame of every node. Endpoint positions come from
+  // useInternalNode, which tracks just the two nodes this edge touches.
+  const nodes = useTopologyStore(state => (edgeData?.edgeType === 'esilag' ? state.nodes : NO_NODES));
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const edgeRouting = useTopologyStore(state => state.edgeRouting);
 
@@ -208,6 +213,7 @@ export default function LinkEdge({
     return (
       <g data-testid={edgeTestId}>
         <PortBundleEdge
+          edgeId={id}
           edgeNodeA={edgeNodeA}
           edgeNodeB={edgeNodeB}
           sourceNode={sourceNode}
@@ -234,6 +240,7 @@ export default function LinkEdge({
   const bundleEdgeElement = renderBundleEdge();
   if (bundleEdgeElement) return bundleEdgeElement;
 
+  const singleMember = linkCount === 1 ? memberLinks[0] : undefined;
   return (
     <StandardEdge
       testId={edgeTestId}
@@ -249,6 +256,15 @@ export default function LinkEdge({
       isConnectedToSelectedNode={isConnectedToSelectedNode}
       linkCount={linkCount}
       onDoubleClick={handleDoubleClick}
+      hoverKey={`std:${id}`}
+      hoverHud={{
+        nodeA: edgeNodeA,
+        ifaceA: singleMember?.sourceInterface ?? '',
+        nodeB: edgeNodeB,
+        ifaceB: singleMember?.targetInterface,
+        kind: isSimNodeEdge ? 'sim' : 'link',
+        linkName: singleMember ? singleMember.name : `${linkCount} links`,
+      }}
     />
   );
 }

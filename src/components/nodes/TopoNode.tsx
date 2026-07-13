@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { type NodeProps } from '@xyflow/react';
 
 import type { UINodeData, UIEdgeLink } from '../../types/ui';
@@ -7,6 +7,7 @@ import { resolveNodePanel } from '../../lib/frontpanel';
 import { isSrosNode } from '../../lib/interfaces';
 import { topologyNodeTestId } from '../../lib/testIds';
 import EdgeLinksModal from '../EdgeLinksModal';
+import PlatformDetailsPopover from '../PlatformDetailsPopover';
 
 import BaseNode from './BaseNode';
 import FrontPanelNode from './FrontPanelNode';
@@ -36,10 +37,10 @@ function EdgeLinksButton({ count, onClick }: { count: number; onClick: () => voi
 
 export default function TopoNode({ id, data, selected }: NodeProps) {
   const [edgeLinksModalOpen, setEdgeLinksModalOpen] = useState(false);
+  const [detailsAnchor, setDetailsAnchor] = useState<HTMLElement | null>(null);
   const nodeData = data as UINodeData;
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const linkTemplates = useTopologyStore(state => state.linkTemplates);
-  const nodes = useTopologyStore(state => state.nodes);
   const updateNode = useTopologyStore(state => state.updateNode);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
 
@@ -52,15 +53,36 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
   const showEdgeLinkIcon = role === 'leaf';
 
   const panel = useMemo(() => resolveNodePanel(nodeData, nodeTemplates), [nodeData, nodeTemplates]);
+  // isSrosNode only reads data/template, so the node's own data suffices — subscribing to the
+  // whole nodes array would re-render every faceplate on every drag frame.
   const sros = useMemo(
-    () => isSrosNode(nodes.find(n => n.id === id), nodeTemplates),
-    [nodes, id, nodeTemplates],
+    () => isSrosNode({ id, data: nodeData, position: { x: 0, y: 0 } }, nodeTemplates),
+    [id, nodeData, nodeTemplates],
   );
 
   const handleEdgeLinkUpdate = (newEdgeLinks: UIEdgeLink[]) => {
     updateNode(id, { edgeLinks: newEdgeLinks });
     triggerYamlRefresh();
   };
+
+  const handleShowDetails = useCallback((anchor: HTMLElement) => {
+    setDetailsAnchor(anchor);
+  }, []);
+
+  const detail = useMemo(() => {
+    if (!panel) return null;
+    const cards = (panel.components ?? [])
+      .filter(c => c.kind === 'mda' || c.kind === 'lineCard')
+      .map(c => c.type);
+    return {
+      title: nodeData.name,
+      platform: panel.platform,
+      os: sros ? ('sros' as const) : ('srl' as const),
+      stencil: panel.stencil,
+      components: panel.components,
+      favoriteLabel: [panel.platform, ...cards].join(' · '),
+    };
+  }, [panel, nodeData.name, sros]);
 
   const icon = iconSvg
     ? <span style={{ lineHeight: 0, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: iconSvg }} />
@@ -80,6 +102,7 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
           headerExtra={showEdgeLinkIcon
             ? <EdgeLinksButton count={edgeLinks.length} onClick={() => { setEdgeLinksModalOpen(true); }} />
             : undefined}
+          onShowDetails={handleShowDetails}
         />
       ) : (
         <BaseNode
@@ -101,6 +124,13 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
         linkTemplates={linkTemplates}
         onUpdate={handleEdgeLinkUpdate}
       />
+      {detailsAnchor && (
+        <PlatformDetailsPopover
+          anchorEl={detailsAnchor}
+          detail={detail}
+          onClose={() => { setDetailsAnchor(null); }}
+        />
+      )}
     </>
   );
 }

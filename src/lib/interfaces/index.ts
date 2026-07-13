@@ -17,9 +17,9 @@ export const isSrosNode = (
   const template = nodeTemplates.find(t => t.name === node.data.template);
   const nodeProfile = node.data.nodeProfile || template?.nodeProfile;
   if (nodeProfile) return nodeProfile.toLowerCase().startsWith('sros');
-  // Catalog nodes may carry only a platform; all 7750s run SR OS.
+  // Catalog nodes may carry only a platform; 7750/7450/7705/7950 run SR OS.
   const platform = node.data.platform || template?.platform;
-  return !!platform?.trim().toLowerCase().startsWith('7750');
+  return /^(?:7750|7450|7705|7950)\b/.test(platform?.trim() ?? '');
 };
 
 export const getGeneratorForNode = (

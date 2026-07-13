@@ -1,5 +1,6 @@
-import { type ReactNode, useMemo, useRef } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { Handle, Position, useStore } from '@xyflow/react';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useTopologyStore } from '../../lib/store';
 import { getNodeCenter, parseHandlePosition } from '../../lib/edgeUtils';
@@ -129,17 +130,15 @@ export default function BaseNode({
   hasEdgeLinks = false,
   onEdgeLinkClick,
 }: BaseNodeProps) {
-  const edges = useTopologyStore(state => state.edges);
-  const nodes = useTopologyStore(state => state.nodes);
+  // Handle dots depend only on this node's own edges; other nodes' positions are read on
+  // demand so neighbour drags don't re-render every node on the canvas.
+  const edges = useTopologyStore(useShallow(state => state.edges.filter(e =>
+    e.source === nodeId || e.target === nodeId || e.data?.esiLeaves?.some(l => l.nodeId === nodeId))));
 
   const isConnecting = useStore(state => state.connection.inProgress);
 
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-
   const connectedPositions = useMemo(() => {
-    return computeConnectedPositions(nodeId, edges, nodesRef.current);
-
+    return computeConnectedPositions(nodeId, edges, useTopologyStore.getState().nodes);
   }, [edges, nodeId]);
 
   const alwaysShowAll = selected || isConnecting;

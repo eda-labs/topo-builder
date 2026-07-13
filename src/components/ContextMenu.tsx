@@ -24,6 +24,7 @@ import {
   Redo as RedoIcon,
   TextFields as TextFieldsIcon,
   Category as ShapeIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import { useRef, useEffect, useState, type ReactNode } from 'react';
 
@@ -198,15 +199,24 @@ function ContextMenuNodeSelectionItems({
   nodeTemplates,
   currentNodeTemplate,
   onDeleteNode,
+  onShowNodeDetails,
 }: {
   onClose: () => void;
   onChangeNodeTemplate?: (templateName: string) => void;
   nodeTemplates: NodeTemplate[];
   currentNodeTemplate?: string;
   onDeleteNode?: () => void;
+  onShowNodeDetails?: () => void;
 }) {
   return (
     <>
+      {onShowNodeDetails && (
+        <MenuItem data-testid="context-menu-node-details" onClick={() => { onShowNodeDetails(); onClose(); }}>
+          <ListItemIcon><InfoIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Platform Details</ListItemText>
+        </MenuItem>
+      )}
+
       {nodeTemplates.length > 0 && onChangeNodeTemplate && (
         <TemplateSubmenu
           templates={nodeTemplates}
@@ -362,6 +372,7 @@ function ContextMenuSelectionSection({
   onAddNode,
   onAddSimNode,
   onDeleteNode,
+  onShowNodeDetails,
   onDeleteSimNode,
   onDeleteEdge,
   onDeleteAnnotation,
@@ -389,6 +400,7 @@ function ContextMenuSelectionSection({
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
   onDeleteNode?: () => void;
+  onShowNodeDetails?: () => void;
   onDeleteSimNode?: () => void;
   onDeleteEdge?: () => void;
   onDeleteAnnotation?: () => void;
@@ -441,6 +453,7 @@ function ContextMenuSelectionSection({
           nodeTemplates={nodeTemplates}
           currentNodeTemplate={currentNodeTemplate}
           onDeleteNode={onDeleteNode}
+          onShowNodeDetails={onShowNodeDetails}
         />
       );
     case 'simNode':
@@ -579,6 +592,7 @@ interface ContextMenuProps {
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
   onDeleteNode?: () => void;
+  onShowNodeDetails?: () => void;
   onDeleteEdge?: () => void;
   onDeleteSimNode?: () => void;
   onDeleteAnnotation?: () => void;
@@ -620,6 +634,7 @@ export default function ContextMenu({
   onAddNode,
   onAddSimNode,
   onDeleteNode,
+  onShowNodeDetails,
   onDeleteEdge,
   onDeleteSimNode,
   onDeleteAnnotation,
@@ -711,6 +726,7 @@ export default function ContextMenu({
                   onAddNode={onAddNode}
                   onAddSimNode={onAddSimNode}
                   onDeleteNode={onDeleteNode}
+                  onShowNodeDetails={onShowNodeDetails}
                   onDeleteSimNode={onDeleteSimNode}
                   onDeleteEdge={onDeleteEdge}
                   onDeleteAnnotation={onDeleteAnnotation}

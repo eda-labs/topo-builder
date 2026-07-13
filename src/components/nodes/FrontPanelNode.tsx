@@ -1,8 +1,10 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Handle, Position, useStore, useUpdateNodeInternals } from '@xyflow/react';
 import { Divider, ListSubheader, Menu, MenuItem } from '@mui/material';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useTopologyStore } from '../../lib/store';
+import { memberHoverKey, useHoverHot, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 import { breakoutOptionsFor, cageNativeSpeed, defaultChannelGbps, type BreakoutOption } from '../../lib/connectors';
 import {
   FP_HEADER_H,
@@ -42,6 +44,7 @@ interface Occupant {
   edgeSelected?: boolean;
   remote?: string;
   remoteIface?: string;
+  linkName?: string;
 }
 
 function collectOccupants(nodeId: string, data: UINodeData, edges: UIEdge[]): Map<string, Occupant> {
@@ -63,6 +66,7 @@ function collectOccupants(nodeId: string, data: UINodeData, edges: UIEdge[]): Ma
         edgeSelected: edge.selected,
         remote,
         remoteIface: isSource ? ml.targetInterface : ml.sourceInterface,
+        linkName: ml.name,
       });
     });
   }
@@ -114,18 +118,32 @@ const portHandleStyle = {
   opacity: 1,
 } as const;
 
-function FreePort({ handleId, label, iface, box, onCageContextMenu }: {
+function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, onCageContextMenu }: {
+  nodeId: string;
+  nodeName: string;
   handleId: string;
   label: string;
   iface: string | null;
+  speedGbps: number | null;
   box: PortBox;
   onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
+  const setHover = useHoverTrace(state => state.setHover);
+  const clearHover = useHoverTrace(state => state.clearHover);
+  const hoverKey = `free:${nodeId}:${handleId}`;
+  const speed = speedGbps ? ` · ${speedGbps}G` : '';
   return (
     <div
       className="fp-port fp-port-free"
       onContextMenu={onCageContextMenu}
-      title={iface ? `${iface} · free — drag or click to cable` : `port ${label} · free`}
+      onMouseEnter={iface
+        ? () => {
+          const hud: HoverHudInfo = { nodeA: nodeName, ifaceA: iface, nodeB: '', kind: 'free', speedGbps: speedGbps ?? undefined };
+          setHover(hoverKey, hud, false);
+        }
+        : undefined}
+      onMouseLeave={() => { clearHover(hoverKey); }}
+      title={iface ? `${iface}${speed} · free — drag or click to cable` : `port ${label} · free`}
       style={{
         position: 'absolute',
         ...box,
@@ -162,22 +180,58 @@ function FreePort({ handleId, label, iface, box, onCageContextMenu }: {
   );
 }
 
-function UsedPort({ occupant, label, hot, box, onCageContextMenu }: {
+function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCageContextMenu }: {
+  nodeId: string;
+  nodeName: string;
   occupant: Occupant;
   label: string;
   hot: boolean;
+  speedGbps: number | null;
   box: PortBox;
   onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
+  const setHover = useHoverTrace(state => state.setHover);
+  const clearHover = useHoverTrace(state => state.clearHover);
+  // Both ports of a member link share the cable's hover key — hovering either end (or the
+  // cable itself) rings this port, the remote port and the cable together.
+  const hoverKey = occupant.edgeId !== undefined && occupant.memberIndex !== undefined
+    ? memberHoverKey(occupant.edgeId, occupant.memberIndex)
+    : `edge:${nodeId}:${occupant.iface}`;
+  const hoverHot = useHoverHot(hoverKey);
+
   const fill = PORT_FILL[occupant.kind];
+  const speed = speedGbps ? ` · ${speedGbps}G` : '';
   const remoteEnd = [occupant.remote, occupant.remoteIface].filter(Boolean).join(' ');
   const remote = remoteEnd ? ` → ${remoteEnd}` : '';
+
+  const handleMouseEnter = () => {
+    const hud: HoverHudInfo = {
+      nodeA: nodeName,
+      ifaceA: occupant.iface,
+      nodeB: occupant.remote ?? '',
+      ifaceB: occupant.remoteIface,
+      kind: occupant.kind,
+      linkName: occupant.linkName,
+      speedGbps: speedGbps ?? undefined,
+    };
+    setHover(hoverKey, hud, occupant.kind !== 'edge');
+  };
+
+  let outline = `1px solid ${fill}`;
+  if (hot) outline = `1.5px solid ${HOT_RING}`;
+  if (hoverHot) outline = '1.5px solid #FFFFFF';
+  let zIndex = 1;
+  if (hot) zIndex = 2;
+  if (hoverHot) zIndex = 3;
+
   return (
     <div
       className="fp-port"
       onContextMenu={onCageContextMenu}
-      title={`${occupant.iface}${remote}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => { clearHover(hoverKey); }}
+      title={`${occupant.iface}${speed}${remote}`}
       onClick={e => {
         e.stopPropagation();
         if (occupant.edgeId !== undefined && occupant.memberIndex !== undefined) {
@@ -189,7 +243,7 @@ function UsedPort({ occupant, label, hot, box, onCageContextMenu }: {
         ...box,
         borderRadius: 2,
         background: fill,
-        outline: hot ? `1.5px solid ${HOT_RING}` : `1px solid ${fill}`,
+        outline,
         outlineOffset: -1,
         display: 'flex',
         alignItems: 'center',
@@ -199,7 +253,8 @@ function UsedPort({ occupant, label, hot, box, onCageContextMenu }: {
         fontWeight: 700,
         color: '#0b0f14',
         cursor: occupant.edgeId ? 'pointer' : 'default',
-        zIndex: hot ? 2 : 1,
+        zIndex,
+        transition: 'outline-color 120ms',
       }}
     >
       {label}
@@ -216,10 +271,16 @@ export interface FrontPanelNodeProps {
   icon?: ReactNode;
   headerExtra?: ReactNode;
   testId?: string;
+  /** opens the platform-details card (click is reserved for selection, so this gets its own button) */
+  onShowDetails?: (anchor: HTMLElement) => void;
 }
 
-function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, headerExtra, testId }: FrontPanelNodeProps) {
-  const edges = useTopologyStore(state => state.edges);
+function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, headerExtra, testId, onShowDetails }: FrontPanelNodeProps) {
+  // Only the edges touching this node drive its occupancy — a whole-array subscription would
+  // repaint every faceplate whenever any edge anywhere changes.
+  const edges = useTopologyStore(useShallow(
+    state => state.edges.filter(e => e.source === nodeId || e.target === nodeId),
+  ));
   const selectedEdgeId = useTopologyStore(state => state.selectedEdgeId);
   const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);
   const updateNode = useTopologyStore(state => state.updateNode);
@@ -231,6 +292,21 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
 
   const { w: panelW, h: panelH } = panelDims(panel.meta);
   const breakouts = useMemo(() => data.breakouts ?? {}, [data.breakouts]);
+
+  // Native Gb/s per cage, resolved once per panel — feeds port tooltips and the hover HUD.
+  const speedByCage = useMemo(() => {
+    const speeds = new Map<string, number | null>();
+    for (const pos of panel.meta.layout) speeds.set(pos.p, cageNativeSpeed(panel, pos.p));
+    return speeds;
+  }, [panel]);
+
+  const channelSpeed = (cage: string): number | null => {
+    const override = data.breakoutSpeeds?.[cage];
+    if (override) return override;
+    const native = speedByCage.get(cage);
+    const channels = breakouts[cage];
+    return native != null && channels ? defaultChannelGbps(native, channels) : null;
+  };
 
   // Occupancy keyed by cage, or "<cage>#<channel>" for channels of broken-out cages. A channelised
   // interface on a cage with no breakout state still marks the whole cage as used.
@@ -371,6 +447,34 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
         <span style={{ fontSize: 9, color: NODE_TEXT, opacity: 0.55, flexShrink: 0 }}>
           {usedCount}/{panel.meta.ports}
         </span>
+        {onShowDetails && (
+          <span
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer hover:!opacity-100"
+            data-testid="node-details-button"
+            title="Platform details"
+            onClick={e => {
+              e.stopPropagation();
+              onShowDetails(e.currentTarget);
+            }}
+            style={{
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              fontSize: 9,
+              fontWeight: 700,
+              fontStyle: 'italic',
+              fontFamily: 'Georgia, serif',
+              background: '#39445580',
+              color: NODE_TEXT,
+            }}
+          >
+            i
+          </span>
+        )}
       </div>
 
       <div style={{ position: 'relative', width: panelW, height: panelH, margin: `0 ${FP_PAD}px` }}>
@@ -381,6 +485,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
             const channels = breakouts[pos.p];
 
             if (channels) {
+              const sliverSpeed = channelSpeed(pos.p);
               return Array.from({ length: channels }, (_, i) => {
                 const channel = i + 1;
                 const key = `${pos.p}#${channel}`;
@@ -388,20 +493,21 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
                 const occupant = occupants.get(key);
                 if (!occupant) {
                   const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [], channel });
-                  return <FreePort key={key} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
+                  return <FreePort key={key} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
                 }
                 const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
-                return <UsedPort key={key} occupant={occupant} label={String(channel)} hot={hot} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
+                return <UsedPort key={key} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={String(channel)} hot={hot} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
               });
             }
 
+            const cageSpeed = speedByCage.get(pos.p) ?? null;
             const occupant = occupants.get(pos.p);
             if (!occupant) {
               const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [] });
-              return <FreePort key={pos.p} handleId={portHandleId(pos.p)} label={label} iface={iface} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
+              return <FreePort key={pos.p} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p)} label={label} iface={iface} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
             }
             const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
-            return <UsedPort key={pos.p} occupant={occupant} label={label} hot={hot} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
+            return <UsedPort key={pos.p} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={label} hot={hot} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
           })
         ) : (
           <SummaryCanvas panel={panel} occupied={summaryFills} width={panelW} height={panelH} />

@@ -7,6 +7,7 @@ import {
   IconButton,
   Link,
   Popover,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -14,11 +15,14 @@ import {
   Close as CloseIcon,
   Description as DatasheetIcon,
   MenuBook as DocsIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 
 import { frontPanelMetaOf, paintPanel, panelDims, type FrontPanelMeta } from '../lib/frontpanel';
 import { panelBreakoutSummary, speedGroupsLabel } from '../lib/connectors';
 import { platformLinks } from '../lib/platformInfo';
+import { favoriteId, useFavoritesStore } from '../lib/favorites';
 import type { CatalogOS } from '../lib/catalog';
 import type { Component } from '../types/schema';
 
@@ -29,6 +33,37 @@ export interface PlatformDetail {
   os: CatalogOS;
   stencil: string | null;
   components?: Component[];
+  /** palette label used when starring this entry; omitted -> no favorite toggle shown */
+  favoriteLabel?: string;
+}
+
+/** Star toggle for a platform + component fit; shared by palette items and the details card. */
+export function FavoriteToggle({ label, platform, components, testId }: {
+  label: string;
+  platform: string;
+  components?: Component[];
+  testId?: string;
+}) {
+  const id = favoriteId(platform, components);
+  const isFavorite = useFavoritesStore(state => state.favorites.some(f => f.id === id));
+  const toggleFavorite = useFavoritesStore(state => state.toggleFavorite);
+  return (
+    <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+      <IconButton
+        size="small"
+        data-testid={testId}
+        onClick={e => {
+          e.stopPropagation();
+          toggleFavorite({ label, platform, components });
+        }}
+        sx={{ p: 0.25, flexShrink: 0 }}
+      >
+        {isFavorite
+          ? <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+          : <StarBorderIcon sx={{ fontSize: 16 }} />}
+      </IconButton>
+    </Tooltip>
+  );
 }
 
 const POPOVER_WIDTH = 560;
@@ -99,11 +134,14 @@ function componentLine(component: Component): string {
   return `${component.kind}${slot} — ${component.type}${speedSuffix}`;
 }
 
-export default function PlatformDetailsPopover({ anchorEl, detail, onClose, onAdd }: {
-  anchorEl: HTMLElement | null;
+export default function PlatformDetailsPopover({ anchorEl, anchorPosition, detail, onClose, onAdd }: {
+  anchorEl?: HTMLElement | null;
+  /** screen coordinates to anchor at instead of an element (context-menu flows) */
+  anchorPosition?: { top: number; left: number };
   detail: PlatformDetail | null;
   onClose: () => void;
-  onAdd: () => void;
+  /** omitted (canvas nodes) hides the Add button */
+  onAdd?: () => void;
 }) {
   if (!detail) return null;
 
@@ -116,8 +154,10 @@ export default function PlatformDetailsPopover({ anchorEl, detail, onClose, onAd
 
   return (
     <Popover
-      open={!!anchorEl}
-      anchorEl={anchorEl}
+      open={!!anchorEl || !!anchorPosition}
+      anchorEl={anchorEl ?? undefined}
+      anchorReference={anchorPosition ? 'anchorPosition' : 'anchorEl'}
+      anchorPosition={anchorPosition}
       onClose={onClose}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
@@ -136,15 +176,25 @@ export default function PlatformDetailsPopover({ anchorEl, detail, onClose, onAd
           sx={{ height: 20, fontSize: 10, flexShrink: 0 }}
         />
         <Box sx={{ flex: 1 }} />
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          data-testid="platform-details-add"
-        >
-          Add
-        </Button>
+        {detail.favoriteLabel && (
+          <FavoriteToggle
+            label={detail.favoriteLabel}
+            platform={detail.platform}
+            components={detail.components}
+            testId="platform-details-favorite"
+          />
+        )}
+        {onAdd && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={onAdd}
+            data-testid="platform-details-add"
+          >
+            Add
+          </Button>
+        )}
         <IconButton size="small" onClick={onClose} aria-label="Close details">
           <CloseIcon fontSize="small" />
         </IconButton>

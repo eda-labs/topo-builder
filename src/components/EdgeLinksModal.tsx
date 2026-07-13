@@ -18,129 +18,114 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 
-import type { UIEdgeLink } from '../types/ui';
-import type { LinkTemplate } from '../types/schema';
 import { getUsedInterfacesForNode, getDefaultEdgeTemplate } from '../lib/utils';
 import { generateInterface } from '../lib/interfaces';
 import { useTopologyStore } from '../lib/store';
+import { collectEdgeLinkCables, type EdgeLinkCable } from '../lib/store/externals';
 
 interface EdgeLinksModalProps {
   open: boolean;
   onClose: () => void;
   nodeName: string;
   nodeId: string;
-  edgeLinks: UIEdgeLink[];
-  linkTemplates: LinkTemplate[];
-  onUpdate: (edgeLinks: UIEdgeLink[]) => void;
 }
 
 const COLUMN_HEADER_SX = { color: 'text.secondary', fontWeight: 700, letterSpacing: 0.5 } as const;
 
+/**
+ * Editor for a node's edge links. Each edge link is a member link on a cable to an external
+ * node; adding one cables the node to its external peer (created on first use).
+ */
 export default function EdgeLinksModal({
   open,
   onClose,
   nodeName,
   nodeId,
-  edgeLinks,
-  linkTemplates,
-  onUpdate,
 }: EdgeLinksModalProps) {
-  const edgeTemplates = linkTemplates.filter(t => t.type === 'Edge');
   const edges = useTopologyStore(state => state.edges);
   const nodes = useTopologyStore(state => state.nodes);
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
+  const linkTemplates = useTopologyStore(state => state.linkTemplates);
+  const addEdgeLinkCable = useTopologyStore(state => state.addEdgeLinkCable);
+  const updateMemberLink = useTopologyStore(state => state.updateMemberLink);
+  const deleteMemberLink = useTopologyStore(state => state.deleteMemberLink);
+  const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+
+  const edgeTemplates = linkTemplates.filter(t => t.type === 'Edge');
+  const cables = useMemo(() => collectEdgeLinkCables(edges, nodeId), [edges, nodeId]);
 
   const [newInterface, setNewInterface] = useState('');
   const [newTemplate, setNewTemplate] = useState('');
 
-  // Interfaces already carrying a cable on this node — an edge link must not collide with them.
-  const cabledInterfaces = useMemo(
-    () => new Set(getUsedInterfacesForNode([], edges, nodeId)),
-    [edges, nodeId],
-  );
-
-  const edgeLinkInterfaceCounts = useMemo(() => {
+  // Every interface in use on this node — cabled ports and edge links alike.
+  const interfaceUseCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const link of edgeLinks) {
-      counts.set(link.interface, (counts.get(link.interface) ?? 0) + 1);
+    for (const iface of getUsedInterfacesForNode([], edges, nodeId)) {
+      counts.set(iface, (counts.get(iface) ?? 0) + 1);
     }
     return counts;
-  }, [edgeLinks]);
+  }, [edges, nodeId]);
 
   const trimmedNew = newInterface.trim();
-  const newInterfaceError = (() => {
-    if (!trimmedNew) return null;
-    if (cabledInterfaces.has(trimmedNew)) return 'In use by a cable on this node';
-    if (edgeLinkInterfaceCounts.has(trimmedNew)) return 'Edge link already exists';
-    return null;
-  })();
+  const newInterfaceError = trimmedNew && interfaceUseCounts.has(trimmedNew)
+    ? 'Interface already in use on this node'
+    : null;
 
-  const rowInterfaceError = (link: UIEdgeLink): string | null => {
-    if (!link.interface.trim()) return 'Interface is required';
-    if (cabledInterfaces.has(link.interface)) return 'In use by a cable on this node';
-    if ((edgeLinkInterfaceCounts.get(link.interface) ?? 0) > 1) return 'Duplicate edge link';
+  const rowInterfaceError = (cable: EdgeLinkCable): string | null => {
+    if (!cable.interface.trim()) return 'Interface is required';
+    if ((interfaceUseCounts.get(cable.interface) ?? 0) > 1) return 'Interface already in use on this node';
     return null;
   };
 
-  const getNextInterface = (currentEdgeLinks: UIEdgeLink[]) => {
+  const getNextInterface = () => {
     const node = nodes.find(n => n.id === nodeId);
-    const usedInterfaces = getUsedInterfacesForNode(currentEdgeLinks, edges, nodeId);
-    return generateInterface(node, nodeTemplates, usedInterfaces);
+    return generateInterface(node, nodeTemplates, getUsedInterfacesForNode([], edges, nodeId));
   };
 
   useEffect(() => {
     if (open) {
-      setNewInterface(getNextInterface(edgeLinks));
-      setNewTemplate(getDefaultEdgeTemplate(edgeLinks, linkTemplates));
+      setNewInterface(getNextInterface());
+      setNewTemplate(getDefaultEdgeTemplate(cables, linkTemplates));
     }
-  }, [open, edgeLinks, linkTemplates, edges, nodeId, nodes, nodeTemplates]);
+  }, [open, cables, linkTemplates, edges, nodeId, nodes, nodeTemplates]);
 
   const handleAdd = () => {
-    const iface = trimmedNew;
-    if (!iface || newInterfaceError) return;
-
-    const newEdgeLink: UIEdgeLink = {
-      name: `${nodeName}-${iface}`,
-      interface: iface,
-      template: newTemplate || undefined,
-    };
-
-    const updatedLinks = [...edgeLinks, newEdgeLink];
-    onUpdate(updatedLinks);
-    setNewInterface(getNextInterface(updatedLinks));
-    setNewTemplate(getDefaultEdgeTemplate(updatedLinks, linkTemplates));
+    if (!trimmedNew || newInterfaceError) return;
+    addEdgeLinkCable(nodeId, trimmedNew, newTemplate || undefined);
   };
 
-  const handleDelete = (index: number) => {
-    onUpdate(edgeLinks.filter((_, i) => i !== index));
+  const handleUpdateInterface = (cable: EdgeLinkCable, value: string) => {
+    const edge = edges.find(e => e.id === cable.edgeId);
+    if (!edge) return;
+    const side = edge.source === nodeId ? 'sourceInterface' : 'targetInterface';
+    updateMemberLink(cable.edgeId, cable.memberIndex, { [side]: value, name: `${nodeName}-${value}` });
+    triggerYamlRefresh();
   };
 
-  const handleUpdateInterface = (index: number, value: string) => {
-    onUpdate(edgeLinks.map((link, i) =>
-      i === index ? { ...link, interface: value, name: `${nodeName}-${value}` } : link,
-    ));
+  const handleUpdateTemplate = (cable: EdgeLinkCable, value: string) => {
+    updateMemberLink(cable.edgeId, cable.memberIndex, { template: value });
+    triggerYamlRefresh();
   };
 
-  const handleUpdateTemplate = (index: number, value: string) => {
-    onUpdate(edgeLinks.map((link, i) =>
-      i === index ? { ...link, template: value || undefined } : link,
-    ));
+  const handleDelete = (cable: EdgeLinkCable) => {
+    deleteMemberLink(cable.edgeId, cable.memberIndex);
+    triggerYamlRefresh();
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         Edge Links — {nodeName}
-        {edgeLinks.length > 0 && (
+        {cables.length > 0 && (
           <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-            ({edgeLinks.length})
+            ({cables.length})
           </Typography>
         )}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Edge links are interfaces that connect to external devices outside the topology.
-          They show up as short teal stubs hanging off the node.
+          Edge links are interfaces that connect to devices outside the topology. They cable to
+          an external node on the canvas but only the interface on {nodeName} is written to YAML.
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 2 }}>
@@ -179,9 +164,9 @@ export default function EdgeLinksModal({
           </Button>
         </Box>
 
-        {edgeLinks.length === 0 ? (
+        {cables.length === 0 ? (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-            No edge links yet — add an interface above.
+            No edge links yet — add an interface above, or cable a port to an external node.
           </Typography>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -190,22 +175,23 @@ export default function EdgeLinksModal({
               <Typography variant="caption" sx={{ ...COLUMN_HEADER_SX, minWidth: 130 }}>TEMPLATE</Typography>
               <Box sx={{ width: 28, flexShrink: 0 }} />
             </Box>
-            {edgeLinks.map((link, index) => {
-              const error = rowInterfaceError(link);
+            {cables.map(cable => {
+              const error = rowInterfaceError(cable);
               return (
-                <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Box key={`${cable.edgeId}-${cable.memberIndex}`} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                   <TextField
                     size="small"
-                    value={link.interface}
+                    value={cable.interface}
                     error={error !== null}
                     helperText={error}
-                    onChange={e => { handleUpdateInterface(index, e.target.value); }}
+                    title={`${cable.name} → ${cable.externalName}`}
+                    onChange={e => { handleUpdateInterface(cable, e.target.value); }}
                     sx={{ flex: 1 }}
                   />
                   <FormControl size="small" sx={{ minWidth: 130 }}>
                     <Select
-                      value={link.template || ''}
-                      onChange={e => { handleUpdateTemplate(index, e.target.value); }}
+                      value={cable.template ?? ''}
+                      onChange={e => { handleUpdateTemplate(cable, e.target.value); }}
                       displayEmpty
                     >
                       <MenuItem value=""><em>None</em></MenuItem>
@@ -213,7 +199,7 @@ export default function EdgeLinksModal({
                     </Select>
                   </FormControl>
                   <Tooltip title="Remove edge link">
-                    <IconButton size="small" color="error" onClick={() => { handleDelete(index); }}>
+                    <IconButton size="small" color="error" onClick={() => { handleDelete(cable); }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

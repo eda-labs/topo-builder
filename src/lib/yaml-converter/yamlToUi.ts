@@ -27,6 +27,7 @@ import { deriveBreakoutsFromComponents } from '../connectors';
 import { isSrosNode } from '../interfaces';
 import { parseBreakouts, portAddressForInterface, resolveNodePanel } from '../frontpanel';
 
+import { generateUniqueName } from '../utils';
 import { collapseBreakoutVariants, harvestTemplateBreakouts } from './breakoutTemplates';
 import {
   asArray,
@@ -35,6 +36,7 @@ import {
   fallbackIfEmptyString,
   filterUserLabels,
   generateEdgeId,
+  generateExternalNodeId,
   generateNodeId,
   generateSimNodeId,
   parseYamlEndpoint,
@@ -384,9 +386,17 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     const collapsedLinkTemplates = collapseBreakoutVariants(allLinks, linkTemplates);
 
     const edgeLinksByNode = parseEdgeOnlyLinks(allLinks);
-    attachEdgeLinksToNodes(nodes, edgeLinksByNode);
+    const { externalNodes, externalEdges } = buildExternalNodesAndEdges({
+      edgeLinksByNode,
+      nodes,
+      nameToId,
+      existingNodes,
+      existingEdges,
+    });
+    nodes.push(...externalNodes);
 
     const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
+    edges.push(...externalEdges);
     deriveBreakoutsFromComponents(nodes, nodeTemplates);
     inferBreakoutsFromEdges(nodes, edges, nodeTemplates);
 
@@ -748,13 +758,86 @@ function parseEdgeOnlyLinks(links: Link[]): Map<string, UIEdgeLink[]> {
   return edgeLinksByNode;
 }
 
-function attachEdgeLinksToNodes(nodes: UINode[], edgeLinksByNode: Map<string, UIEdgeLink[]>): void {
-  for (const node of nodes) {
-    const edgeLinks = edgeLinksByNode.get(node.data.name);
-    if (edgeLinks && edgeLinks.length > 0) {
-      node.data.edgeLinks = edgeLinks;
+/**
+ * Edge links (single-endpoint links) materialise as cables to UI-only external nodes: one
+ * external node per real node, carrying all its edge links as member links. External nodes are
+ * never written to YAML, so their identity/position is recovered from the current canvas when
+ * possible — a YAML edit must not move or replace the chip the user has already placed.
+ */
+function buildExternalNodesAndEdges(options: {
+  edgeLinksByNode: Map<string, UIEdgeLink[]>;
+  nodes: UINode[];
+  nameToId: Map<string, string>;
+  existingNodes: UINode[];
+  existingEdges: UIEdge[];
+}): { externalNodes: UINode[]; externalEdges: UIEdge[] } {
+  const { edgeLinksByNode, nodes, nameToId, existingNodes, existingEdges } = options;
+
+  const externalNodes: UINode[] = [];
+  const externalEdges: UIEdge[] = [];
+  const usedExternalNames = existingNodes
+    .filter(n => n.data.nodeType === 'external')
+    .map(n => n.data.name);
+
+  for (const [nodeName, edgeLinks] of edgeLinksByNode) {
+    const realId = nameToId.get(nodeName);
+    if (!realId) continue;
+    const realNode = nodes.find(n => n.id === realId);
+
+    const existingEdge = existingEdges.find(e =>
+      (e.source.startsWith('ext-') && e.target === realId)
+      || (e.target.startsWith('ext-') && e.source === realId));
+    let existingExtId: string | undefined;
+    if (existingEdge) {
+      existingExtId = existingEdge.source.startsWith('ext-') ? existingEdge.source : existingEdge.target;
     }
+    const existingExt = existingExtId
+      ? existingNodes.find(n => n.id === existingExtId)
+      : undefined;
+
+    const extId = existingExt?.id ?? generateExternalNodeId();
+    let extName = existingExt?.data.name;
+    if (!extName) {
+      extName = generateUniqueName('external', usedExternalNames, usedExternalNames.length + 1);
+      usedExternalNames.push(extName);
+    }
+    const position = existingExt?.position
+      ?? (realNode
+        ? { x: realNode.position.x + 40, y: realNode.position.y + 220 }
+        : { x: 100, y: 400 });
+
+    externalNodes.push({
+      id: extId,
+      type: 'externalNode',
+      position,
+      data: { id: extId, name: extName, nodeType: 'external' },
+    });
+
+    const edgeId = existingEdge?.id ?? generateEdgeId();
+    externalEdges.push({
+      id: edgeId,
+      type: 'linkEdge',
+      source: extId,
+      target: realId,
+      sourceHandle: null,
+      targetHandle: null,
+      data: {
+        id: edgeId,
+        sourceNode: extName,
+        targetNode: nodeName,
+        edgeType: 'normal',
+        memberLinks: edgeLinks.map((link, index) => ({
+          name: link.name,
+          template: link.template ?? '',
+          sourceInterface: `eth${index + 1}`,
+          targetInterface: link.interface,
+          labels: link.labels,
+        })),
+      },
+    });
   }
+
+  return { externalNodes, externalEdges };
 }
 
 function yamlLinksToUIEdges(

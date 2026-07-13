@@ -14,6 +14,7 @@ export {
   generateNodeId,
   generateEdgeId,
   generateSimNodeId,
+  generateExternalNodeId,
   filterUserLabels,
   extractPosition,
   parseYamlEndpoint,

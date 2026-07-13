@@ -121,8 +121,9 @@ export function buildCrd(options: UIToYamlOptions): Topology {
     encapType: template.encapType ? migrateValue(template.encapType, schemaVersion) : template.encapType,
   }));
 
-  // Separate TopoNodes from SimNodes
-  const topoNodes = nodes.filter(n => n.data.nodeType !== 'simnode');
+  // Separate TopoNodes from SimNodes. External nodes are UI-only stand-ins for devices outside
+  // the topology — they never reach spec.nodes; their cables export as edge links below.
+  const topoNodes = nodes.filter(n => n.data.nodeType !== 'simnode' && n.data.nodeType !== 'external');
   const simNodes = nodes.filter(n => n.data.nodeType === 'simnode');
 
   // Build node maps
@@ -336,9 +337,15 @@ function uiEdgesToYamlLinks(
 
   const islLinks: Link[] = [];
   const simLinks: Link[] = [];
+  const externalLinks: Link[] = [];
 
   for (const edge of edges) {
     if (processedIds.has(edge.id)) continue;
+
+    if (isExternalNodeId(edge.source) || isExternalNodeId(edge.target)) {
+      externalLinks.push(...buildExternalEdgeLinks(edge, nodeIdToName));
+      continue;
+    }
 
     const { islLinks: edgeIslLinks, simLinks: edgeSimLinks } = getLinksForNonEsiLagEdge({
       edge,
@@ -351,7 +358,7 @@ function uiEdgesToYamlLinks(
     simLinks.push(...edgeSimLinks);
   }
 
-  return [...islLinks, ...simLinks, ...esiLagLinks];
+  return [...islLinks, ...simLinks, ...esiLagLinks, ...externalLinks];
 }
 
 function getLinksForNonEsiLagEdge(options: {
@@ -500,6 +507,41 @@ function createAnnotations(edge: Pick<UIEdge, 'id' | 'data' | 'sourceHandle' | '
 
 function isSimNodeId(nodeId: string): boolean {
   return nodeId.startsWith('sim-');
+}
+
+function isExternalNodeId(nodeId: string): boolean {
+  return nodeId.startsWith('ext-');
+}
+
+/**
+ * An edge cabled to an external node exports as edge links: one single-endpoint link per member,
+ * carrying only the real node's side. The external node itself never appears in the YAML.
+ */
+function buildExternalEdgeLinks(edge: UIEdge, nodeIdToName: Map<string, string>): Link[] {
+  const externalIsSource = isExternalNodeId(edge.source);
+  const realId = externalIsSource ? edge.target : edge.source;
+  const realName = resolveEdgeNodeName(
+    externalIsSource ? edge.data?.targetNode : edge.data?.sourceNode,
+    nodeIdToName.get(realId),
+    realId,
+  );
+
+  const links: Link[] = [];
+  for (const member of asArray<UIMemberLink>(edge.data?.memberLinks)) {
+    const link: Link = {
+      name: member.name,
+      endpoints: [{
+        local: {
+          node: realName,
+          interface: externalIsSource ? member.targetInterface : member.sourceInterface,
+        },
+      }],
+    };
+    if (member.template) link.template = member.template;
+    if (member.labels && Object.keys(member.labels).length > 0) link.labels = member.labels;
+    links.push(link);
+  }
+  return links;
 }
 
 function resolveEdgeNodeName(

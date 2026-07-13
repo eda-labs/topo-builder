@@ -12,29 +12,34 @@ import {
 let nodeIdCounter = 1;
 let edgeIdCounter = 1;
 let simNodeIdCounter = 1;
+let externalNodeIdCounter = 1;
 
 export const resetIdCounters = () => {
   nodeIdCounter = 1;
   edgeIdCounter = 1;
   simNodeIdCounter = 1;
+  externalNodeIdCounter = 1;
 };
 
-export const setIdCounters = (nodeId: number, edgeId: number, simNodeId: number) => {
+export const setIdCounters = (nodeId: number, edgeId: number, simNodeId: number, externalNodeId = 1) => {
   nodeIdCounter = nodeId;
   edgeIdCounter = edgeId;
   simNodeIdCounter = simNodeId;
+  externalNodeIdCounter = externalNodeId;
 };
 
 export const getIdCounters = () => ({
   nodeId: nodeIdCounter,
   edgeId: edgeIdCounter,
   simNodeId: simNodeIdCounter,
+  externalNodeId: externalNodeIdCounter,
 });
 
 // Generators are exported for internal use by converters.
 export const generateNodeId = () => `node-${nodeIdCounter++}`;
 export const generateEdgeId = () => `edge-${edgeIdCounter++}`;
 export const generateSimNodeId = () => `sim-${simNodeIdCounter++}`;
+export const generateExternalNodeId = () => `ext-${externalNodeIdCounter++}`;
 
 // ============ Shared Helpers ============
 

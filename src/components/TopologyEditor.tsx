@@ -39,7 +39,7 @@ import { useCopyPaste } from '../hooks/useCopyPaste';
 import { resolveNodePanel } from '../lib/frontpanel';
 import { osOfPlatform } from '../lib/catalog';
 
-import { TopoNode, SimNode, TextAnnotation, ShapeAnnotation } from './nodes';
+import { TopoNode, SimNode, ExternalNode, TextAnnotation, ShapeAnnotation } from './nodes';
 import { LinkEdge } from './edges';
 import AppLayout, { type TopologyThemingProps } from './AppLayout';
 import YamlEditor, { jumpToNodeInEditor, jumpToLinkInEditor, jumpToSimNodeInEditor, jumpToMemberLinkInEditor } from './YamlEditor';
@@ -53,6 +53,7 @@ import LinkKindLegend from './LinkKindLegend';
 const nodeTypes: NodeTypes = {
   topoNode: TopoNode,
   simNode: SimNode,
+  externalNode: ExternalNode,
   textAnnotation: TextAnnotation,
   shapeAnnotation: ShapeAnnotation,
 };
@@ -937,9 +938,21 @@ function TopologyEditorInner({
     onConnect(connection);
   }, [onConnect]);
 
-  // Self-cabling a node to itself is never a topology link.
+  // Self-cabling a node to itself is never a topology link, and external nodes only pair with
+  // real topology nodes (an edge link needs exactly one real endpoint).
   const isValidConnection = useCallback(
-    (connection: Connection | Edge) => connection.source !== connection.target,
+    (connection: Connection | Edge) => {
+      const { source, target } = connection;
+      if (source === target) return false;
+      const sourceExternal = source.startsWith('ext-');
+      const targetExternal = target.startsWith('ext-');
+      if (sourceExternal && targetExternal) return false;
+      if (sourceExternal || targetExternal) {
+        const other = sourceExternal ? target : source;
+        return !other.startsWith('sim-');
+      }
+      return true;
+    },
     [],
   );
 
@@ -1140,7 +1153,7 @@ function TopologyEditorInner({
       return;
     }
     selectAnnotation(null);
-    if (activeTab === 0) {
+    if (activeTab === 0 && node.type !== 'externalNode') {
       const nodeData = node.data as UINodeData;
       if (node.type === 'simNode') {
         jumpToSimNodeInEditor(nodeData.name);
@@ -1309,16 +1322,23 @@ function TopologyEditorInner({
     deleteEdge(edgeId);
   };
   const handleDeleteAllEdgeLinks = () => { if (selectedEdgeId) deleteEdge(selectedEdgeId); };
+  const selectedEdgeIsExternal = useMemo(() => {
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    return edge !== undefined && (edge.source.startsWith('ext-') || edge.target.startsWith('ext-'));
+  }, [edges, selectedEdgeId]);
+
   const handleCreateLag = () => {
-    if (selectedEdgeId && selectedMemberLinkIndices.length >= 2) {
+    if (selectedEdgeId && !selectedEdgeIsExternal && selectedMemberLinkIndices.length >= 2) {
       createLagFromMemberLinks(selectedEdgeId, selectedMemberLinkIndices);
     }
   };
 
   // One-click LAG grouping for the selected edge: every member link not already in a LAG.
+  // Edge-link cables (external nodes) cannot be grouped — YAML edge links carry no LAG.
   const ungroupedMemberIndices = useMemo(() => {
     const edge = edges.find(e => e.id === selectedEdgeId);
     if (!edge?.data?.memberLinks || edge.data.edgeType === 'esilag') return [];
+    if (edge.source.startsWith('ext-') || edge.target.startsWith('ext-')) return [];
     const grouped = new Set((edge.data.lagGroups ?? []).flatMap(lag => lag.memberLinkIndices));
     return edge.data.memberLinks.map((_, index) => index).filter(index => !grouped.has(index));
   }, [edges, selectedEdgeId]);
@@ -1485,11 +1505,16 @@ function TopologyEditorInner({
 
   const handleDeleteSimNode = () => { if (selectedSimNodeName) deleteSimNode(selectedSimNodeName); };
 
+  const handleAddExternalNode = () => {
+    useTopologyStore.getState().addExternalNode({ position: contextMenu.flowPosition });
+  };
+
   const handleDeleteAnnotation = () => { if (selectedAnnotationId) deleteAnnotation(selectedAnnotationId); };
 
   const hasSelection = (() => {
     if (selectedAnnotationId) return 'annotation' as const;
     if (selectedSimNodeName) return 'simNode' as const;
+    if (selectedNodeId?.startsWith('ext-')) return 'external' as const;
     if (selectedNodeId) return 'node' as const;
     if (selectedEdgeIds.length > 1) return 'multiEdge' as const;
     if (selectedEdgeId) return 'edge' as const;
@@ -1562,6 +1587,7 @@ function TopologyEditorInner({
         onClose={handleCloseContextMenu}
         onAddNode={handleAddNode}
         onAddSimNode={handleAddSimNode}
+        onAddExternalNode={handleAddExternalNode}
         onDeleteNode={handleDeleteNode}
         onShowNodeDetails={handleShowNodeDetails}
         onSaveNodeAsTemplate={handleSaveNodeAsTemplate}
@@ -1581,7 +1607,7 @@ function TopologyEditorInner({
         onChangeNodeTemplate={handleChangeNodeTemplate}
         onChangeSimNodeTemplate={handleChangeSimNodeTemplate}
         onChangeLinkTemplate={handleChangeLinkTemplate}
-        onCreateLag={handleCreateLag}
+        onCreateLag={selectedEdgeIsExternal ? undefined : handleCreateLag}
         onCreateEsiLag={handleCreateEsiLag}
         onCopy={handleCopy}
         onPaste={handlePaste}

@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { type NodeProps } from '@xyflow/react';
 
-import type { UINodeData, UIEdgeLink } from '../../types/ui';
+import type { UINodeData } from '../../types/ui';
 import { useTopologyStore } from '../../lib/store';
+import { isExternalEdge } from '../../lib/store/externals';
 import { resolveNodePanel } from '../../lib/frontpanel';
 import { isSrosNode } from '../../lib/interfaces';
 import { topologyNodeTestId } from '../../lib/testIds';
@@ -51,19 +52,20 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
   const [detailsAnchor, setDetailsAnchor] = useState<HTMLElement | null>(null);
   const nodeData = data as UINodeData;
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
-  const linkTemplates = useTopologyStore(state => state.linkTemplates);
-  const updateNode = useTopologyStore(state => state.updateNode);
-  const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+  // Edge links are member links on cables to external nodes.
+  const edgeLinkCount = useTopologyStore(state => state.edges.reduce((count, edge) =>
+    (edge.source === id || edge.target === id) && isExternalEdge(edge)
+      ? count + (edge.data?.memberLinks?.length ?? 0)
+      : count, 0));
 
   const template = nodeData.template ? nodeTemplates.find(t => t.name === nodeData.template) : null;
   const role = nodeData.role
     || nodeData.labels?.['eda.nokia.com/role']
     || template?.labels?.['eda.nokia.com/role'];
   const iconSvg = role ? RoleIcons[role] : null;
-  const edgeLinks = nodeData.edgeLinks || [];
   // Leaves get the button by default; any other node keeps it once edge links exist (e.g. from
   // an imported YAML) so they stay editable.
-  const showEdgeLinkIcon = role === 'leaf' || edgeLinks.length > 0;
+  const showEdgeLinkIcon = role === 'leaf' || edgeLinkCount > 0;
 
   const panel = useMemo(() => resolveNodePanel(nodeData, nodeTemplates), [nodeData, nodeTemplates]);
   // isSrosNode only reads data/template, so the node's own data suffices — subscribing to the
@@ -72,11 +74,6 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
     () => isSrosNode({ id, data: nodeData, position: { x: 0, y: 0 } }, nodeTemplates),
     [id, nodeData, nodeTemplates],
   );
-
-  const handleEdgeLinkUpdate = (newEdgeLinks: UIEdgeLink[]) => {
-    updateNode(id, { edgeLinks: newEdgeLinks });
-    triggerYamlRefresh();
-  };
 
   const handleShowDetails = useCallback((anchor: HTMLElement) => {
     setDetailsAnchor(anchor);
@@ -121,7 +118,7 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
           icon={headerIcon}
           testId={topologyNodeTestId(nodeData.name)}
           headerExtra={showEdgeLinkIcon
-            ? <EdgeLinksButton count={edgeLinks.length} onClick={() => { setEdgeLinksModalOpen(true); }} />
+            ? <EdgeLinksButton count={edgeLinkCount} onClick={() => { setEdgeLinksModalOpen(true); }} />
             : undefined}
           onShowDetails={handleShowDetails}
         />
@@ -134,7 +131,6 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
           testId={topologyNodeTestId(nodeData.name)}
           hasEdgeLinks={showEdgeLinkIcon}
           onEdgeLinkClick={() => { setEdgeLinksModalOpen(true); }}
-          edgeLinkCount={edgeLinks.length}
         />
       )}
       <EdgeLinksModal
@@ -142,9 +138,6 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
         onClose={() => { setEdgeLinksModalOpen(false); }}
         nodeName={nodeData.name}
         nodeId={id}
-        edgeLinks={edgeLinks}
-        linkTemplates={linkTemplates}
-        onUpdate={handleEdgeLinkUpdate}
       />
       {detailsAnchor && (
         <PlatformDetailsPopover

@@ -6,6 +6,7 @@ export { createLinkSlice, setEdgeIdGenerator, type LinkSlice } from './links';
 export { createLagSlice, type LagSlice } from './lags';
 export { createEsiLagSlice, setEsiLagEdgeIdGenerator, type EsiLagSlice } from './esiLags';
 export { createSimNodeSlice, setSimNodeIdGenerator, type SimNodeSlice } from './simNodes';
+export { createExternalSlice, setExternalIdGenerator, setExternalEdgeIdGenerator, type ExternalSlice } from './externals';
 export { createTemplateSlice, type TemplateSlice } from './templates';
 export { createSelectionSlice, type SelectionSlice } from './selection';
 export { createAnnotationSlice, setAnnotationIdCounter, type AnnotationSlice } from './annotations';

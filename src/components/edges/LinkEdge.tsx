@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
+import { isExternalNodeId } from '../../lib/store/externals';
 import type { EdgeRouting } from '../../lib/store/createStore';
 import type { UIEdgeData, UIEsiLeaf, UIMemberLink, UINodeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
@@ -116,7 +117,9 @@ export default function LinkEdge({
   selected,
 }: EdgeProps) {
   const edgeData = data as UIEdgeData | undefined;
-  const isSimNodeEdge = isSimNodeEdgeFromIds(source, target);
+  const isExternalEdge = isExternalNodeId(source) || isExternalNodeId(target);
+  // External cables wear the same teal "edge" colour as sim-node cables.
+  const isSimNodeEdge = isSimNodeEdgeFromIds(source, target) || isExternalEdge;
 
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
@@ -138,11 +141,11 @@ export default function LinkEdge({
 
   const sourcePanel = useMemo(() => {
     const data = sourceNode?.data as UINodeData | undefined;
-    return data && !source.startsWith('sim-') ? resolveNodePanel(data, nodeTemplates) : null;
+    return data && !source.startsWith('sim-') && !isExternalNodeId(source) ? resolveNodePanel(data, nodeTemplates) : null;
   }, [sourceNode?.data, source, nodeTemplates]);
   const targetPanel = useMemo(() => {
     const data = targetNode?.data as UINodeData | undefined;
-    return data && !target.startsWith('sim-') ? resolveNodePanel(data, nodeTemplates) : null;
+    return data && !target.startsWith('sim-') && !isExternalNodeId(target) ? resolveNodePanel(data, nodeTemplates) : null;
   }, [targetNode?.data, target, nodeTemplates]);
 
   if (!sourceNode || !targetNode) {
@@ -285,6 +288,7 @@ export default function LinkEdge({
           routing={edgeRouting}
           isSelected={isSelected}
           isSimNodeEdge={isSimNodeEdge}
+          isExternalEdge={isExternalEdge}
           isConnectedToSelectedNode={isConnectedToSelectedNode}
           selectedMemberLinkIndices={selectedMemberLinkIndices}
           selectedLagId={selectedLagId}
@@ -301,6 +305,8 @@ export default function LinkEdge({
   if (bundleEdgeElement) return bundleEdgeElement;
 
   const singleMember = linkCount === 1 ? memberLinks[0] : undefined;
+  let hudKind: 'link' | 'sim' | 'edge' = isSimNodeEdge ? 'sim' : 'link';
+  if (isExternalEdge) hudKind = 'edge';
   return (
     <StandardEdge
       testId={edgeTestId}
@@ -322,7 +328,7 @@ export default function LinkEdge({
         ifaceA: singleMember?.sourceInterface ?? '',
         nodeB: edgeNodeB,
         ifaceB: singleMember?.targetInterface,
-        kind: isSimNodeEdge ? 'sim' : 'link',
+        kind: hudKind,
         linkName: singleMember ? singleMember.name : `${linkCount} links`,
       }}
     />

@@ -15,6 +15,10 @@ export function topologySimNodeTestId(simNodeName: string): string {
   return `topology-simnode-${sanitizeTestIdPart(simNodeName)}`;
 }
 
+export function topologyExternalNodeTestId(externalName: string): string {
+  return `topology-external-${sanitizeTestIdPart(externalName)}`;
+}
+
 export function topologyEdgeKey(a: string, b: string): string {
   const left = sanitizeTestIdPart(a);
   const right = sanitizeTestIdPart(b);

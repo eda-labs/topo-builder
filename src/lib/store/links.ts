@@ -17,6 +17,7 @@ import { SESSION_NEW_LINK_ID } from '../constants';
 import { getSchemaEnums } from '../schemaEnums';
 
 import { SELECTION_SYNC_LOCK_MS } from './selection';
+import { isExternalNodeId } from './externals';
 
 export interface LinkState {
   edges: UIEdge[];
@@ -71,7 +72,7 @@ function interfaceForPortCage(
   port: { cage: string; channel?: number },
   usedInterfaces: string[],
 ): string | null {
-  if (!node || node.id.startsWith('sim-')) return null;
+  if (!node || node.id.startsWith('sim-') || isExternalNodeId(node.id)) return null;
   const panel = resolveNodePanel(node.data, nodeTemplates);
   return interfaceForCage(port.cage, {
     sros: isSrosNode(node, nodeTemplates),
@@ -97,10 +98,10 @@ function normalizeConnectionForSimNodes(connection: Connection): {
   const target = connection.target;
   if (!source || !target) return null;
 
-  // Edge convention: sim nodes are always the edge source, and for topo-topo links the drag
-  // origin is the edge target (exported YAML puts the target as the "local" endpoint and names
-  // links "<origin>-<destination>"). A drag that already starts at a sim node fits both rules.
-  if (source.startsWith('sim-')) {
+  // Edge convention: sim and external nodes are always the edge source, and for topo-topo links
+  // the drag origin is the edge target (exported YAML puts the target as the "local" endpoint and
+  // names links "<origin>-<destination>"). A drag that already starts at a sim node fits both rules.
+  if (source.startsWith('sim-') || isExternalNodeId(source)) {
     return {
       sourceId: source,
       targetId: target,
@@ -124,6 +125,11 @@ function isSimNodeId(nodeId: string): boolean {
 function isSimNodeConnection(sourceId: string, targetId: string): boolean {
   if (isSimNodeId(sourceId)) return true;
   return isSimNodeId(targetId);
+}
+
+function isExternalConnection(sourceId: string, targetId: string): boolean {
+  if (isExternalNodeId(sourceId)) return true;
+  return isExternalNodeId(targetId);
 }
 
 function getNodeName(nodes: UINode[], nodeId: string): string {
@@ -187,7 +193,8 @@ function formatInterface(
   nodeTemplates: NodeTemplate[],
   usedInterfaces: string[],
 ): string {
-  if (node?.id.startsWith('sim-')) {
+  // Sim and external nodes have no faceplate — they cable with generic ethN interfaces.
+  if (node?.id.startsWith('sim-') || (node && isExternalNodeId(node.id))) {
     const usedPorts = usedInterfaces
       .map(iface => {
         const match = iface.match(/eth(\d+)/);
@@ -380,7 +387,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
     const targetNodeName = getNodeName(nodes, targetId);
 
     const simConnection = isSimNodeConnection(sourceId, targetId);
-    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection, get().schemaVersion);
+    const externalConnection = isExternalConnection(sourceId, targetId);
+    const defaultTemplate = getDefaultTemplate(linkTemplates, simConnection || externalConnection, get().schemaVersion);
 
     const sourceNode = nodes.find(n => n.id === sourceId);
     const targetNode = nodes.find(n => n.id === targetId);
@@ -408,8 +416,12 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
 
     // Member-link interfaces are stored in the existing edge's orientation.
     const reversed = existingEdge !== undefined && existingEdge.source === targetId;
+    // External cables become YAML edge links, which are named after the real node's interface.
+    const linkName = externalConnection
+      ? `${targetNodeName}-${targetInterface}`
+      : `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`;
     const newMemberLink: UIMemberLink = {
-      name: `${targetNodeName}-${sourceNodeName}-${nextLinkNumber}`,
+      name: linkName,
       template: defaultTemplate,
       sourceInterface: reversed ? targetInterface : sourceInterface,
       targetInterface: reversed ? sourceInterface : targetInterface,
@@ -573,6 +585,8 @@ export const createLinkSlice: LinkSliceCreator = (set, get) => ({
         simNodes.push(node);
         continue;
       }
+      // External nodes are UI-only placeholders — AutoLink never cables them.
+      if (isExternalNodeId(node.id)) continue;
       topoNodes.push(node);
       const templateLabels = nodeTemplates.find(t => t.name === node.data.template)?.labels;
       const role = getNodeRole(node.data, templateLabels);

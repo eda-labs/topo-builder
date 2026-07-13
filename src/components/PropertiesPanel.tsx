@@ -35,6 +35,7 @@ import {
   NodeEditor,
   EdgeEditor,
   SimNodeEditor,
+  ExternalNodeEditor,
   AnnotationEditor,
 } from './panels';
 
@@ -129,6 +130,10 @@ export function SelectionPanel() {
         Select a node or link
       </Typography>
     );
+  }
+
+  if (selectedNode && selectedNode.data.nodeType === 'external') {
+    return <ExternalNodeEditor node={selectedNode} edges={edges} />;
   }
 
   if (selectedNode && selectedNode.data.nodeType !== 'simnode') {

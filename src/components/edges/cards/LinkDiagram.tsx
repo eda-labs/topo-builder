@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { Speed as SpeedIcon, ViewInAr as ContainerIcon } from '@mui/icons-material';
+import { Speed as SpeedIcon, ViewInAr as ContainerIcon, CloudQueue as CloudIcon } from '@mui/icons-material';
 
 import { useTopologyStore } from '../../../lib/store';
 import spineIcon from '../../../static/icons/spine.svg?raw';
@@ -15,6 +15,20 @@ const RoleIcons: Record<string, string> = {
 
 const TEXT_PRIMARY = 'text.primary';
 const TEXT_SECONDARY = 'text.secondary';
+
+// dashed 28px chip shared by the sim-node and external-node icons
+const DASHED_ICON_BOX_SX = {
+  width: 28,
+  height: 28,
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '4px',
+  bgcolor: 'action.hover',
+  border: '1px dashed',
+  borderColor: TEXT_SECONDARY,
+} as const;
 const NODE_LABEL_FONT_SIZE = '0.7rem';
 const INTERFACE_LABEL_FONT_SIZE = '0.65rem';
 
@@ -26,7 +40,16 @@ interface LinkDiagramProps {
   centerLabel?: string;
 }
 
-function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: string }) {
+function NodeIcon({ role, simNodeType, isExternal }: { role?: string; simNodeType?: string; isExternal?: boolean }) {
+  // External nodes (UI-only stand-ins for devices outside the topology)
+  if (isExternal) {
+    return (
+      <Box sx={DASHED_ICON_BOX_SX}>
+        <CloudIcon sx={{ fontSize: 18, color: 'var(--color-link-edge)' }} />
+      </Box>
+    );
+  }
+
   // Role-based SVG icons (for regular nodes)
   if (role) {
     const iconSvg = RoleIcons[role];
@@ -44,20 +67,7 @@ function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: string }
   if (simNodeType) {
     const IconComponent = simNodeType === 'TestMan' ? SpeedIcon : ContainerIcon;
     return (
-      <Box
-        sx={{
-          width: 28,
-          height: 28,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '4px',
-          bgcolor: 'action.hover',
-          border: '1px dashed',
-          borderColor: TEXT_SECONDARY,
-        }}
-      >
+      <Box sx={DASHED_ICON_BOX_SX}>
         <IconComponent sx={{ fontSize: 18, color: TEXT_SECONDARY }} />
       </Box>
     );
@@ -80,13 +90,14 @@ function NodeIcon({ role, simNodeType }: { role?: string; simNodeType?: string }
   );
 }
 
-function useNodeIconProps(nodeName: string): { role?: string; simNodeType?: string } {
+function useNodeIconProps(nodeName: string): { role?: string; simNodeType?: string; isExternal?: boolean } {
   const nodes = useTopologyStore(state => state.nodes);
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const simulation = useTopologyStore(state => state.simulation);
 
   const nodeData = nodes.find(n => n.data.name === nodeName)?.data;
   if (!nodeData) return {};
+  if (nodeData.nodeType === 'external') return { isExternal: true };
 
   // Get role from node data or template
   let role: string | undefined;
@@ -132,7 +143,7 @@ export function LinkDiagram({
         }}
       >
         {/* Left icon */}
-        <NodeIcon role={localProps.role} simNodeType={localProps.simNodeType} />
+        <NodeIcon role={localProps.role} simNodeType={localProps.simNodeType} isExternal={localProps.isExternal} />
 
         {/* Connecting dotted line */}
         <Box
@@ -146,7 +157,7 @@ export function LinkDiagram({
         />
 
         {/* Right icon */}
-        <NodeIcon role={remoteProps.role} simNodeType={remoteProps.simNodeType} />
+        <NodeIcon role={remoteProps.role} simNodeType={remoteProps.simNodeType} isExternal={remoteProps.isExternal} />
       </Box>
 
       {/* Bottom row: labels */}

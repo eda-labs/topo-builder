@@ -7,7 +7,7 @@ import type {
   SimNodeTemplate,
 } from './schema';
 
-export type UINodeType = 'node' | 'simnode';
+export type UINodeType = 'node' | 'simnode' | 'external';
 
 export interface UIEdgeLink {
   name: string;

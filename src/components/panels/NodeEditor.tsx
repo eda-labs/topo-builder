@@ -38,9 +38,10 @@ import { LagCard, LinkDiagram } from '../edges/cards';
 import { CARD_BG, CARD_BORDER } from '../../lib/constants';
 import { getInheritedNodeLabels } from '../../lib/labels';
 import { useTopologyStore } from '../../lib/store';
+import { collectEdgeLinkCables } from '../../lib/store/externals';
 import { formatName } from '../../lib/utils';
 import type { NodeTemplate } from '../../types/schema';
-import type { UINodeData, UIEdgeData, UIEdgeLink } from '../../types/ui';
+import type { UINodeData, UIEdgeData } from '../../types/ui';
 import EdgeLinksModal from '../EdgeLinksModal';
 
 import { EditableLabelsSection, PanelHeader, PanelSection } from './shared';
@@ -63,7 +64,6 @@ export function NodeEditor({
   const nodeData = node.data;
   const updateNode = useTopologyStore(state => state.updateNode);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
-  const linkTemplates = useTopologyStore(state => state.linkTemplates);
   const schemaVersion = useTopologyStore(state => state.schemaVersion);
   const requirePrefix = schemaVersion >= 26;
 
@@ -99,6 +99,8 @@ export function NodeEditor({
   const connectedEdges = edges.filter(
     e => e.source === node.id || e.target === node.id,
   );
+
+  const edgeLinkCables = collectEdgeLinkCables(edges, node.id);
 
   const simNodeEdges = edges.filter(e => {
     if (e.source === node.id || e.target === node.id) return false;
@@ -283,19 +285,20 @@ export function NodeEditor({
 
       <PanelSection
         title="Edge Links"
-        count={nodeData.edgeLinks?.length || 0}
+        count={edgeLinkCables.length}
         actions={
           <Button size="small" startIcon={<EditIcon />} onClick={() => { setEdgeLinksModalOpen(true); }}>
             Edit
           </Button>
         }
       >
-        {nodeData.edgeLinks && nodeData.edgeLinks.length > 0 ? (
+        {edgeLinkCables.length > 0 ? (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-            {nodeData.edgeLinks.map((link, idx) => (
+            {edgeLinkCables.map(cable => (
               <Chip
-                key={idx}
-                label={link.interface}
+                key={`${cable.edgeId}-${cable.memberIndex}`}
+                label={cable.interface}
+                title={`${cable.name} → ${cable.externalName}`}
                 size="small"
                 variant="outlined"
                 sx={{ bgcolor: CARD_BG, borderColor: CARD_BORDER }}
@@ -314,11 +317,6 @@ export function NodeEditor({
         onClose={() => { setEdgeLinksModalOpen(false); }}
         nodeName={nodeData.name}
         nodeId={node.id}
-        edgeLinks={nodeData.edgeLinks || []}
-        linkTemplates={linkTemplates}
-        onUpdate={(newEdgeLinks: UIEdgeLink[]) => {
-          handleUpdateNodeField({ edgeLinks: newEdgeLinks });
-        }}
       />
     </Box>
   );

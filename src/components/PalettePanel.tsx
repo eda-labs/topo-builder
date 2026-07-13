@@ -56,6 +56,7 @@ const ITEM_HINT = 'Drag onto the canvas · click for details';
 export type PaletteDragPayload =
   | { kind: 'node'; name: string }
   | { kind: 'sim'; name: string }
+  | { kind: 'external' }
   | { kind: 'catalog'; platform: string; components?: Component[] };
 
 export function readPaletteDrag(e: React.DragEvent): PaletteDragPayload | null {
@@ -65,6 +66,9 @@ export function readPaletteDrag(e: React.DragEvent): PaletteDragPayload | null {
     const parsed = JSON.parse(raw) as Partial<PaletteDragPayload>;
     if ((parsed.kind === 'node' || parsed.kind === 'sim') && typeof (parsed as { name?: unknown }).name === 'string') {
       return { kind: parsed.kind, name: (parsed as { name: string }).name };
+    }
+    if (parsed.kind === 'external') {
+      return { kind: 'external' };
     }
     if (parsed.kind === 'catalog' && typeof (parsed as { platform?: unknown }).platform === 'string') {
       const { platform, components } = parsed as { platform: string; components?: Component[] };
@@ -78,6 +82,10 @@ export function addPaletteItem(payload: PaletteDragPayload, position: { x: numbe
   const store = useTopologyStore.getState();
   if (payload.kind === 'node') {
     store.addNode(position, payload.name);
+    return;
+  }
+  if (payload.kind === 'external') {
+    store.addExternalNode({ position });
     return;
   }
   if (payload.kind === 'catalog') {
@@ -644,6 +652,19 @@ export default function PalettePanel() {
                 onAdd={() => { addAtCanvasCenter({ kind: 'sim', name: template.name }); }}
               />
             ))}
+          </>
+        )}
+
+        {!searching && (
+          <>
+            <SectionHeader>EXTERNAL</SectionHeader>
+            <PaletteItem
+              payload={{ kind: 'external' }}
+              testId="palette-item-external"
+              title="external"
+              subtitle="Device outside the topology — cables to it become edge links"
+              onAdd={() => { addAtCanvasCenter({ kind: 'external' }); }}
+            />
           </>
         )}
       </Box>

@@ -317,8 +317,8 @@ function resolveEdgePoints(edge: UIEdge, nodesById: Map<string, NodeInfo>): Edge
 }
 
 function isSimNodeEdge(edge: UIEdge, nodesById: Map<string, NodeInfo>): boolean {
-  return nodesById.get(edge.source)?.data.nodeType === 'simnode'
-    || nodesById.get(edge.target)?.data.nodeType === 'simnode';
+  const kinds = [nodesById.get(edge.source)?.data.nodeType, nodesById.get(edge.target)?.data.nodeType];
+  return kinds.includes('simnode') || kinds.includes('external');
 }
 
 function getStrokeDashArray(strokeStyle: AnnotationStrokeStyle, strokeWidth: number): string | undefined {
@@ -577,11 +577,12 @@ function renderNode(
   const y = shiftedNode.position.y;
   const name = node.data.name || 'Unknown';
   const isSimNode = node.data.nodeType === 'simnode';
+  const isExternalNode = node.data.nodeType === 'external';
   const role = getNodeRole(node, nodeTemplates);
   const hasRoleIcon = !isSimNode && Boolean(role && ROLE_ICONS[role]);
   const hasSimIcon = isSimNode;
   const hasIcon = hasRoleIcon || hasSimIcon;
-  const borderDash = isSimNode ? ' stroke-dasharray="4 4"' : '';
+  const borderDash = isSimNode || isExternalNode ? ' stroke-dasharray="4 4"' : '';
   const icon = isSimNode
     ? renderSimNodeIcon(node, simNodeTemplates, x + NODE_ICON_X, y + NODE_ICON_Y)
     : renderRoleIcon(role, x + NODE_ICON_X, y + NODE_ICON_Y, theme);

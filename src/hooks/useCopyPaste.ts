@@ -57,8 +57,10 @@ export function useCopyPaste(options: UseCopyPasteOptions = {}) {
     const allNodes = getNodes() as Node<UINodeData>[];
     const allEdges = getEdges() as Edge<UIEdgeData>[];
     const selectedNodes = allNodes.filter(n => n.selected && !n.id.startsWith('a'));
-    const selectedEdges = allEdges.filter(e => e.selected);
-    const selectedRegularNodes = selectedNodes.filter(n => n.data.nodeType !== 'simnode');
+    // External nodes are UI-only stand-ins; a paste would re-issue them as regular node ids,
+    // so they (and their edge-link cables) stay out of the clipboard.
+    const selectedEdges = allEdges.filter(e => e.selected && !e.source.startsWith('ext-') && !e.target.startsWith('ext-'));
+    const selectedRegularNodes = selectedNodes.filter(n => n.data.nodeType !== 'simnode' && n.data.nodeType !== 'external');
     const selectedSimNodes = selectedNodes.filter(n => n.data.nodeType === 'simnode');
 
     const { annotations, selectedAnnotationIds } = useTopologyStore.getState();

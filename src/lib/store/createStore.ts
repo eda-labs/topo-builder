@@ -22,6 +22,7 @@ import {
   generateNodeId,
   generateEdgeId,
   generateSimNodeId,
+  generateExternalNodeId,
 } from '../yaml-converter';
 import { detectExtension, edaFetch, onEdaStatusChange } from '../extensionAPIClient';
 import type { NodeProfileResponse } from '../extensionAPITypes';
@@ -41,6 +42,10 @@ import {
   createSimNodeSlice,
   setSimNodeIdGenerator,
   type SimNodeSlice,
+  createExternalSlice,
+  setExternalIdGenerator,
+  setExternalEdgeIdGenerator,
+  type ExternalSlice,
   createTemplateSlice,
   type TemplateSlice,
   createSelectionSlice,
@@ -71,6 +76,8 @@ setNodeIdGenerator(generateNodeId);
 setEdgeIdGenerator(generateEdgeId);
 setEsiLagEdgeIdGenerator(generateEdgeId);
 setSimNodeIdGenerator(generateSimNodeId);
+setExternalIdGenerator(generateExternalNodeId);
+setExternalEdgeIdGenerator(generateEdgeId);
 setFabricIdGenerators(generateNodeId, generateEdgeId);
 
 // Core actions that span multiple domains
@@ -130,6 +137,7 @@ export type TopologyStore =
   & LagSlice
   & EsiLagSlice
   & SimNodeSlice
+  & ExternalSlice
   & TemplateSlice
   & SelectionSlice
   & AnnotationSlice
@@ -591,7 +599,7 @@ export const createTopologyStore = () => {
 
           clearAll: () => {
             get().saveToUndoHistory();
-            setIdCounters(1, 1, 1);
+            setIdCounters(1, 1, 1, 1);
             setAnnotationIdCounter(1);
             const { showSimNodes, edgeRouting, yamlRefreshCounter } = get();
             set({
@@ -675,6 +683,7 @@ export const createTopologyStore = () => {
           ...createLagSlice(set, get, api),
           ...createEsiLagSlice(set, get, api),
           ...createSimNodeSlice(set, get, api),
+          ...createExternalSlice(set, get, api),
           ...createTemplateSlice(set, get, api),
           ...createSelectionSlice(set, get, api),
           ...createAnnotationSlice(set, get, api),
@@ -735,11 +744,13 @@ export const createTopologyStore = () => {
           if (state) {
             let maxNodeId = 0;
             let maxSimNodeId = 0;
+            let maxExternalId = 0;
             for (const node of state.nodes) {
               const parts = node.id.split('-');
               const prefix = parts[0];
               const num = parseInt(parts[1] || '0', 10);
               if (prefix === 'sim') maxSimNodeId = Math.max(maxSimNodeId, num);
+              else if (prefix === 'ext') maxExternalId = Math.max(maxExternalId, num);
               else if (prefix === 'node') maxNodeId = Math.max(maxNodeId, num);
             }
             const maxEdgeId = state.edges.reduce((max, edge) => {
@@ -753,7 +764,7 @@ export const createTopologyStore = () => {
                 maxAnnotationId = Math.max(maxAnnotationId, num);
               }
             }
-            setIdCounters(maxNodeId + 1, maxEdgeId + 1, maxSimNodeId + 1);
+            setIdCounters(maxNodeId + 1, maxEdgeId + 1, maxSimNodeId + 1, maxExternalId + 1);
             setAnnotationIdCounter(maxAnnotationId + 1);
           }
         },

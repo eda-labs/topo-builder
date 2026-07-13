@@ -67,6 +67,7 @@ interface CableProps {
   routing: EdgeRouting;
   isMemberSelected: boolean;
   isSimNodeEdge: boolean;
+  isExternalEdge?: boolean;
   isConnectedToSelectedNode?: boolean;
   onMemberLinkClick: (e: React.MouseEvent, index: number) => void;
   onMemberLinkContextMenu: (e: React.MouseEvent, index: number) => void;
@@ -83,7 +84,7 @@ function cableTestId({ lag, showLagChip, edgeNodeA, edgeNodeB, index }: Pick<Cab
 function Cable(props: CableProps) {
   const {
     edgeId, member, index, lag, src, tgt, edgeNodeA, edgeNodeB, routing,
-    isMemberSelected, isSimNodeEdge, isConnectedToSelectedNode,
+    isMemberSelected, isSimNodeEdge, isExternalEdge, isConnectedToSelectedNode,
     onMemberLinkClick, onMemberLinkContextMenu, onLagClick, onLagContextMenu,
   } = props;
 
@@ -117,6 +118,7 @@ function Cable(props: CableProps) {
     else onMemberLinkContextMenu(e, index);
   };
   let kind: HoverHudInfo['kind'] = isSimNodeEdge ? 'sim' : 'link';
+  if (isExternalEdge) kind = 'edge';
   if (lag) kind = 'lag';
 
   const handleMouseEnter = () => {
@@ -188,6 +190,7 @@ export interface PortBundleEdgeProps {
   routing: EdgeRouting;
   isSelected: boolean;
   isSimNodeEdge: boolean;
+  isExternalEdge?: boolean;
   isConnectedToSelectedNode?: boolean;
   selectedMemberLinkIndices: number[];
   selectedLagId: string | null;
@@ -212,6 +215,7 @@ export default function PortBundleEdge({
   routing,
   isSelected,
   isSimNodeEdge,
+  isExternalEdge,
   isConnectedToSelectedNode,
   selectedMemberLinkIndices,
   selectedLagId,
@@ -265,6 +269,7 @@ export default function PortBundleEdge({
             routing={routing}
             isMemberSelected={isMemberSelected}
             isSimNodeEdge={isSimNodeEdge}
+            isExternalEdge={isExternalEdge}
             isConnectedToSelectedNode={isConnectedToSelectedNode}
             onMemberLinkClick={onMemberLinkClick}
             onMemberLinkContextMenu={onMemberLinkContextMenu}

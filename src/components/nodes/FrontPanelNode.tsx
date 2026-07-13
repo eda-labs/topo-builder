@@ -82,12 +82,14 @@ function collectOccupants(nodeId: string, data: UINodeData, edges: UIEdge[]): Ma
     const isTarget = edge.target === nodeId;
     if (!isSource && !isTarget) continue;
     const isSim = edge.source.startsWith('sim-') || edge.target.startsWith('sim-');
+    const isExternal = edge.source.startsWith('ext-') || edge.target.startsWith('ext-');
     const remote = isSource ? edge.data?.targetNode : edge.data?.sourceNode;
     const lagByIndex = new Map<number, { id: string; name: string }>();
     for (const lag of edge.data?.lagGroups ?? []) {
       for (const index of lag.memberLinkIndices) lagByIndex.set(index, lag);
     }
-    const plainKind = isSim ? 'sim' : 'link';
+    let plainKind: keyof typeof PORT_FILL = isSim ? 'sim' : 'link';
+    if (isExternal) plainKind = 'edge';
     edge.data?.memberLinks?.forEach((ml, memberIndex) => {
       const iface = isSource ? ml.sourceInterface : ml.targetInterface;
       if (!iface || byIface.has(iface)) return;
@@ -210,29 +212,6 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, on
   );
 }
 
-/** Unconnected edge links hang a short stub off the port, mirroring cable-map's stub mode
-    (1.25×44 idle, grown while hover-traced). */
-function EdgeLinkStub({ fill, hot }: { fill: string; hot: boolean }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        position: 'absolute',
-        left: '50%',
-        top: '100%',
-        width: hot ? 2 : 1.25,
-        height: hot ? 52 : 44,
-        transform: 'translateX(-50%)',
-        background: fill,
-        borderRadius: 999,
-        opacity: hot ? 1 : 0.72,
-        boxShadow: hot ? `0 0 0 1px ${fill}66` : undefined,
-        pointerEvents: 'none',
-      }}
-    />
-  );
-}
-
 function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCageContextMenu }: {
   nodeId: string;
   nodeName: string;
@@ -314,7 +293,6 @@ function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCa
       }}
     >
       {label}
-      {occupant.kind === 'edge' && <EdgeLinkStub fill={fill} hot={hoverHot} />}
     </div>
   );
 }

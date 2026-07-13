@@ -15,6 +15,7 @@ import {
   Delete as DeleteIcon,
   DeleteSweep as ClearAllIcon,
   ViewInAr as SimNodeIcon,
+  CloudQueue as ExternalNodeIcon,
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
   CallMerge as MergeIcon,
@@ -145,12 +146,14 @@ function ContextMenuNoSelectionItems({
   onClose,
   onAddNode,
   onAddSimNode,
+  onAddExternalNode,
   onAddAnnotation,
   flowPosition,
 }: {
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
+  onAddExternalNode?: () => void;
   onAddAnnotation?: (annotation: UIAnnotationInput) => void;
   flowPosition: { x: number; y: number };
 }) {
@@ -165,6 +168,13 @@ function ContextMenuNoSelectionItems({
         <MenuItem onClick={() => { onAddSimNode(); onClose(); }}>
           <ListItemIcon><SimNodeIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Add SimNode</ListItemText>
+        </MenuItem>
+      )}
+
+      {onAddExternalNode && (
+        <MenuItem onClick={() => { onAddExternalNode(); onClose(); }}>
+          <ListItemIcon><ExternalNodeIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Add External Node</ListItemText>
         </MenuItem>
       )}
 
@@ -440,6 +450,7 @@ function ContextMenuSelectionSection({
   onClose,
   onAddNode,
   onAddSimNode,
+  onAddExternalNode,
   onDeleteNode,
   onShowNodeDetails,
   onSaveNodeAsTemplate,
@@ -474,10 +485,11 @@ function ContextMenuSelectionSection({
   isMergeIntoEsiLag,
   contextMenuFlowPosition,
 }: {
-  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | 'annotation' | null;
+  hasSelection: 'node' | 'edge' | 'simNode' | 'external' | 'multiEdge' | 'annotation' | null;
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
+  onAddExternalNode?: () => void;
   onDeleteNode?: () => void;
   onShowNodeDetails?: () => void;
   onSaveNodeAsTemplate?: () => void;
@@ -519,6 +531,7 @@ function ContextMenuSelectionSection({
           onClose={onClose}
           onAddNode={onAddNode}
           onAddSimNode={onAddSimNode}
+          onAddExternalNode={onAddExternalNode}
           onAddAnnotation={onAddAnnotation}
           flowPosition={contextMenuFlowPosition}
         />
@@ -555,6 +568,17 @@ function ContextMenuSelectionSection({
           currentSimNodeTemplate={currentSimNodeTemplate}
           onDeleteSimNode={onDeleteSimNode}
         />
+      );
+    case 'external':
+      return (
+        <>
+          {onDeleteNode && (
+            <MenuItem onClick={() => { onDeleteNode(); onClose(); }}>
+              <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+              <ListItemText>Delete External Node</ListItemText>
+            </MenuItem>
+          )}
+        </>
       );
     case 'edge':
       return (
@@ -690,6 +714,7 @@ interface ContextMenuProps {
   onClose: () => void;
   onAddNode: (templateName?: string) => void;
   onAddSimNode?: () => void;
+  onAddExternalNode?: () => void;
   onDeleteNode?: () => void;
   onShowNodeDetails?: () => void;
   onSaveNodeAsTemplate?: () => void;
@@ -709,7 +734,7 @@ interface ContextMenuProps {
   canUndo?: boolean;
   canRedo?: boolean;
   onClearAll: () => void;
-  hasSelection: 'node' | 'edge' | 'simNode' | 'multiEdge' | 'annotation' | null;
+  hasSelection: 'node' | 'edge' | 'simNode' | 'external' | 'multiEdge' | 'annotation' | null;
   hasContent: boolean;
   canCopy?: boolean;
   canPaste?: boolean;
@@ -742,6 +767,7 @@ export default function ContextMenu({
   onClose,
   onAddNode,
   onAddSimNode,
+  onAddExternalNode,
   onDeleteNode,
   onShowNodeDetails,
   onSaveNodeAsTemplate,
@@ -844,6 +870,7 @@ export default function ContextMenu({
                   onClose={onClose}
                   onAddNode={onAddNode}
                   onAddSimNode={onAddSimNode}
+                  onAddExternalNode={onAddExternalNode}
                   onDeleteNode={onDeleteNode}
                   onShowNodeDetails={onShowNodeDetails}
                   onSaveNodeAsTemplate={onSaveNodeAsTemplate}

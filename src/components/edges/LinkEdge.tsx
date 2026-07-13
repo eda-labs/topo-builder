@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
-import type { UIEdgeData, UIEsiLeaf, UINodeData } from '../../types/ui';
+import type { EdgeRouting } from '../../lib/store/createStore';
+import type { UIEdgeData, UIEsiLeaf, UIMemberLink, UINodeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
 import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
 import { resolveNodePanel } from '../../lib/frontpanel';
@@ -41,10 +42,14 @@ interface EsiLagInternalEdgeProps {
   id: string;
   testId?: string;
   sourceNode: InternalFlowNode;
+  sourceName?: string;
   isSelected: boolean;
   isSimNodeEdge: boolean;
   isConnectedToSelectedNode: boolean;
   esiLeaves: UIEsiLeaf[];
+  memberLinks?: UIMemberLink[];
+  esiLagName?: string;
+  routing?: EdgeRouting;
 }
 
 /** Subscribe to extra leaf positions only for ESI-LAG edges. */
@@ -52,11 +57,16 @@ function EsiLagInternalEdge({
   id,
   testId,
   sourceNode,
+  sourceName,
   isSelected,
   isSimNodeEdge,
   isConnectedToSelectedNode,
   esiLeaves,
+  memberLinks,
+  esiLagName,
+  routing,
 }: EsiLagInternalEdgeProps) {
+  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const leafNode0 = useInternalNode(esiLeaves[0]?.nodeId ?? '');
   const leafNode1 = useInternalNode(esiLeaves[1]?.nodeId ?? '');
   const leafNode2 = useInternalNode(esiLeaves[2]?.nodeId ?? '');
@@ -69,16 +79,29 @@ function EsiLagInternalEdge({
 
   if (leafNodes.size === 0) return null;
 
+  // Leaf faceplates anchor the legs at the exact member port (same as PortBundleEdge cables).
+  const leafPanels = new Map(
+    [...leafNodes.entries()].map(([nodeId, node]) => [
+      nodeId,
+      resolveNodePanel(node.data as UINodeData, nodeTemplates),
+    ]),
+  );
+
   return (
     <EsiLagEdge
       id={id}
       testId={testId}
       sourceNode={sourceNode}
+      sourceName={sourceName}
       isSelected={isSelected}
       isSimNodeEdge={isSimNodeEdge}
       isConnectedToSelectedNode={isConnectedToSelectedNode}
       esiLeaves={esiLeaves}
       leafNodes={leafNodes}
+      memberLinks={memberLinks}
+      esiLagName={esiLagName}
+      leafPanels={leafPanels}
+      routing={routing}
     />
   );
 }
@@ -165,8 +188,10 @@ export default function LinkEdge({
 
     return (
       <BundleEdge
+        edgeId={id}
         edgeNodeA={edgeNodeA}
         edgeNodeB={edgeNodeB}
+        routing={edgeRouting}
         sourceX={sourceX}
         sourceY={sourceY}
         targetX={targetX}
@@ -228,10 +253,14 @@ export default function LinkEdge({
         id={id}
         testId={edgeTestId}
         sourceNode={sourceNode}
+        sourceName={edgeData?.sourceNode}
         isSelected={isSelected}
         isSimNodeEdge={isSimNodeEdge}
         isConnectedToSelectedNode={isConnectedToSelectedNode}
         esiLeaves={esiLeaves}
+        memberLinks={memberLinks}
+        esiLagName={edgeData?.esiLagName}
+        routing={edgeRouting}
       />
     );
   }

@@ -48,6 +48,7 @@ import ContextMenu from './ContextMenu';
 import PalettePanel, { readPaletteDrag, addPaletteItem } from './PalettePanel';
 import PlatformDetailsPopover, { type PlatformDetail } from './PlatformDetailsPopover';
 import CableHoverHud from './CableHoverHud';
+import LinkKindLegend from './LinkKindLegend';
 
 const nodeTypes: NodeTypes = {
   topoNode: TopoNode,
@@ -780,6 +781,8 @@ function TopologyCanvas({
       elevateNodesOnSelect={false}
       snapToGrid
       snapGrid={SNAP_GRID}
+      // Default minZoom (0.5) cannot fit wide fabrics (the AI-cluster example, wizard output)
+      minZoom={0.05}
       connectionRadius={24}
       connectionMode={ConnectionMode.Loose}
       defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
@@ -803,6 +806,7 @@ function TopologyCanvas({
       <LayoutHandler layoutVersion={layoutVersion} />
       <EmptyCanvasHint show={controlNodes.length === 0} />
       <CableHoverHud />
+      <LinkKindLegend />
     </ReactFlow>
   );
 }
@@ -1313,6 +1317,26 @@ function TopologyEditorInner({
     }
   };
 
+  // One-click LAG grouping for the selected edge: every member link not already in a LAG.
+  const ungroupedMemberIndices = useMemo(() => {
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    if (!edge?.data?.memberLinks || edge.data.edgeType === 'esilag') return [];
+    const grouped = new Set((edge.data.lagGroups ?? []).flatMap(lag => lag.memberLinkIndices));
+    return edge.data.memberLinks.map((_, index) => index).filter(index => !grouped.has(index));
+  }, [edges, selectedEdgeId]);
+
+  const handleGroupAllLinks = () => {
+    if (selectedEdgeId && ungroupedMemberIndices.length >= 2) {
+      createLagFromMemberLinks(selectedEdgeId, ungroupedMemberIndices);
+    }
+  };
+
+  const handleUngroupLag = () => {
+    if (selectedEdgeId && selectedLagId) {
+      useTopologyStore.getState().dissolveLag(selectedEdgeId, selectedLagId);
+    }
+  };
+
   const canCopy = nodes.some(n => n.selected) || edges.some(e => e.selected);
   const canPaste = hasClipboardData();
   const hasContent = nodes.length + edges.length > 0;
@@ -1338,6 +1362,38 @@ function TopologyEditorInner({
     }
 
     createMultihomedLag(selectedEdgeIds[0], selectedEdgeIds[1], selectedEdgeIds.slice(2));
+  };
+
+  // Right-clicking one cable of a multihomed sim node offers the whole Multihome LAG in one
+  // step: every edge of that sim node (an existing ESI-LAG included, which turns the action
+  // into a merge) — no multi-edge shift-selection needed.
+  const esiFromEdgeValidation = useMemo(() => {
+    const edge = edges.find(e => e.id === selectedEdgeId);
+    if (!edge || edge.data?.edgeType === 'esilag') return null;
+    const simId = [edge.source, edge.target].find(id => id.startsWith('sim-'));
+    if (!simId) return null;
+    const siblings = edges.filter(e => e.source === simId || e.target === simId);
+    if (siblings.length < 2) return null;
+    const validation = validateEsiLagSelection(siblings.map(e => e.id), edges);
+    return validation.valid ? validation : null;
+  }, [edges, selectedEdgeId]);
+
+  const handleCreateEsiLagFromEdge = () => {
+    if (!esiFromEdgeValidation) return;
+    const { esiLag, regularEdges } = esiFromEdgeValidation;
+    if (esiLag) {
+      mergeEdgesIntoEsiLag(esiLag.id, regularEdges.map(e => e.id));
+      return;
+    }
+    const ids = regularEdges.map(e => e.id);
+    createMultihomedLag(ids[0], ids[1], ids.slice(2));
+  };
+
+  const isEsiLagSelected = selectedEdgeId !== null
+    && edges.find(e => e.id === selectedEdgeId)?.data?.edgeType === 'esilag';
+
+  const handleUngroupEsiLag = () => {
+    if (selectedEdgeId) useTopologyStore.getState().dissolveEsiLag(selectedEdgeId);
   };
 
   const handleChangeNodeTemplate = (templateName: string) => {
@@ -1507,6 +1563,15 @@ function TopologyEditorInner({
         onDeleteEdge={handleDeleteEdge}
         onDeleteAllLinks={handleDeleteAllEdgeLinks}
         memberLinkTotal={selectedEdgeId ? edges.find(e => e.id === selectedEdgeId)?.data?.memberLinks?.length ?? 0 : 0}
+        ungroupedMemberCount={ungroupedMemberIndices.length}
+        isLagSelected={selectedLagId !== null}
+        onGroupAllLinks={handleGroupAllLinks}
+        onUngroupLag={handleUngroupLag}
+        canCreateMultihomeLag={esiFromEdgeValidation !== null}
+        isMergeIntoMultihomeLag={esiFromEdgeValidation?.esiLag != null}
+        onCreateMultihomeLag={handleCreateEsiLagFromEdge}
+        isEsiLagSelected={isEsiLagSelected}
+        onUngroupEsiLag={handleUngroupEsiLag}
         onDeleteSimNode={handleDeleteSimNode}
         onChangeNodeTemplate={handleChangeNodeTemplate}
         onChangeSimNodeTemplate={handleChangeSimNodeTemplate}

@@ -42,6 +42,7 @@ import {
   Info,
   Settings as SettingsIcon,
   Hub as AutoLinkIcon,
+  AccountTree as FabricWizardIcon,
   PlayArrow as DeployIcon,
 } from '@mui/icons-material';
 
@@ -56,6 +57,7 @@ import { TITLE, ERROR_DISPLAY_DURATION_MS } from '../lib/constants';
 import { getSchemaEnums, supportedVersions } from '../lib/schemaEnums';
 
 import { getEditorContent } from './YamlEditor';
+import FabricWizardDialog from './FabricWizardDialog';
 
 export interface TopologyThemingProps {
   theme?: Theme;
@@ -173,6 +175,7 @@ export default function AppLayout({
   const [localNamespace, setLocalNamespace] = useState(namespace);
   const [localOperation, setLocalOperation] = useState(operation);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [fabricWizardOpen, setFabricWizardOpen] = useState(false);
   const [exportBgTransparent, setExportBgTransparent] = useState(false);
   const [exportBgColor, setExportBgColor] = useState(DEFAULT_SVG_BACKGROUND);
   const [exportBgGrid, setExportBgGrid] = useState(true);
@@ -366,6 +369,11 @@ export default function AppLayout({
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
+              <Tooltip title="Fabric wizard">
+                <IconButton size="small" onClick={() => { setFabricWizardOpen(true); }} data-testid="fabric-wizard-button" sx={{ color: toolbarTextColor }}>
+                  <FabricWizardIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="AutoLink">
                 <IconButton size="small" onClick={autoLink} sx={{ color: toolbarTextColor }}>
                   <AutoLinkIcon fontSize="small" />
@@ -424,6 +432,10 @@ export default function AppLayout({
         </AppBar>
 
         {children}
+
+        {fabricWizardOpen && (
+          <FabricWizardDialog open={fabricWizardOpen} onClose={() => { setFabricWizardOpen(false); }} />
+        )}
 
         <Dialog open={validationDialogOpen} onClose={() => { setValidationDialogOpen(false); }} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

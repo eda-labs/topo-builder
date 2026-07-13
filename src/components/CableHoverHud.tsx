@@ -2,9 +2,10 @@ import { Panel } from '@xyflow/react';
 import { Box, Chip, Typography } from '@mui/material';
 
 import { useHoverTrace, type HoverHudInfo } from '../lib/store/hoverTrace';
+import { LINK_KIND_COLOR } from '../lib/linkColors';
 
-const KIND_LABEL = { link: 'fabric link', sim: 'sim link', edge: 'edge link', free: 'free port' } as const;
-const KIND_COLOR = { link: '#00A87E', sim: '#8E77D6', edge: '#4A90D9', free: '#8994a3' } as const;
+const KIND_LABEL = { link: 'InterSwitch', sim: 'Edge', edge: 'Edge', free: 'free port', lag: 'Local LAG', mlag: 'Multihome LAG' } as const;
+const KIND_COLOR = LINK_KIND_COLOR;
 
 function HudChip({ label, color }: { label: string; color?: string }) {
   return (

@@ -1,5 +1,11 @@
 import { type RefObject } from 'react';
-import { Add as AddIcon, Delete as DeleteIcon, SubdirectoryArrowRight as ArrowIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  CallSplit as UngroupIcon,
+  Delete as DeleteIcon,
+  Merge as MergeIcon,
+  SubdirectoryArrowRight as ArrowIcon,
+} from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -110,23 +116,35 @@ export function EdgeEditor({
 
     const addLinkToLag = useTopologyStore.getState().addLinkToLag;
     const removeLinkFromLag = useTopologyStore.getState().removeLinkFromLag;
+    const dissolveLag = useTopologyStore.getState().dissolveLag;
 
     return (
       <Box>
         <PanelHeader
           title={`${nodeA} ↔ ${nodeB}`}
           actions={
-            <Chip
-              label="LAG"
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 600,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-              }}
-            />
+            <>
+              <Button
+                size="small"
+                startIcon={<UngroupIcon />}
+                data-testid="edge-editor-ungroup-lag"
+                title="Dissolve the LAG — its links stay as individual links"
+                onClick={() => { dissolveLag(edge.id, selectedLag.id); }}
+              >
+                Ungroup
+              </Button>
+              <Chip
+                label="LAG"
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  bgcolor: 'var(--color-link-lag)',
+                  color: '#0b0f14',
+                }}
+              />
+            </>
           }
         />
 
@@ -234,23 +252,35 @@ export function EdgeEditor({
 
     const esiLeaves = edgeData.esiLeaves;
     const removeLinkFromEsiLag = useTopologyStore.getState().removeLinkFromEsiLag;
+    const dissolveEsiLag = useTopologyStore.getState().dissolveEsiLag;
 
     return (
       <Box>
         <PanelHeader
           title={nodeB}
           actions={
-            <Chip
-              label="ESI-LAG"
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: 10,
-                fontWeight: 600,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-              }}
-            />
+            <>
+              <Button
+                size="small"
+                startIcon={<UngroupIcon />}
+                data-testid="edge-editor-ungroup-esi-lag"
+                title="Release the multihome LAG — each leaf keeps its link as a plain edge"
+                onClick={() => { dissolveEsiLag(edge.id); }}
+              >
+                Ungroup
+              </Button>
+              <Chip
+                label="ESI-LAG"
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  bgcolor: 'var(--color-link-mlag)',
+                  color: '#0b0f14',
+                }}
+              />
+            </>
           }
         />
 
@@ -448,15 +478,32 @@ export function EdgeEditor({
 
     if (isShowingBundle && memberLinks.length > 1) {
       const standaloneLinks = linksToShow.filter(({ index }) => !indicesInLags.has(index));
+      const ungroupedIndices = memberLinks
+        .map((_, index) => index)
+        .filter(index => !indicesInLags.has(index));
+      const createLagFromMemberLinks = useTopologyStore.getState().createLagFromMemberLinks;
 
       return (
         <Box>
           <PanelHeader
             title={`${nodeA} ↔ ${nodeB}`}
             actions={
-              <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
-                Add
-              </Button>
+              <>
+                {ungroupedIndices.length >= 2 && (
+                  <Button
+                    size="small"
+                    startIcon={<MergeIcon />}
+                    data-testid="edge-editor-group-lag"
+                    title={`Group the ${ungroupedIndices.length} ungrouped links into a LAG`}
+                    onClick={() => { createLagFromMemberLinks(edge.id, ungroupedIndices); }}
+                  >
+                    LAG
+                  </Button>
+                )}
+                <Button size="small" startIcon={<AddIcon />} onClick={handleAddLink}>
+                  Add
+                </Button>
+              </>
             }
           />
 

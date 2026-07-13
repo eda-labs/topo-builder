@@ -18,6 +18,7 @@ import {
   ChevronRight as ChevronRightIcon,
   SwapHoriz as SwapIcon,
   CallMerge as MergeIcon,
+  CallSplit as UngroupIcon,
   ContentCopy as CopyIcon,
   ContentPaste as PasteIcon,
   Undo as UndoIcon,
@@ -287,7 +288,16 @@ function ContextMenuEdgeSelectionItems({
   currentLinkTemplate,
   selectedMemberLinkCount,
   memberLinkTotal = 0,
+  ungroupedMemberCount = 0,
+  isLagSelected = false,
+  canCreateMultihomeLag = false,
+  isMergeIntoMultihomeLag = false,
+  isEsiLagSelected = false,
   onCreateLag,
+  onGroupAllLinks,
+  onUngroupLag,
+  onCreateMultihomeLag,
+  onUngroupEsiLag,
   onDeleteEdge,
   onDeleteAllLinks,
 }: {
@@ -297,13 +307,26 @@ function ContextMenuEdgeSelectionItems({
   currentLinkTemplate?: string;
   selectedMemberLinkCount: number;
   memberLinkTotal?: number;
+  ungroupedMemberCount?: number;
+  isLagSelected?: boolean;
+  canCreateMultihomeLag?: boolean;
+  isMergeIntoMultihomeLag?: boolean;
+  isEsiLagSelected?: boolean;
   onCreateLag?: () => void;
+  onGroupAllLinks?: () => void;
+  onUngroupLag?: () => void;
+  onCreateMultihomeLag?: () => void;
+  onUngroupEsiLag?: () => void;
   onDeleteEdge?: () => void;
   onDeleteAllLinks?: () => void;
 }) {
   // A subset of a bundle is selected when fewer members are selected than the edge carries;
   // "Delete Link" then removes just those cables, with a separate item for the whole bundle.
   const partialSelection = selectedMemberLinkCount > 0 && memberLinkTotal > selectedMemberLinkCount;
+  const showCreateFromSelection = selectedMemberLinkCount >= 2 && onCreateLag !== undefined;
+  // One click groups every ungrouped link of the bundle — no shift-selecting members first.
+  const showGroupAll = !showCreateFromSelection && !isLagSelected
+    && ungroupedMemberCount >= 2 && onGroupAllLinks !== undefined;
   return (
     <>
       {linkTemplates.length > 0 && onChangeLinkTemplate && (
@@ -315,11 +338,47 @@ function ContextMenuEdgeSelectionItems({
         />
       )}
 
-      {selectedMemberLinkCount >= 2 && onCreateLag && (
+      {showCreateFromSelection && (
         <>
           <MenuItem onClick={() => { onCreateLag(); onClose(); }}>
             <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Create Local LAG</ListItemText>
+          </MenuItem>
+          <Divider />
+        </>
+      )}
+      {showGroupAll && (
+        <>
+          <MenuItem data-testid="context-menu-group-lag" onClick={() => { onGroupAllLinks(); onClose(); }}>
+            <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{`Group ${ungroupedMemberCount} Links into LAG`}</ListItemText>
+          </MenuItem>
+          <Divider />
+        </>
+      )}
+      {isLagSelected && onUngroupLag && (
+        <>
+          <MenuItem data-testid="context-menu-ungroup-lag" onClick={() => { onUngroupLag(); onClose(); }}>
+            <ListItemIcon><UngroupIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Ungroup LAG</ListItemText>
+          </MenuItem>
+          <Divider />
+        </>
+      )}
+      {canCreateMultihomeLag && onCreateMultihomeLag && (
+        <>
+          <MenuItem data-testid="context-menu-multihome-lag" onClick={() => { onCreateMultihomeLag(); onClose(); }}>
+            <ListItemIcon><MergeIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{isMergeIntoMultihomeLag ? 'Merge into Multihome LAG' : 'Create Multihome LAG (ESI)'}</ListItemText>
+          </MenuItem>
+          <Divider />
+        </>
+      )}
+      {isEsiLagSelected && onUngroupEsiLag && (
+        <>
+          <MenuItem data-testid="context-menu-ungroup-multihome-lag" onClick={() => { onUngroupEsiLag(); onClose(); }}>
+            <ListItemIcon><UngroupIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Ungroup Multihome LAG</ListItemText>
           </MenuItem>
           <Divider />
         </>
@@ -401,6 +460,15 @@ function ContextMenuSelectionSection({
   currentLinkTemplate,
   selectedMemberLinkCount,
   memberLinkTotal,
+  ungroupedMemberCount,
+  isLagSelected,
+  onGroupAllLinks,
+  onUngroupLag,
+  canCreateMultihomeLag,
+  isMergeIntoMultihomeLag,
+  onCreateMultihomeLag,
+  isEsiLagSelected,
+  onUngroupEsiLag,
   onDeleteAllLinks,
   canCreateEsiLag,
   isMergeIntoEsiLag,
@@ -430,6 +498,15 @@ function ContextMenuSelectionSection({
   currentLinkTemplate?: string;
   selectedMemberLinkCount: number;
   memberLinkTotal?: number;
+  ungroupedMemberCount?: number;
+  isLagSelected?: boolean;
+  onGroupAllLinks?: () => void;
+  onUngroupLag?: () => void;
+  canCreateMultihomeLag?: boolean;
+  isMergeIntoMultihomeLag?: boolean;
+  onCreateMultihomeLag?: () => void;
+  isEsiLagSelected?: boolean;
+  onUngroupEsiLag?: () => void;
   onDeleteAllLinks?: () => void;
   canCreateEsiLag: boolean;
   isMergeIntoEsiLag: boolean;
@@ -488,7 +565,16 @@ function ContextMenuSelectionSection({
           currentLinkTemplate={currentLinkTemplate}
           selectedMemberLinkCount={selectedMemberLinkCount}
           memberLinkTotal={memberLinkTotal}
+          ungroupedMemberCount={ungroupedMemberCount}
+          isLagSelected={isLagSelected}
+          canCreateMultihomeLag={canCreateMultihomeLag}
+          isMergeIntoMultihomeLag={isMergeIntoMultihomeLag}
+          isEsiLagSelected={isEsiLagSelected}
           onCreateLag={onCreateLag}
+          onGroupAllLinks={onGroupAllLinks}
+          onUngroupLag={onUngroupLag}
+          onCreateMultihomeLag={onCreateMultihomeLag}
+          onUngroupEsiLag={onUngroupEsiLag}
           onDeleteEdge={onDeleteEdge}
           onDeleteAllLinks={onDeleteAllLinks}
         />
@@ -635,6 +721,15 @@ interface ContextMenuProps {
   currentLinkTemplate?: string;
   selectedMemberLinkCount?: number;
   memberLinkTotal?: number;
+  ungroupedMemberCount?: number;
+  isLagSelected?: boolean;
+  onGroupAllLinks?: () => void;
+  onUngroupLag?: () => void;
+  canCreateMultihomeLag?: boolean;
+  isMergeIntoMultihomeLag?: boolean;
+  onCreateMultihomeLag?: () => void;
+  isEsiLagSelected?: boolean;
+  onUngroupEsiLag?: () => void;
   onDeleteAllLinks?: () => void;
   canCreateEsiLag?: boolean;
   isMergeIntoEsiLag?: boolean;
@@ -678,6 +773,15 @@ export default function ContextMenu({
   currentLinkTemplate,
   selectedMemberLinkCount = 0,
   memberLinkTotal = 0,
+  ungroupedMemberCount = 0,
+  isLagSelected = false,
+  onGroupAllLinks,
+  onUngroupLag,
+  canCreateMultihomeLag = false,
+  isMergeIntoMultihomeLag = false,
+  onCreateMultihomeLag,
+  isEsiLagSelected = false,
+  onUngroupEsiLag,
   onDeleteAllLinks,
   canCreateEsiLag = false,
   isMergeIntoEsiLag = false,
@@ -760,6 +864,15 @@ export default function ContextMenu({
                   currentLinkTemplate={currentLinkTemplate}
                   selectedMemberLinkCount={selectedMemberLinkCount}
                   memberLinkTotal={memberLinkTotal}
+                  ungroupedMemberCount={ungroupedMemberCount}
+                  isLagSelected={isLagSelected}
+                  onGroupAllLinks={onGroupAllLinks}
+                  onUngroupLag={onUngroupLag}
+                  canCreateMultihomeLag={canCreateMultihomeLag}
+                  isMergeIntoMultihomeLag={isMergeIntoMultihomeLag}
+                  onCreateMultihomeLag={onCreateMultihomeLag}
+                  isEsiLagSelected={isEsiLagSelected}
+                  onUngroupEsiLag={onUngroupEsiLag}
                   onDeleteAllLinks={onDeleteAllLinks}
                   canCreateEsiLag={canCreateEsiLag}
                   isMergeIntoEsiLag={isMergeIntoEsiLag}

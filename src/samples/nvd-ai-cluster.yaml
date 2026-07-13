@@ -1,0 +1,1074 @@
+apiVersion: topologies.eda.nokia.com/v1
+kind: NetworkTopology
+metadata:
+  name: ai-cluster-two-stripe
+  namespace: ai-dc
+spec:
+  operation: Reconcile
+  nodeTemplates:
+  - name: spine
+    labels:
+      eda.nokia.com/role: spine
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: spine
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-H4
+  - name: stripe1-leaf
+    labels:
+      eda.nokia.com/role: leaf
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: stripe1-leaf
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-H4
+  - name: stripe2-leaf
+    labels:
+      eda.nokia.com/role: leaf
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: stripe2-leaf
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-H5-64D
+  - name: frontend-spine
+    labels:
+      eda.nokia.com/role: spine
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: frontend-spine
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-H5-64O
+  - name: frontend-leaf
+    labels:
+      eda.nokia.com/role: leaf
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: frontend-leaf
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-D5
+  nodes:
+  - name: spine1
+    template: spine
+    annotations:
+      topobuilder.eda.labs/x: '3700'
+      topobuilder.eda.labs/y: '60'
+  - name: spine2
+    template: spine
+    annotations:
+      topobuilder.eda.labs/x: '4220'
+      topobuilder.eda.labs/y: '60'
+  - name: stripe1-leaf1
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '60'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf2
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '580'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf3
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '1100'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf4
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '1620'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf5
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '2140'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf6
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '2660'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf7
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '3180'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe1-leaf8
+    template: stripe1-leaf
+    annotations:
+      topobuilder.eda.labs/x: '3700'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf1
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '4220'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf2
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '4740'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf3
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '5260'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf4
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '5780'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf5
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '6300'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf6
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '6820'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf7
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '7340'
+      topobuilder.eda.labs/y: '560'
+  - name: stripe2-leaf8
+    template: stripe2-leaf
+    annotations:
+      topobuilder.eda.labs/x: '7860'
+      topobuilder.eda.labs/y: '560'
+  - name: frontend-spine1
+    template: frontend-spine
+    annotations:
+      topobuilder.eda.labs/x: '8830'
+      topobuilder.eda.labs/y: '60'
+  - name: frontend-spine2
+    template: frontend-spine
+    annotations:
+      topobuilder.eda.labs/x: '9350'
+      topobuilder.eda.labs/y: '60'
+  - name: frontend-leaf1
+    template: frontend-leaf
+    annotations:
+      topobuilder.eda.labs/x: '8700'
+      topobuilder.eda.labs/y: '560'
+  - name: frontend-leaf2
+    template: frontend-leaf
+    annotations:
+      topobuilder.eda.labs/x: '9480'
+      topobuilder.eda.labs/y: '560'
+  linkTemplates:
+  - name: isl-800g
+    type: InterSwitch
+    speed: 800G
+    encapType: 'Null'
+    labels:
+      eda.nokia.com/role: InterSwitch
+  - name: isl-400g
+    type: InterSwitch
+    speed: 400G
+    encapType: 'Null'
+    labels:
+      eda.nokia.com/role: InterSwitch
+  - name: edge
+    type: Edge
+    encapType: Dot1q
+    labels:
+      eda.nokia.com/role: Edge
+  links:
+  - name: spine1-stripe1-leaf1-1
+    endpoints:
+    - local:
+        node: stripe1-leaf1
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-1
+    template: isl-800g
+  - name: spine2-stripe1-leaf1-1
+    endpoints:
+    - local:
+        node: stripe1-leaf1
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-1
+    template: isl-800g
+  - name: spine1-stripe1-leaf2-1
+    endpoints:
+    - local:
+        node: stripe1-leaf2
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-2
+    template: isl-800g
+  - name: spine2-stripe1-leaf2-1
+    endpoints:
+    - local:
+        node: stripe1-leaf2
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-2
+    template: isl-800g
+  - name: spine1-stripe1-leaf3-1
+    endpoints:
+    - local:
+        node: stripe1-leaf3
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-3
+    template: isl-800g
+  - name: spine2-stripe1-leaf3-1
+    endpoints:
+    - local:
+        node: stripe1-leaf3
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-3
+    template: isl-800g
+  - name: spine1-stripe1-leaf4-1
+    endpoints:
+    - local:
+        node: stripe1-leaf4
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-4
+    template: isl-800g
+  - name: spine2-stripe1-leaf4-1
+    endpoints:
+    - local:
+        node: stripe1-leaf4
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-4
+    template: isl-800g
+  - name: spine1-stripe1-leaf5-1
+    endpoints:
+    - local:
+        node: stripe1-leaf5
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-5
+    template: isl-800g
+  - name: spine2-stripe1-leaf5-1
+    endpoints:
+    - local:
+        node: stripe1-leaf5
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-5
+    template: isl-800g
+  - name: spine1-stripe1-leaf6-1
+    endpoints:
+    - local:
+        node: stripe1-leaf6
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-6
+    template: isl-800g
+  - name: spine2-stripe1-leaf6-1
+    endpoints:
+    - local:
+        node: stripe1-leaf6
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-6
+    template: isl-800g
+  - name: spine1-stripe1-leaf7-1
+    endpoints:
+    - local:
+        node: stripe1-leaf7
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-7
+    template: isl-800g
+  - name: spine2-stripe1-leaf7-1
+    endpoints:
+    - local:
+        node: stripe1-leaf7
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-7
+    template: isl-800g
+  - name: spine1-stripe1-leaf8-1
+    endpoints:
+    - local:
+        node: stripe1-leaf8
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-8
+    template: isl-800g
+  - name: spine2-stripe1-leaf8-1
+    endpoints:
+    - local:
+        node: stripe1-leaf8
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-8
+    template: isl-800g
+  - name: spine1-stripe2-leaf1-1
+    endpoints:
+    - local:
+        node: stripe2-leaf1
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-9
+    template: isl-800g
+  - name: spine2-stripe2-leaf1-1
+    endpoints:
+    - local:
+        node: stripe2-leaf1
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-9
+    template: isl-800g
+  - name: spine1-stripe2-leaf2-1
+    endpoints:
+    - local:
+        node: stripe2-leaf2
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-10
+    template: isl-800g
+  - name: spine2-stripe2-leaf2-1
+    endpoints:
+    - local:
+        node: stripe2-leaf2
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-10
+    template: isl-800g
+  - name: spine1-stripe2-leaf3-1
+    endpoints:
+    - local:
+        node: stripe2-leaf3
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-11
+    template: isl-800g
+  - name: spine2-stripe2-leaf3-1
+    endpoints:
+    - local:
+        node: stripe2-leaf3
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-11
+    template: isl-800g
+  - name: spine1-stripe2-leaf4-1
+    endpoints:
+    - local:
+        node: stripe2-leaf4
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-12
+    template: isl-800g
+  - name: spine2-stripe2-leaf4-1
+    endpoints:
+    - local:
+        node: stripe2-leaf4
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-12
+    template: isl-800g
+  - name: spine1-stripe2-leaf5-1
+    endpoints:
+    - local:
+        node: stripe2-leaf5
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-13
+    template: isl-800g
+  - name: spine2-stripe2-leaf5-1
+    endpoints:
+    - local:
+        node: stripe2-leaf5
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-13
+    template: isl-800g
+  - name: spine1-stripe2-leaf6-1
+    endpoints:
+    - local:
+        node: stripe2-leaf6
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-14
+    template: isl-800g
+  - name: spine2-stripe2-leaf6-1
+    endpoints:
+    - local:
+        node: stripe2-leaf6
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-14
+    template: isl-800g
+  - name: spine1-stripe2-leaf7-1
+    endpoints:
+    - local:
+        node: stripe2-leaf7
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-15
+    template: isl-800g
+  - name: spine2-stripe2-leaf7-1
+    endpoints:
+    - local:
+        node: stripe2-leaf7
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-15
+    template: isl-800g
+  - name: spine1-stripe2-leaf8-1
+    endpoints:
+    - local:
+        node: stripe2-leaf8
+        interface: ethernet-1-1
+      remote:
+        node: spine1
+        interface: ethernet-1-16
+    template: isl-800g
+  - name: spine2-stripe2-leaf8-1
+    endpoints:
+    - local:
+        node: stripe2-leaf8
+        interface: ethernet-1-2
+      remote:
+        node: spine2
+        interface: ethernet-1-16
+    template: isl-800g
+  - name: frontend-spine1-frontend-leaf1-1
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-1
+      remote:
+        node: frontend-spine1
+        interface: ethernet-1-1
+    template: isl-400g
+  - name: frontend-spine2-frontend-leaf1-1
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-2
+      remote:
+        node: frontend-spine2
+        interface: ethernet-1-1
+    template: isl-400g
+  - name: frontend-spine1-frontend-leaf2-1
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-1
+      remote:
+        node: frontend-spine1
+        interface: ethernet-1-2
+    template: isl-400g
+  - name: frontend-spine2-frontend-leaf2-1
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-2
+      remote:
+        node: frontend-spine2
+        interface: ethernet-1-2
+    template: isl-400g
+  - name: stripe1-leaf1-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf1
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth1
+    template: edge
+  - name: stripe1-leaf2-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf2
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth2
+    template: edge
+  - name: stripe1-leaf3-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf3
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth3
+    template: edge
+  - name: stripe1-leaf4-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf4
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth4
+    template: edge
+  - name: stripe1-leaf5-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf5
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth5
+    template: edge
+  - name: stripe1-leaf6-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf6
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth6
+    template: edge
+  - name: stripe1-leaf7-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf7
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth7
+    template: edge
+  - name: stripe1-leaf8-s1
+    endpoints:
+    - local:
+        node: stripe1-leaf8
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth8
+    template: edge
+  - name: frontend-leaf1-s1
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth9
+    template: edge
+  - name: frontend-leaf2-s1
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-3
+      sim:
+        simNode: s1
+        simNodeInterface: eth10
+    template: edge
+  - name: stripe1-leaf1-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf1
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth1
+    template: edge
+  - name: stripe1-leaf2-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf2
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth2
+    template: edge
+  - name: stripe1-leaf3-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf3
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth3
+    template: edge
+  - name: stripe1-leaf4-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf4
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth4
+    template: edge
+  - name: stripe1-leaf5-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf5
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth5
+    template: edge
+  - name: stripe1-leaf6-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf6
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth6
+    template: edge
+  - name: stripe1-leaf7-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf7
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth7
+    template: edge
+  - name: stripe1-leaf8-s2
+    endpoints:
+    - local:
+        node: stripe1-leaf8
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth8
+    template: edge
+  - name: frontend-leaf1-s2
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth9
+    template: edge
+  - name: frontend-leaf2-s2
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-4
+      sim:
+        simNode: s2
+        simNodeInterface: eth10
+    template: edge
+  - name: stripe2-leaf1-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf1
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth1
+    template: edge
+  - name: stripe2-leaf2-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf2
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth2
+    template: edge
+  - name: stripe2-leaf3-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf3
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth3
+    template: edge
+  - name: stripe2-leaf4-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf4
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth4
+    template: edge
+  - name: stripe2-leaf5-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf5
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth5
+    template: edge
+  - name: stripe2-leaf6-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf6
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth6
+    template: edge
+  - name: stripe2-leaf7-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf7
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth7
+    template: edge
+  - name: stripe2-leaf8-s3
+    endpoints:
+    - local:
+        node: stripe2-leaf8
+        interface: ethernet-1-3
+      sim:
+        simNode: s3
+        simNodeInterface: eth8
+    template: edge
+  - name: frontend-leaf1-s3
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-5
+      sim:
+        simNode: s3
+        simNodeInterface: eth9
+    template: edge
+  - name: frontend-leaf2-s3
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-5
+      sim:
+        simNode: s3
+        simNodeInterface: eth10
+    template: edge
+  - name: stripe2-leaf1-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf1
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth1
+    template: edge
+  - name: stripe2-leaf2-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf2
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth2
+    template: edge
+  - name: stripe2-leaf3-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf3
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth3
+    template: edge
+  - name: stripe2-leaf4-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf4
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth4
+    template: edge
+  - name: stripe2-leaf5-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf5
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth5
+    template: edge
+  - name: stripe2-leaf6-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf6
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth6
+    template: edge
+  - name: stripe2-leaf7-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf7
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth7
+    template: edge
+  - name: stripe2-leaf8-s4
+    endpoints:
+    - local:
+        node: stripe2-leaf8
+        interface: ethernet-1-4
+      sim:
+        simNode: s4
+        simNodeInterface: eth8
+    template: edge
+  - name: frontend-leaf1-s4
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-6
+      sim:
+        simNode: s4
+        simNodeInterface: eth9
+    template: edge
+  - name: frontend-leaf2-s4
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-6
+      sim:
+        simNode: s4
+        simNodeInterface: eth10
+    template: edge
+  - name: frontend-leaf1-weka1
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-7
+      sim:
+        simNode: weka1
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka1
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-7
+      sim:
+        simNode: weka1
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka2
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-8
+      sim:
+        simNode: weka2
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka2
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-8
+      sim:
+        simNode: weka2
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka3
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-9
+      sim:
+        simNode: weka3
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka3
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-9
+      sim:
+        simNode: weka3
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka4
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-10
+      sim:
+        simNode: weka4
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka4
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-10
+      sim:
+        simNode: weka4
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka5
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-11
+      sim:
+        simNode: weka5
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka5
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-11
+      sim:
+        simNode: weka5
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka6
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-12
+      sim:
+        simNode: weka6
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka6
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-12
+      sim:
+        simNode: weka6
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka7
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-13
+      sim:
+        simNode: weka7
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka7
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-13
+      sim:
+        simNode: weka7
+        simNodeInterface: eth2
+    template: edge
+  - name: frontend-leaf1-weka8
+    endpoints:
+    - local:
+        node: frontend-leaf1
+        interface: ethernet-1-14
+      sim:
+        simNode: weka8
+        simNodeInterface: eth1
+    template: edge
+  - name: frontend-leaf2-weka8
+    endpoints:
+    - local:
+        node: frontend-leaf2
+        interface: ethernet-1-14
+      sim:
+        simNode: weka8
+        simNodeInterface: eth2
+    template: edge
+  simulation:
+    simNodeTemplates:
+    - name: testman
+      type: TestMan
+    - name: multitool
+      type: Linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+    simNodes:
+    - name: s1
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '1740'
+        topobuilder.eda.labs/y: '1060'
+    - name: s2
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '2020'
+        topobuilder.eda.labs/y: '1060'
+    - name: s3
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '5900'
+        topobuilder.eda.labs/y: '1060'
+    - name: s4
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '6180'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka1
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '8300'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka2
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '8580'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka3
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '8860'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka4
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '9140'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka5
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '9420'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka6
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '9700'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka7
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '9980'
+        topobuilder.eda.labs/y: '1060'
+    - name: weka8
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '10260'
+        topobuilder.eda.labs/y: '1060'

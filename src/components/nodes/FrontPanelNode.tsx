@@ -4,7 +4,7 @@ import { Divider, ListSubheader, Menu, MenuItem } from '@mui/material';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useTopologyStore } from '../../lib/store';
-import { memberHoverKey, useHoverHot, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
+import { esiLagHoverKey, lagHoverKey, memberHoverKey, useHoverHot, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 import { breakoutOptionsFor, cageNativeSpeed, defaultChannelGbps, type BreakoutOption } from '../../lib/connectors';
 import {
   FP_HEADER_H,
@@ -21,8 +21,10 @@ import {
 } from '../../lib/frontpanel';
 import type { UIEdge, UINodeData } from '../../types/ui';
 
-// Cage fill per cable kind (fabric link / sim-node edge / edge-link to an external endpoint).
-const PORT_FILL = { link: '#00A87E', sim: '#8E77D6', edge: '#4A90D9' } as const;
+// Cage fill per cable kind — cable-map's palette: InterSwitch blue, Edge teal (sim-node links
+// and edge-links alike), Local LAG yellow, Multihome LAG purple. Literal hexes because the
+// zoomed-out faceplate paints these onto a canvas, where CSS variables don't resolve.
+const PORT_FILL = { link: '#4092ff', sim: '#23abb6', edge: '#23abb6', lag: '#f7b737', mlag: '#9765fe' } as const;
 const FREE_FILL = '#222B37';
 const FREE_LINE = '#39445580';
 const HOT_RING = '#6098FF';
@@ -45,28 +47,62 @@ interface Occupant {
   remote?: string;
   remoteIface?: string;
   linkName?: string;
+  lagName?: string;
+  /** LAG members share the group's hover key so the whole LAG traces as one */
+  lagKey?: string;
 }
 
 function collectOccupants(nodeId: string, data: UINodeData, edges: UIEdge[]): Map<string, Occupant> {
   const byIface = new Map<string, Occupant>();
   for (const edge of edges) {
+    // ESI-LAG edges land one leg per leaf (memberLinks[i] pairs with esiLeaves[i]); React Flow
+    // only knows leaves[0] as the target, so occupancy comes from the leaf list instead.
+    if (edge.data?.edgeType === 'esilag' && edge.data.esiLeaves?.length) {
+      edge.data.esiLeaves.forEach((leaf, leafIndex) => {
+        if (leaf.nodeId !== nodeId) return;
+        const ml = edge.data?.memberLinks?.[leafIndex];
+        const iface = ml?.targetInterface;
+        if (!iface || byIface.has(iface)) return;
+        byIface.set(iface, {
+          iface,
+          kind: 'mlag',
+          edgeId: edge.id,
+          memberIndex: leafIndex,
+          edgeSelected: edge.selected,
+          remote: edge.data?.sourceNode,
+          remoteIface: ml.sourceInterface,
+          linkName: ml.name,
+          lagName: edge.data?.esiLagName,
+          lagKey: esiLagHoverKey(edge.id),
+        });
+      });
+      continue;
+    }
     const isSource = edge.source === nodeId;
     const isTarget = edge.target === nodeId;
     if (!isSource && !isTarget) continue;
     const isSim = edge.source.startsWith('sim-') || edge.target.startsWith('sim-');
     const remote = isSource ? edge.data?.targetNode : edge.data?.sourceNode;
+    const lagByIndex = new Map<number, { id: string; name: string }>();
+    for (const lag of edge.data?.lagGroups ?? []) {
+      for (const index of lag.memberLinkIndices) lagByIndex.set(index, lag);
+    }
+    const plainKind = isSim ? 'sim' : 'link';
     edge.data?.memberLinks?.forEach((ml, memberIndex) => {
       const iface = isSource ? ml.sourceInterface : ml.targetInterface;
       if (!iface || byIface.has(iface)) return;
+      const lag = lagByIndex.get(memberIndex);
       byIface.set(iface, {
         iface,
-        kind: isSim ? 'sim' : 'link',
+        kind: lag ? 'lag' : plainKind,
         edgeId: edge.id,
         memberIndex,
         edgeSelected: edge.selected,
         remote,
         remoteIface: isSource ? ml.targetInterface : ml.sourceInterface,
         linkName: ml.name,
+        lagName: lag?.name,
+        lagKey: lag ? lagHoverKey(edge.id, lag.id) : undefined,
       });
     });
   }
@@ -188,10 +224,12 @@ function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCa
   const setHover = useHoverTrace(state => state.setHover);
   const clearHover = useHoverTrace(state => state.clearHover);
   // Both ports of a member link share the cable's hover key — hovering either end (or the
-  // cable itself) rings this port, the remote port and the cable together.
-  const hoverKey = occupant.edgeId !== undefined && occupant.memberIndex !== undefined
-    ? memberHoverKey(occupant.edgeId, occupant.memberIndex)
-    : `edge:${nodeId}:${occupant.iface}`;
+  // cable itself) rings this port, the remote port and the cable together. LAG member ports
+  // share the whole group's key instead, so any of them traces the complete LAG.
+  const hoverKey = occupant.lagKey
+    ?? (occupant.edgeId !== undefined && occupant.memberIndex !== undefined
+      ? memberHoverKey(occupant.edgeId, occupant.memberIndex)
+      : `edge:${nodeId}:${occupant.iface}`);
   const hoverHot = useHoverHot(hoverKey);
 
   const fill = PORT_FILL[occupant.kind];
@@ -207,6 +245,7 @@ function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCa
       ifaceB: occupant.remoteIface,
       kind: occupant.kind,
       linkName: occupant.linkName,
+      lagName: occupant.lagName,
       speedGbps: speedGbps ?? undefined,
     };
     setHover(hoverKey, hud, occupant.kind !== 'edge');
@@ -271,9 +310,11 @@ export interface FrontPanelNodeProps {
 
 function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, headerExtra, testId, onShowDetails }: FrontPanelNodeProps) {
   // Only the edges touching this node drive its occupancy — a whole-array subscription would
-  // repaint every faceplate whenever any edge anywhere changes.
+  // repaint every faceplate whenever any edge anywhere changes. ESI-LAG edges list only their
+  // first leaf as the React Flow target, so the other leaves match via esiLeaves.
   const edges = useTopologyStore(useShallow(
-    state => state.edges.filter(e => e.source === nodeId || e.target === nodeId),
+    state => state.edges.filter(e => e.source === nodeId || e.target === nodeId
+      || e.data?.esiLeaves?.some(leaf => leaf.nodeId === nodeId)),
   ));
   const selectedEdgeId = useTopologyStore(state => state.selectedEdgeId);
   const selectedMemberLinkIndices = useTopologyStore(state => state.selectedMemberLinkIndices);

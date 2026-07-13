@@ -56,6 +56,9 @@
   --color-link-stroke: #8994a37f;
   --color-link-stroke-selected: #6098FF;
   --color-link-stroke-highlight: #6098FF;
+  /* LAG indication — same palette as cable-map (local LAG yellow, multihome LAG purple) */
+  --color-link-lag: #f7b737;
+  --color-link-mlag: #9765fe;
   --color-node-border: #8994a37f;
   --color-node-border-selected: #6098FF;
   --color-node-bg: #000000;

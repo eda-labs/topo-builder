@@ -48,6 +48,9 @@ import {
   createAnnotationSlice,
   setAnnotationIdCounter,
   type AnnotationSlice,
+  createFabricSlice,
+  setFabricIdGenerators,
+  type FabricSlice,
 } from './slices';
 import {
   captureState,
@@ -68,6 +71,7 @@ setNodeIdGenerator(generateNodeId);
 setEdgeIdGenerator(generateEdgeId);
 setEsiLagEdgeIdGenerator(generateEdgeId);
 setSimNodeIdGenerator(generateSimNodeId);
+setFabricIdGenerators(generateNodeId, generateEdgeId);
 
 // Core actions that span multiple domains
 export type EdaConnectionStatus = 'disconnected' | 'connected';
@@ -128,7 +132,8 @@ export type TopologyStore =
   & SimNodeSlice
   & TemplateSlice
   & SelectionSlice
-  & AnnotationSlice;
+  & AnnotationSlice
+  & FabricSlice;
 
 // Parse base template from YAML file
 function parseBaseTemplate(): Partial<UIState> {
@@ -673,6 +678,7 @@ export const createTopologyStore = () => {
           ...createTemplateSlice(set, get, api),
           ...createSelectionSlice(set, get, api),
           ...createAnnotationSlice(set, get, api),
+          ...createFabricSlice(set, get, api),
 
           // Override initial state from base template
           nodeTemplates: baseTemplate.nodeTemplates || [],

@@ -26,7 +26,7 @@ function EdgeLinksButton({ count, onClick }: { count: number; onClick: () => voi
         lineHeight: 1,
         padding: '2px 4px',
         borderRadius: 3,
-        background: count > 0 ? '#4A90D9' : '#39445580',
+        background: count > 0 ? '#23abb6' : '#39445580',
         color: count > 0 ? '#0b0f14' : 'var(--color-node-text)',
       }}
     >

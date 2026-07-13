@@ -1,30 +1,32 @@
 import { useEffect } from 'react';
-import { Position, EdgeLabelRenderer, getBezierPath, getSmoothStepPath } from '@xyflow/react';
-import { Chip } from '@mui/material';
+import { Position, getBezierPath, getSmoothStepPath } from '@xyflow/react';
 
+import { LINK_KIND_COLOR, cableOpacity, cableStrokeWidth } from '../../lib/linkColors';
 import type { EdgeRouting } from '../../lib/store/createStore';
-import { memberHoverKey, useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
+import { lagHoverKey, memberHoverKey, useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
 import { portAddressForInterface, portCenterInNode, type NodePanel } from '../../lib/frontpanel';
 import { getFloatingEdgeParams, getHandleCoordinates } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
 import type { UILagGroup, UIMemberLink } from '../../types/ui';
 import { topologyLagTestId, topologyMemberLinkTestId } from '../../lib/testIds';
 
-interface NodeLike {
+import CableLabel from './CableLabel';
+
+export interface NodeLike {
   position: { x: number; y: number };
   internals?: { positionAbsolute?: { x: number; y: number } };
   measured?: { width?: number; height?: number };
   data?: { breakouts?: Record<string, number> };
 }
 
-interface CableEnd { x: number; y: number; anchored: boolean; fallbackPosition: Position }
+export interface CableEnd { x: number; y: number; anchored: boolean; fallbackPosition: Position }
 
 const nodeOrigin = (node: NodeLike) => node.internals?.positionAbsolute ?? node.position;
 
 // Cable endpoint for one side of a member link: the exact port centre (or breakout-channel
 // sliver) when the node renders a front panel and the interface maps onto it, otherwise the
 // node-boundary point of the floating edge between the two nodes.
-function cableEnd(
+export function cableEnd(
   node: NodeLike,
   panel: NodePanel | null,
   iface: string | undefined,
@@ -47,44 +49,9 @@ function cableEnd(
 
 // Anchored ends leave the faceplate vertically toward the far end; floating ends keep the
 // node-boundary direction.
-function endPosition(end: CableEnd, other: CableEnd): Position {
+export function endPosition(end: CableEnd, other: CableEnd): Position {
   if (!end.anchored) return end.fallbackPosition;
   return other.y >= end.y ? Position.Bottom : Position.Top;
-}
-
-function memberStroke(isMemberSelected: boolean, isConnectedToSelectedNode?: boolean): string {
-  if (isMemberSelected) return 'var(--color-link-stroke-selected)';
-  if (isConnectedToSelectedNode) return 'var(--color-link-stroke-highlight)';
-  return 'var(--color-link-stroke)';
-}
-
-function CableLabel({ x, y, label, title }: { x: number; y: number; label: string; title: string }) {
-  return (
-    <EdgeLabelRenderer>
-      <div
-        style={{
-          position: 'absolute',
-          transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-          pointerEvents: 'none',
-        }}
-      >
-        <Chip
-          label={label}
-          size="small"
-          title={title}
-          sx={{
-            height: '14px',
-            fontSize: '8px',
-            fontWeight: 400,
-            bgcolor: 'var(--color-node-bg)',
-            color: 'var(--color-node-text)',
-            border: '1px solid var(--color-link-stroke)',
-            '& .MuiChip-label': { px: '3px' },
-          }}
-        />
-      </div>
-    </EdgeLabelRenderer>
-  );
 }
 
 interface CableProps {
@@ -113,21 +80,15 @@ function cableTestId({ lag, showLagChip, edgeNodeA, edgeNodeB, index }: Pick<Cab
   return showLagChip ? topologyLagTestId(edgeNodeA, edgeNodeB, lag.name) : undefined;
 }
 
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-function cableStrokeWidth(hovered: boolean, selected: boolean): number {
-  if (hovered) return 2;
-  return selected ? 1.5 : 1;
-}
-
 function Cable(props: CableProps) {
   const {
-    edgeId, member, index, lag, showLagChip, src, tgt, edgeNodeA, edgeNodeB, routing,
+    edgeId, member, index, lag, src, tgt, edgeNodeA, edgeNodeB, routing,
     isMemberSelected, isSimNodeEdge, isConnectedToSelectedNode,
     onMemberLinkClick, onMemberLinkContextMenu, onLagClick, onLagContextMenu,
   } = props;
 
-  const hoverKey = memberHoverKey(edgeId, index);
+  // LAG members share the group's key so hovering any member traces the whole LAG.
+  const hoverKey = lag ? lagHoverKey(edgeId, lag.id) : memberHoverKey(edgeId, index);
   const hoverMode = useHoverMode(hoverKey);
   const setHover = useHoverTrace(state => state.setHover);
   const clearHover = useHoverTrace(state => state.clearHover);
@@ -155,13 +116,16 @@ function Cable(props: CableProps) {
     if (lag) onLagContextMenu(lag.id);
     else onMemberLinkContextMenu(e, index);
   };
+  let kind: HoverHudInfo['kind'] = isSimNodeEdge ? 'sim' : 'link';
+  if (lag) kind = 'lag';
+
   const handleMouseEnter = () => {
     const hud: HoverHudInfo = {
       nodeA: edgeNodeA ?? '',
       ifaceA: member.sourceInterface,
       nodeB: edgeNodeB ?? '',
       ifaceB: member.targetInterface,
-      kind: isSimNodeEdge ? 'sim' : 'link',
+      kind,
       linkName: member.name,
       lagName: lag?.name,
     };
@@ -169,11 +133,13 @@ function Cable(props: CableProps) {
   };
 
   const hovered = hoverMode === 'on';
-  const showLabel = isMemberSelected && !lag && !hovered;
+  // Hover reveals the same interface label a click would — no selection required.
+  const showLabel = (isMemberSelected || hovered) && !lag;
 
-  const stroke = hovered && !isMemberSelected
-    ? 'var(--color-link-stroke-highlight)'
-    : memberStroke(isMemberSelected, isConnectedToSelectedNode);
+  // Cable-map look: always the kind colour — a thin muted thread at idle that pops when
+  // hovered, selected or attached to the selected node.
+  const stroke = LINK_KIND_COLOR[kind];
+  const on = hovered || isMemberSelected || Boolean(isConnectedToSelectedNode);
 
   return (
     <g style={{ cursor: 'pointer' }}>
@@ -194,23 +160,13 @@ function Cable(props: CableProps) {
         d={path}
         fill="none"
         stroke={stroke}
-        strokeWidth={cableStrokeWidth(hovered, isMemberSelected)}
-        strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
-        opacity={hoverMode === 'dim' ? 0.15 : 1}
+        strokeWidth={cableStrokeWidth(on)}
+        opacity={cableOpacity(on, hoverMode === 'dim')}
         style={{ transition: 'opacity 120ms, stroke-width 120ms' }}
         pointerEvents="none"
       />
-      {showLagChip && lag && (
-        <CableLabel x={labelX} y={labelY} label="LAG" title={`Local LAG: ${lag.name} (${lag.memberLinkIndices.length} endpoints)`} />
-      )}
       {showLabel && (
-        <CableLabel x={labelX} y={labelY} label={`${member.sourceInterface} ↔ ${member.targetInterface}`} title={member.name} />
-      )}
-      {hovered && (
-        <>
-          <CableLabel x={lerp(src.x, tgt.x, 0.18)} y={lerp(src.y, tgt.y, 0.18)} label={member.sourceInterface} title={`${edgeNodeA ?? ''} ${member.sourceInterface}`} />
-          <CableLabel x={lerp(src.x, tgt.x, 0.82)} y={lerp(src.y, tgt.y, 0.82)} label={member.targetInterface} title={`${edgeNodeB ?? ''} ${member.targetInterface}`} />
-        </>
+        <CableLabel x={labelX} y={labelY} label={`${member.sourceInterface} ↔ ${member.targetInterface}`} title={member.name} color={stroke} />
       )}
     </g>
   );

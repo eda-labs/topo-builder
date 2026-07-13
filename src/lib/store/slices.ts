@@ -9,3 +9,4 @@ export { createSimNodeSlice, setSimNodeIdGenerator, type SimNodeSlice } from './
 export { createTemplateSlice, type TemplateSlice } from './templates';
 export { createSelectionSlice, type SelectionSlice } from './selection';
 export { createAnnotationSlice, setAnnotationIdCounter, type AnnotationSlice } from './annotations';
+export { createFabricSlice, setFabricIdGenerators, type FabricSlice } from './fabric';

@@ -1,12 +1,12 @@
 /**
- * Bundled example topologies (one per namespace) exercising the platform/connector/breakout
- * combinations: an SR Linux fabric with template breakouts, the SR OS chassis/card matrix
- * with connector components, and a mixed pod. All three validate against a live cluster
- * with `kubectl apply --dry-run=server`.
+ * Bundled example topologies (one per namespace) — the Nokia validated designs for data
+ * center networks (github.com/nokia/nokia-validated-designs): the 3-stage EVPN/VXLAN fabric,
+ * the collapsed-spine design and the two-stripe rail-optimized AI cluster, with node,
+ * interface and server-homing wiring taken from the published clab topologies/EDA manifests.
  */
-import srlFabricYaml from './srl-fabric.yaml?raw';
-import srosCombosYaml from './sros-combos.yaml?raw';
-import mixedPodYaml from './mixed-pod.yaml?raw';
+import threeStageYaml from './nvd-3stage.yaml?raw';
+import collapsedSpineYaml from './nvd-collapsed-spine.yaml?raw';
+import aiClusterYaml from './nvd-ai-cluster.yaml?raw';
 
 export interface ExampleTopology {
   id: string;
@@ -18,24 +18,24 @@ export interface ExampleTopology {
 
 export const exampleTopologies: readonly ExampleTopology[] = [
   {
-    id: 'srl-fabric',
-    title: 'SR Linux fabric',
+    id: 'nvd-3stage',
+    title: '3-stage EVPN/VXLAN',
     namespace: 'eda',
-    description: '3-tier fabric · 2×400G / 4×100G / 4×10G breakouts · LAG · sim nodes',
-    yaml: srlFabricYaml,
+    description: 'Nokia validated design · 2 spines × 6 leaves · single/dual/quad-homed servers (ESI-LAG)',
+    yaml: threeStageYaml,
   },
   {
-    id: 'sros-combos',
-    title: 'SR OS chassis matrix',
-    namespace: 'sros',
-    description: 'Every 7750 flavour · IOM/MDA/XCM cards · c1/c2/c4/c10 connectors',
-    yaml: srosCombosYaml,
+    id: 'nvd-collapsed-spine',
+    title: 'Collapsed spine',
+    namespace: 'collapsed',
+    description: 'Nokia validated design · 2 collapsed spines · 3 ToRs · hosts on spines and ToRs',
+    yaml: collapsedSpineYaml,
   },
   {
-    id: 'mixed-pod',
-    title: 'Mixed pod',
-    namespace: '1000',
-    description: 'SRL ↔ SR OS links · breakouts both sides · ESI-LAG · edge links',
-    yaml: mixedPodYaml,
+    id: 'nvd-ai-cluster',
+    title: 'AI cluster (rail-optimized)',
+    namespace: 'ai-dc',
+    description: 'Nokia validated design · two-stripe backend (H4/H5) · frontend + storage fabric · GPU rails',
+    yaml: aiClusterYaml,
   },
 ];

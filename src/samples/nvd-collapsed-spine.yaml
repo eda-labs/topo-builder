@@ -1,0 +1,241 @@
+apiVersion: topologies.eda.nokia.com/v1
+kind: NetworkTopology
+metadata:
+  name: collapsed-spine-evpn-vxlan
+  namespace: collapsed
+spec:
+  operation: Reconcile
+  nodeTemplates:
+  - name: collapsed-spine
+    labels:
+      eda.nokia.com/role: collapsed-spine
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: collapsed-spine
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-D3L
+  - name: tor
+    labels:
+      eda.nokia.com/role: tor
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: tor
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-D2L
+  - name: tor-d3l
+    labels:
+      eda.nokia.com/role: tor
+      eda.nokia.com/security-profile: managed
+    annotations:
+      topobuilder.eda.labs/name-prefix: tor-d3l
+    nodeProfile: srlinux-ghcr-26.3.1
+    platform: 7220 IXR-D3L
+  nodes:
+  - name: spine1
+    template: collapsed-spine
+    annotations:
+      topobuilder.eda.labs/x: '320'
+      topobuilder.eda.labs/y: '60'
+  - name: spine2
+    template: collapsed-spine
+    annotations:
+      topobuilder.eda.labs/x: '840'
+      topobuilder.eda.labs/y: '60'
+  - name: tor1
+    template: tor
+    annotations:
+      topobuilder.eda.labs/x: '60'
+      topobuilder.eda.labs/y: '520'
+  - name: tor2
+    template: tor
+    annotations:
+      topobuilder.eda.labs/x: '580'
+      topobuilder.eda.labs/y: '520'
+  - name: tor3
+    template: tor-d3l
+    annotations:
+      topobuilder.eda.labs/x: '1100'
+      topobuilder.eda.labs/y: '520'
+  linkTemplates:
+  - name: isl
+    type: InterSwitch
+    speed: 100G
+    encapType: 'Null'
+    labels:
+      eda.nokia.com/role: InterSwitch
+  - name: edge
+    type: Edge
+    encapType: Dot1q
+    labels:
+      eda.nokia.com/role: Edge
+  links:
+  - name: spine1-spine2-1
+    endpoints:
+    - local:
+        node: spine2
+        interface: ethernet-1-31
+      remote:
+        node: spine1
+        interface: ethernet-1-31
+    template: isl
+  - name: spine1-spine2-2
+    endpoints:
+    - local:
+        node: spine2
+        interface: ethernet-1-32
+      remote:
+        node: spine1
+        interface: ethernet-1-32
+    template: isl
+  - name: spine1-tor1-1
+    endpoints:
+    - local:
+        node: tor1
+        interface: ethernet-1-51
+      remote:
+        node: spine1
+        interface: ethernet-1-25
+    template: isl
+  - name: spine2-tor1-1
+    endpoints:
+    - local:
+        node: tor1
+        interface: ethernet-1-52
+      remote:
+        node: spine2
+        interface: ethernet-1-25
+    template: isl
+  - name: spine1-tor2-1
+    endpoints:
+    - local:
+        node: tor2
+        interface: ethernet-1-51
+      remote:
+        node: spine1
+        interface: ethernet-1-26
+    template: isl
+  - name: spine2-tor2-1
+    endpoints:
+    - local:
+        node: tor2
+        interface: ethernet-1-52
+      remote:
+        node: spine2
+        interface: ethernet-1-26
+    template: isl
+  - name: spine1-tor3-1
+    endpoints:
+    - local:
+        node: tor3
+        interface: ethernet-1-29
+      remote:
+        node: spine1
+        interface: ethernet-1-29
+    template: isl
+  - name: spine2-tor3-1
+    endpoints:
+    - local:
+        node: tor3
+        interface: ethernet-1-30
+      remote:
+        node: spine2
+        interface: ethernet-1-30
+    template: isl
+  - name: s1-spine1
+    endpoints:
+    - local:
+        node: spine1
+        interface: ethernet-1-27
+      sim:
+        simNode: s1
+        simNodeInterface: eth1
+    template: edge
+  - name: s2-spine2
+    endpoints:
+    - local:
+        node: spine2
+        interface: ethernet-1-29
+      sim:
+        simNode: s2
+        simNodeInterface: eth1
+    template: edge
+  - name: s3-esi-lag
+    endpoints:
+    - local:
+        node: spine1
+        interface: ethernet-1-23
+      sim:
+        simNode: s3
+        simNodeInterface: eth1
+    - local:
+        node: spine2
+        interface: ethernet-1-23
+      sim:
+        simNode: s3
+        simNodeInterface: eth2
+    template: edge
+  - name: s4-tor1
+    endpoints:
+    - local:
+        node: tor1
+        interface: ethernet-1-55
+      sim:
+        simNode: s4
+        simNodeInterface: eth1
+    template: edge
+  - name: s5-tor2
+    endpoints:
+    - local:
+        node: tor2
+        interface: ethernet-1-56
+      sim:
+        simNode: s5
+        simNodeInterface: eth1
+    template: edge
+  - name: s6-tor3
+    endpoints:
+    - local:
+        node: tor3
+        interface: ethernet-1-32
+      sim:
+        simNode: s6
+        simNodeInterface: eth1
+    template: edge
+  simulation:
+    simNodeTemplates:
+    - name: testman
+      type: TestMan
+    - name: multitool
+      type: Linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+    simNodes:
+    - name: s1
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '1500'
+        topobuilder.eda.labs/y: '60'
+    - name: s2
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '1780'
+        topobuilder.eda.labs/y: '60'
+    - name: s3
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '1640'
+        topobuilder.eda.labs/y: '380'
+    - name: s4
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '60'
+        topobuilder.eda.labs/y: '980'
+    - name: s5
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '580'
+        topobuilder.eda.labs/y: '980'
+    - name: s6
+      template: multitool
+      annotations:
+        topobuilder.eda.labs/x: '1100'
+        topobuilder.eda.labs/y: '980'

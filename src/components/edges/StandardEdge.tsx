@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { Position } from '@xyflow/react';
 import { getBezierPath, getSmoothStepPath, EdgeLabelRenderer } from '@xyflow/react';
 import { Bezier } from 'bezier-js';
@@ -5,8 +6,11 @@ import { Chip } from '@mui/material';
 
 import { getControlPoint } from '../../lib/edgeUtils';
 import { EDGE_INTERACTION_WIDTH } from '../../lib/constants';
+import { LINK_KIND_COLOR, cableOpacity, cableStrokeWidth } from '../../lib/linkColors';
 import type { EdgeRouting } from '../../lib/store/createStore';
 import { useHoverMode, useHoverTrace, type HoverHudInfo } from '../../lib/store/hoverTrace';
+
+import CableLabel from './CableLabel';
 
 interface StandardEdgeProps {
   testId?: string;
@@ -47,6 +51,13 @@ export default function StandardEdge({
   const hoverMode = useHoverMode(hoverKey ?? null);
   const setHover = useHoverTrace(state => state.setHover);
   const clearHover = useHoverTrace(state => state.clearHover);
+
+  // An edge deleted mid-hover never fires mouseleave — drop its trace on unmount.
+  useEffect(() => {
+    if (!hoverKey) return;
+    return () => { clearHover(hoverKey); };
+  }, [hoverKey, clearHover]);
+
   let edgePath: string;
   let edgeMidpoint: { x: number; y: number };
 
@@ -97,13 +108,13 @@ export default function StandardEdge({
   };
 
   const hovered = hoverMode === 'on';
-  let strokeColor = 'var(--color-link-stroke)';
-  if (isConnectedToSelectedNode || hovered) {
-    strokeColor = 'var(--color-link-stroke-highlight)';
-  }
-  if (isSelected) {
-    strokeColor = 'var(--color-link-stroke-selected)';
-  }
+  // Single links label on hover exactly like on click; bundles keep the count chip instead.
+  const showLabel = linkCount === 1 && (hovered || isSelected)
+    && Boolean(hoverHud?.ifaceA && hoverHud.ifaceB);
+  // Cable-map look: always the kind colour — a thin muted thread at idle that pops when
+  // hovered, selected or attached to the selected node.
+  const strokeColor = LINK_KIND_COLOR[hoverHud?.kind ?? (isSimNodeEdge ? 'sim' : 'link')];
+  const on = hovered || isSelected || Boolean(isConnectedToSelectedNode);
 
   return (
     <>
@@ -125,12 +136,20 @@ export default function StandardEdge({
           d={edgePath}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={hovered ? 2 : 1}
-          strokeDasharray={isSimNodeEdge ? '5 5' : undefined}
-          opacity={hoverMode === 'dim' ? 0.15 : 1}
+          strokeWidth={cableStrokeWidth(on)}
+          opacity={cableOpacity(on, hoverMode === 'dim')}
           style={{ transition: 'opacity 120ms, stroke-width 120ms' }}
         />
       </g>
+      {showLabel && hoverHud && (
+        <CableLabel
+          x={edgeMidpoint.x}
+          y={edgeMidpoint.y}
+          label={`${hoverHud.ifaceA} ↔ ${hoverHud.ifaceB ?? ''}`}
+          title={hoverHud.linkName ?? ''}
+          color={strokeColor}
+        />
+      )}
       {linkCount > 1 && (
         <EdgeLabelRenderer>
           <div

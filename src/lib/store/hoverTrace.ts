@@ -19,7 +19,7 @@ export interface HoverHudInfo {
   ifaceA: string;
   nodeB: string;
   ifaceB?: string;
-  kind: 'link' | 'sim' | 'edge' | 'free';
+  kind: 'link' | 'sim' | 'edge' | 'free' | 'lag' | 'mlag';
   linkName?: string;
   lagName?: string;
   /** per-channel/cage speed in Gb/s when known */
@@ -48,6 +48,13 @@ export const useHoverTrace = create<HoverTraceState>((set, get) => ({
 
 export const memberHoverKey = (edgeId: string, memberIndex: number): string =>
   `${edgeId}#${memberIndex}`;
+
+// LAGs trace as one unit (cable-map behaviour): every member cable and every member port of
+// the group shares the key, so hovering any of them lights the whole LAG.
+export const lagHoverKey = (edgeId: string, lagId: string): string =>
+  `lag:${edgeId}:${lagId}`;
+
+export const esiLagHoverKey = (edgeId: string): string => `esi:${edgeId}`;
 
 /** Display mode of the element identified by `key` (null -> element never lights, only dims). */
 export function useHoverMode(key: string | null): HoverMode {

@@ -41,6 +41,8 @@ export interface LagActions {
   createLagFromMemberLinks: (edgeId: string, memberLinkIndices: number[]) => void;
   addLinkToLag: (edgeId: string, lagId: string) => void;
   removeLinkFromLag: (edgeId: string, lagId: string, memberLinkIndex: number) => void;
+  /** ungroup: drop the LAG grouping but keep its member links as plain links */
+  dissolveLag: (edgeId: string, lagId: string) => void;
 }
 
 export type LagSlice = LagState & LagActions;
@@ -142,6 +144,30 @@ export const createLagSlice: LagSliceCreator = (set, get) => ({
           : e,
       ),
       selectedLagId: lagId,
+    });
+    get().triggerYamlRefresh();
+  },
+
+  dissolveLag: (edgeId: string, lagId: string) => {
+    get().saveToUndoHistory();
+    const edges = get().edges;
+    const edge = edges.find(e => e.id === edgeId);
+    if (!edge?.data?.lagGroups?.some(l => l.id === lagId)) return;
+
+    set({
+      edges: edges.map(e => {
+        if (e.id !== edgeId || !e.data) return e;
+        const lagGroups = (e.data.lagGroups ?? []).filter(l => l.id !== lagId);
+        return {
+          ...e,
+          data: {
+            ...e.data,
+            lagGroups: lagGroups.length ? lagGroups : undefined,
+            edgeType: lagGroups.length ? e.data.edgeType : 'normal',
+          },
+        };
+      }),
+      selectedLagId: get().selectedLagId === lagId ? null : get().selectedLagId,
     });
     get().triggerYamlRefresh();
   },

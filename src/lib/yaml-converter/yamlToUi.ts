@@ -24,8 +24,10 @@ import type {
 } from '../../types/ui';
 import { DEFAULT_INTERFACE, ANNOTATION_DRAWING, ANNOTATION_BREAKOUTS } from '../constants';
 import { deriveBreakoutsFromComponents } from '../connectors';
-import { parseBreakouts } from '../frontpanel';
+import { isSrosNode } from '../interfaces';
+import { parseBreakouts, portAddressForInterface, resolveNodePanel } from '../frontpanel';
 
+import { collapseBreakoutVariants, harvestTemplateBreakouts } from './breakoutTemplates';
 import {
   asArray,
   extractPosition,
@@ -186,6 +188,7 @@ function parseYamlTopoNodes(options: {
 
     const { platform, nodeProfile } = resolvePlatformAndProfile(node, nodeTemplateMap);
     const userLabels = filterUserLabels(node.labels);
+    const parsedBreakouts = parseBreakouts(node.annotations?.[ANNOTATION_BREAKOUTS]);
 
     nodes.push({
       id,
@@ -201,7 +204,8 @@ function parseYamlTopoNodes(options: {
         productionAddress: node.productionAddress,
         nodeProfile,
         labels: userLabels,
-        breakouts: parseBreakouts(node.annotations?.[ANNOTATION_BREAKOUTS]),
+        breakouts: parsedBreakouts?.breakouts,
+        breakoutSpeeds: parsedBreakouts?.breakoutSpeeds,
         components: node.components?.length ? node.components : undefined,
       },
     });
@@ -275,30 +279,55 @@ function parseYamlSimulation(options: {
 const SRL_CHANNEL_RE = /^ethernet-\d+-(\d+)-(\d+)$/;
 
 /**
- * A channelised SR Linux interface on a link implies its cage is broken out, even when the
- * topobuilder breakout annotation is absent (hand-written YAML). Infer a sensible channel
- * count (2/4/8) so the front panel renders the cage split.
+ * A channelised interface on a link implies its cage is broken out, even when the breakout
+ * annotation/template is absent (hand-written YAML). Infer a sensible channel count so the
+ * front panel renders the cage split. On SR OS, channel 1 also exists on plain c1 connectors
+ * ("ethernet-1-a-3-1"), so only channels >= 2 imply a breakout there.
  */
-function inferBreakoutsFromEdges(nodes: UINode[], edges: UIEdge[]): void {
+function inferBreakoutsFromEdges(nodes: UINode[], edges: UIEdge[], nodeTemplates: NodeTemplate[]): void {
   const nodesById = new Map(nodes.map(n => [n.id, n]));
   const note = (nodeId: string, iface: string | undefined) => {
-    const match = iface ? SRL_CHANNEL_RE.exec(iface) : null;
-    if (!match) return;
+    if (!iface) return;
     const node = nodesById.get(nodeId);
     if (!node || node.data.nodeType === 'simnode') return;
-    const cage = match[1];
-    const channel = Number(match[2]);
-    let needed = 8;
+
+    const sros = isSrosNode(node, nodeTemplates);
+    const panel = resolveNodePanel(node.data, nodeTemplates);
+    let cage: string;
+    let channel: number;
+    if (panel) {
+      const address = portAddressForInterface(iface, panel.meta);
+      if (!address?.channel || !panel.meta.layout.some(p => p.p === address.cage)) return;
+      cage = address.cage;
+      channel = address.channel;
+    } else {
+      const match = SRL_CHANNEL_RE.exec(iface);
+      if (!match) return;
+      cage = match[1];
+      channel = Number(match[2]);
+    }
+    if (sros && channel < 2) return;
+
+    let needed = 10;
     if (channel <= 2) needed = 2;
     else if (channel <= 4) needed = 4;
+    else if (channel <= 8) needed = 8;
     const breakouts = node.data.breakouts ?? {};
     if ((breakouts[cage] ?? 0) >= needed) return;
     node.data.breakouts = { ...breakouts, [cage]: needed };
   };
   for (const edge of edges) {
-    for (const member of edge.data?.memberLinks ?? []) {
+    const members = asArray<UIMemberLink>(edge.data?.memberLinks);
+    // ESI-LAG members fan out to a different leaf node each; plain edges share one target.
+    const esiLeaves = edge.data?.edgeType === 'esilag' ? asArray<UIEsiLeaf>(edge.data?.esiLeaves) : null;
+    members.forEach((member, index) => {
       note(edge.source, member.sourceInterface);
-      note(edge.target, member.targetInterface);
+      note(esiLeaves ? esiLeaves[index]?.nodeId ?? '' : edge.target, member.targetInterface);
+    });
+  }
+  for (const node of nodes) {
+    for (const edgeLink of node.data.edgeLinks ?? []) {
+      note(node.id, edgeLink.interface);
     }
   }
 }
@@ -348,12 +377,18 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
     nodes.push(...simNodeNodes);
 
     const allLinks = asArray<Link>(parsed.spec?.links);
+
+    // Breakout intent on link templates lands on the nodes' front panels; derived variant
+    // templates then collapse back onto their base so the template list stays clean.
+    harvestTemplateBreakouts({ nodes, links: allLinks, linkTemplates, nodeTemplates });
+    const collapsedLinkTemplates = collapseBreakoutVariants(allLinks, linkTemplates);
+
     const edgeLinksByNode = parseEdgeOnlyLinks(allLinks);
     attachEdgeLinksToNodes(nodes, edgeLinksByNode);
 
     const edges = yamlLinksToUIEdges(allLinks, nameToId, existingEdges);
     deriveBreakoutsFromComponents(nodes, nodeTemplates);
-    inferBreakoutsFromEdges(nodes, edges);
+    inferBreakoutsFromEdges(nodes, edges, nodeTemplates);
 
     let annotations: UIAnnotation[] = [];
     const metadataAnnotations = parsed.metadata &&
@@ -375,7 +410,7 @@ export function yamlToUI(yamlString: string, options: YamlToUIOptions = {}): Yam
       namespace,
       operation,
       nodeTemplates,
-      linkTemplates,
+      linkTemplates: collapsedLinkTemplates,
       nodes,
       edges,
       simulation: {

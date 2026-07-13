@@ -34,6 +34,8 @@ export interface UINodeData {
   edgeLinks?: UIEdgeLink[];
   /** front-panel cage id -> breakout channel count (e.g. { "3": 4 }) */
   breakouts?: Record<string, number>;
+  /** cage id -> per-channel Gb/s, only when it differs from nativeSpeed/channels (e.g. 4 × 10G on a 100G cage) */
+  breakoutSpeeds?: Record<string, number>;
   /** fitted hardware (line cards, MDAs, connectors) emitted on the YAML node */
   components?: Component[];
 }

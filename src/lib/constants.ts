@@ -12,8 +12,10 @@ export const ANNOTATION_MEMBER_INDEX = 'topobuilder.eda.labs/memberIndex';
 export const ANNOTATION_SRC_HANDLE = 'topobuilder.eda.labs/srcHandle';
 export const ANNOTATION_DST_HANDLE = 'topobuilder.eda.labs/dstHandle';
 export const ANNOTATION_NAME_PREFIX = 'topobuilder.eda.labs/name-prefix';
-// Per-node port breakouts, serialised as "cage:channels,cage:channels" (e.g. "3:4,7:2").
+// Per-node port breakouts, serialised as "cage:channels[x<gbps>],…" (e.g. "3:4,7:4x10").
 export const ANNOTATION_BREAKOUTS = 'topobuilder.eda.labs/breakouts';
+// Marks a link template generated from breakout state; the value is the base template name.
+export const ANNOTATION_BREAKOUT_VARIANT = 'topobuilder.eda.labs/breakout-variant';
 
 export const ANNOTATION_DRAWING = 'topobuilder.eda.labs/drawing';
 

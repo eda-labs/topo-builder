@@ -35,6 +35,7 @@ import { formatBreakouts } from '../frontpanel';
 import { exportNodeComponents } from '../connectors';
 import { migrateValue } from '../schemaEnums';
 
+import { applyBreakoutTemplates } from './breakoutTemplates';
 import { asArray, fallbackIfEmptyString } from './shared';
 
 // ============ UI → YAML Conversion ============
@@ -131,6 +132,8 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   const simNodeIdToName = new Map<string, string>();
   simNodes.forEach(node => simNodeIdToName.set(node.id, node.data.name));
 
+  const usedInterfacesByNodeId = collectUsedInterfaces(topoNodes, edges);
+
   // Convert TopoNodes
   const yamlNodes: TopoNode[] = topoNodes.map(node => {
     const yamlNode: TopoNode = { name: node.data.name };
@@ -154,9 +157,14 @@ export function buildCrd(options: UIToYamlOptions): Topology {
       yamlNode.labels = node.data.labels;
     }
 
-    // SR OS breakouts materialise as connector components; only what connectors cannot
-    // express (SR Linux breakouts, unresolved faceplates) stays in the annotation.
-    const { components, residualBreakouts } = exportNodeComponents(node, nodeTemplates);
+    // SR OS breakouts materialise as connector components (cabled cages get their plain c1
+    // connector too); only what connectors cannot express (SR Linux breakouts, unresolved
+    // faceplates) stays in the annotation.
+    const { components, residualBreakouts } = exportNodeComponents(
+      node,
+      nodeTemplates,
+      usedInterfacesByNodeId.get(node.id) ?? [],
+    );
     if (components.length > 0) yamlNode.components = components;
 
     if (!disableAnnotations) {
@@ -164,7 +172,7 @@ export function buildCrd(options: UIToYamlOptions): Topology {
         [ANNOTATION_POS_X]: String(Math.round(node.position.x)),
         [ANNOTATION_POS_Y]: String(Math.round(node.position.y)),
       };
-      const breakouts = formatBreakouts(residualBreakouts);
+      const breakouts = formatBreakouts(residualBreakouts, node.data.breakoutSpeeds);
       if (breakouts) yamlNode.annotations[ANNOTATION_BREAKOUTS] = breakouts;
     }
 
@@ -177,6 +185,15 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   // Convert node edge links to YAML links
   const edgeLinks = collectEdgeLinksFromNodes(topoNodes);
   yamlLinks.push(...edgeLinks);
+
+  // Links landing on broken-out SR Linux cages move onto derived templates carrying the
+  // breakout spec (EDA's native breakout mechanism); SR OS is covered by the connectors.
+  const finalLinkTemplates = applyBreakoutTemplates({
+    links: yamlLinks,
+    linkTemplates: yamlLinkTemplates,
+    nodes: topoNodes,
+    nodeTemplates,
+  });
 
   const metadataObj: Record<string, unknown> = {
     name: topologyName,
@@ -199,7 +216,9 @@ export function buildCrd(options: UIToYamlOptions): Topology {
         ? nodeTemplates.map(({ annotations: _, ...rest }) => rest)
         : nodeTemplates,
       nodes: yamlNodes,
-      linkTemplates: yamlLinkTemplates,
+      linkTemplates: disableAnnotations
+        ? finalLinkTemplates.map(({ annotations: _, ...rest }) => rest)
+        : finalLinkTemplates,
       links: yamlLinks,
     },
   };
@@ -247,6 +266,33 @@ export function buildCrd(options: UIToYamlOptions): Topology {
   }
 
   return crd;
+}
+
+/** Interfaces referenced by fabric/sim cables and edge links, per topo-node id. */
+function collectUsedInterfaces(topoNodes: UINode[], edges: UIEdge[]): Map<string, string[]> {
+  const used = new Map<string, string[]>();
+  const add = (nodeId: string, iface: string | undefined) => {
+    if (!iface) return;
+    const list = used.get(nodeId) ?? [];
+    list.push(iface);
+    used.set(nodeId, list);
+  };
+
+  for (const edge of edges) {
+    const members = asArray<UIMemberLink>(edge.data?.memberLinks);
+    // ESI-LAG members fan out to a different leaf node each; plain edges share one target.
+    const esiLeaves = edge.data?.edgeType === 'esilag' ? asArray<UIEsiLeaf>(edge.data?.esiLeaves) : null;
+    members.forEach((member, index) => {
+      add(edge.source, member.sourceInterface);
+      add(esiLeaves ? esiLeaves[index]?.nodeId ?? '' : edge.target, member.targetInterface);
+    });
+  }
+  for (const node of topoNodes) {
+    for (const edgeLink of node.data.edgeLinks ?? []) {
+      add(node.id, edgeLink.interface);
+    }
+  }
+  return used;
 }
 
 function collectEdgeLinksFromNodes(nodes: UINode[]): Link[] {

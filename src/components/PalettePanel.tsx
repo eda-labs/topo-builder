@@ -36,6 +36,7 @@ import {
   type CatalogFixedItem,
 } from '../lib/catalog';
 import { DEFAULT_NODE_PROFILE_SRL, DEFAULT_NODE_PROFILE_SROS } from '../lib/constants';
+import { exampleTopologies, type ExampleTopology } from '../samples';
 import type { Component, NodeTemplate, SimNodeTemplate } from '../types/schema';
 
 import { RoleIcons } from './nodes/roleIcons';
@@ -50,6 +51,7 @@ const MAX_PANEL_WIDTH = 460;
 const RAIL_WIDTH = 36;
 const ELLIPSIS_SX = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
 const HOVER_COLOR = 'primary.main';
+const HOVER_SX = { borderColor: HOVER_COLOR, bgcolor: 'action.hover' } as const;
 const ITEM_HINT = 'Drag onto the canvas · click for details';
 
 export type PaletteDragPayload =
@@ -177,7 +179,7 @@ function PaletteItem({
         borderColor: 'divider',
         cursor: 'grab',
         userSelect: 'none',
-        '&:hover': { borderColor: HOVER_COLOR, bgcolor: 'action.hover' },
+        '&:hover': HOVER_SX,
         '&:active': { cursor: 'grabbing' },
       }}
     >
@@ -284,7 +286,7 @@ function ChassisConfigurator({ item, previewWidth, onAdd, onOpenDetails }: {
         borderColor: 'divider',
         cursor: valid ? 'grab' : 'default',
         userSelect: 'none',
-        '&:hover': { borderColor: HOVER_COLOR, bgcolor: 'action.hover' },
+        '&:hover': HOVER_SX,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
@@ -404,6 +406,42 @@ function CatalogGroupSection({ family, items, expanded, onToggle, onAdd, onOpenD
   );
 }
 
+/** Bundled example topology: clicking replaces the canvas (undoable) and refreshes the YAML. */
+function ExampleItem({ example, onLoad }: { example: ExampleTopology; onLoad: (example: ExampleTopology) => void }) {
+  return (
+    <Box
+      data-testid={`palette-example-${example.id}`}
+      onClick={() => { onLoad(example); }}
+      title="Load this example topology (replaces the canvas — undo restores it)"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.25,
+        p: 1,
+        borderRadius: 1,
+        border: '1px dashed',
+        borderColor: 'divider',
+        cursor: 'pointer',
+        userSelect: 'none',
+        '&:hover': HOVER_SX,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700, ...ELLIPSIS_SX }}>
+          {example.title}
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        <Typography variant="caption" sx={{ color: TEXT_SECONDARY, flexShrink: 0, fontSize: 10 }}>
+          ns: {example.namespace}
+        </Typography>
+      </Box>
+      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontSize: 10, ...ELLIPSIS_SX }}>
+        {example.description}
+      </Typography>
+    </Box>
+  );
+}
+
 function templateRole(template: NodeTemplate): string | undefined {
   return template.labels?.['eda.nokia.com/role'];
 }
@@ -415,7 +453,7 @@ function matchesQuery(label: string, query: string): boolean {
 export default function PalettePanel() {
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const simNodeTemplates = useTopologyStore(state => state.simulation.simNodeTemplates);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
 
   const [open, setOpen] = useState(() => localStorage.getItem('topology-palette-open') !== '0');
   const [query, setQuery] = useState('');
@@ -472,6 +510,15 @@ export default function PalettePanel() {
       return next;
     });
   };
+
+  const loadExample = useCallback((example: ExampleTopology) => {
+    const store = useTopologyStore.getState();
+    store.saveToUndoHistory();
+    if (store.importFromYaml(example.yaml)) {
+      store.triggerYamlRefresh();
+      setTimeout(() => { void fitView({ padding: 0.1, duration: 300 }); }, 100);
+    }
+  }, [fitView]);
 
   const addAtCanvasCenter = (payload: PaletteDragPayload) => {
     const canvas = document.querySelector('[data-testid="topology-canvas"]');
@@ -634,6 +681,15 @@ export default function PalettePanel() {
           <Typography variant="caption" sx={{ color: TEXT_SECONDARY }}>
             No platforms match “{query.trim()}”.
           </Typography>
+        )}
+
+        {!searching && (
+          <>
+            <SectionHeader>EXAMPLES</SectionHeader>
+            {exampleTopologies.map(example => (
+              <ExampleItem key={example.id} example={example} onLoad={loadExample} />
+            ))}
+          </>
         )}
 
         {simNodeTemplates.length > 0 && !searching && (

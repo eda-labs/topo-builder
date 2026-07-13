@@ -13,12 +13,26 @@ export interface NodeTemplate {
   annotations?: Record<string, string>;
 }
 
+export interface BreakoutEndpointSpec {
+  channels?: number;
+  /** per-channel speed, e.g. "100G" */
+  speed?: string;
+}
+
+/** Port-breakout intent EDA applies to the endpoints of links using the template. */
+export interface LinkTemplateBreakout {
+  local?: BreakoutEndpointSpec;
+  remote?: BreakoutEndpointSpec;
+}
+
 export interface LinkTemplate {
   name: string;
   type?: string;
   speed?: string;
   encapType?: string;
   labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  breakouts?: LinkTemplateBreakout[];
 }
 
 export interface SimNodeTemplate {

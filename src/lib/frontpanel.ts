@@ -205,26 +205,49 @@ export function portCenterInNode(
   };
 }
 
-// ---- breakout persistence ("cage:channels,cage:channels") ----------------
+// ---- breakout persistence ("cage:channels[x<gbps>],…") --------------------
 
-export function parseBreakouts(value: string | undefined): Record<string, number> | undefined {
-  if (!value) return undefined;
-  const breakouts: Record<string, number> = {};
-  for (const entry of value.split(',')) {
-    const [cage, channels] = entry.split(':');
-    const n = Number(channels);
-    if (cage && Number.isInteger(n) && n >= 2 && n <= 16) breakouts[cage.trim()] = n;
-  }
-  return Object.keys(breakouts).length ? breakouts : undefined;
+export interface ParsedBreakouts {
+  breakouts: Record<string, number>;
+  /** per-channel Gb/s overrides for cages whose speed is not nativeSpeed/channels */
+  breakoutSpeeds?: Record<string, number>;
 }
 
-export function formatBreakouts(breakouts: Record<string, number> | undefined): string | null {
+export function parseBreakouts(value: string | undefined): ParsedBreakouts | undefined {
+  if (!value) return undefined;
+  const breakouts: Record<string, number> = {};
+  const breakoutSpeeds: Record<string, number> = {};
+  for (const entry of value.split(',')) {
+    const [cage, spec] = entry.split(':');
+    const [channels, gbps] = (spec ?? '').split('x');
+    const n = Number(channels);
+    if (!cage || !Number.isInteger(n) || n < 2 || n > 16) continue;
+    breakouts[cage.trim()] = n;
+    const speed = Number(gbps);
+    if (Number.isInteger(speed) && speed >= 1) breakoutSpeeds[cage.trim()] = speed;
+  }
+  if (!Object.keys(breakouts).length) return undefined;
+  return {
+    breakouts,
+    breakoutSpeeds: Object.keys(breakoutSpeeds).length ? breakoutSpeeds : undefined,
+  };
+}
+
+export function formatBreakouts(
+  breakouts: Record<string, number> | undefined,
+  breakoutSpeeds?: Record<string, number>,
+): string | null {
   if (!breakouts) return null;
   const entries = Object.entries(breakouts)
     .filter(([, n]) => Number.isInteger(n) && n >= 2)
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
   if (!entries.length) return null;
-  return entries.map(([cage, n]) => `${cage}:${n}`).join(',');
+  return entries
+    .map(([cage, n]) => {
+      const gbps = breakoutSpeeds?.[cage];
+      return gbps ? `${cage}:${n}x${gbps}` : `${cage}:${n}`;
+    })
+    .join(',');
 }
 
 // ---- interface name <-> cage id -----------------------------------------

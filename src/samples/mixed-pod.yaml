@@ -1,0 +1,221 @@
+apiVersion: topologies.eda.nokia.com/v1
+kind: NetworkTopology
+metadata:
+  name: mixed-pod-example
+  namespace: "1000"
+spec:
+  operation: Reconcile
+  nodeTemplates:
+    - name: leaf
+      labels:
+        eda.nokia.com/role: leaf
+        eda.nokia.com/security-profile: managed
+      annotations:
+        topobuilder.eda.labs/name-prefix: leaf
+      nodeProfile: srlinux-ghcr-26.3.1
+      platform: 7220 IXR-D3L
+    - name: spine
+      labels:
+        eda.nokia.com/role: spine
+        eda.nokia.com/security-profile: managed
+      annotations:
+        topobuilder.eda.labs/name-prefix: spine
+      nodeProfile: srlinux-ghcr-26.3.1
+      platform: 7220 IXR-H5-64D
+  nodes:
+    - name: spine1
+      template: spine
+      annotations:
+        topobuilder.eda.labs/x: "900"
+        topobuilder.eda.labs/y: "60"
+        topobuilder.eda.labs/breakouts: "1:8"
+    - name: leaf1
+      template: leaf
+      annotations:
+        topobuilder.eda.labs/x: "60"
+        topobuilder.eda.labs/y: "480"
+    - name: leaf2
+      template: leaf
+      annotations:
+        topobuilder.eda.labs/x: "620"
+        topobuilder.eda.labs/y: "480"
+    - name: sr1s-1
+      platform: 7750 SR-1s
+      nodeProfile: sros-ghcr-25.7.r1
+      components:
+        - kind: mda
+          slot: "1"
+          type: s36-400gb-qsfpdd
+        - kind: connector
+          slot: 1-a-1
+          type: c1-400g
+        - kind: connector
+          slot: 1-a-3
+          type: c4-100g
+      annotations:
+        topobuilder.eda.labs/x: "1250"
+        topobuilder.eda.labs/y: "480"
+    - name: border1
+      platform: 7750 SR-2s
+      nodeProfile: sros-ghcr-25.7.r1
+      components:
+        - kind: mda
+          slot: "1"
+          type: ms16-100gb-sfpdd+4-100gb-qsfp28
+        - kind: mda
+          slot: "2"
+          type: ms8-100gb-sfpdd+2-100gb-qsfp28
+        - kind: connector
+          slot: 1-a-1
+          type: c1-100g
+        - kind: connector
+          slot: 1-a-2
+          type: c1-100g
+        - kind: connector
+          slot: 1-b-1
+          type: c1-100g
+      annotations:
+        topobuilder.eda.labs/x: "2100"
+        topobuilder.eda.labs/y: "480"
+  linkTemplates:
+    - name: isl
+      type: InterSwitch
+      speed: 25G
+      encapType: "Null"
+      labels:
+        eda.nokia.com/role: InterSwitch
+    - name: edge
+      type: Edge
+      encapType: Dot1q
+      labels:
+        eda.nokia.com/role: Edge
+    - name: isl-r8x100g
+      type: InterSwitch
+      speed: 25G
+      encapType: "Null"
+      labels:
+        eda.nokia.com/role: InterSwitch
+      breakouts:
+        - remote:
+            channels: 8
+            speed: 100G
+      annotations:
+        topobuilder.eda.labs/breakout-variant: isl
+  links:
+    - name: spine1-leaf1-1
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-27
+        topobuilder.eda.labs/memberIndex: "0"
+      endpoints:
+        - local:
+            node: leaf1
+            interface: ethernet-1-1
+          remote:
+            node: spine1
+            interface: ethernet-1-1-1
+      template: isl-r8x100g
+    - name: spine1-leaf2-1
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-28
+        topobuilder.eda.labs/memberIndex: "0"
+      endpoints:
+        - local:
+            node: leaf2
+            interface: ethernet-1-1
+          remote:
+            node: spine1
+            interface: ethernet-1-1-2
+      template: isl-r8x100g
+    - name: spine1-sr1s-1
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-29
+        topobuilder.eda.labs/memberIndex: "0"
+      endpoints:
+        - local:
+            node: sr1s-1
+            interface: ethernet-1-a-1
+          remote:
+            node: spine1
+            interface: ethernet-1-2
+      template: isl
+    - name: sr1s-border1-ch1
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-30
+        topobuilder.eda.labs/memberIndex: "0"
+      endpoints:
+        - local:
+            node: border1
+            interface: ethernet-1-a-1
+          remote:
+            node: sr1s-1
+            interface: ethernet-1-a-3-1
+      template: isl
+    - name: sr1s-border1-ch2
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-30
+        topobuilder.eda.labs/memberIndex: "1"
+      endpoints:
+        - local:
+            node: border1
+            interface: ethernet-1-a-2
+          remote:
+            node: sr1s-1
+            interface: ethernet-1-a-3-2
+      template: isl
+    - name: leaf1-leaf2-lag1
+      annotations:
+        topobuilder.eda.labs/edgeId: edge-31
+        topobuilder.eda.labs/memberIndex: "0"
+      endpoints:
+        - local:
+            node: leaf2
+            interface: ethernet-1-31
+          remote:
+            node: leaf1
+            interface: ethernet-1-31
+        - local:
+            node: leaf2
+            interface: ethernet-1-32
+          remote:
+            node: leaf1
+            interface: ethernet-1-32
+      template: isl
+    - name: servers-esi-lag
+      endpoints:
+        - local:
+            node: leaf1
+            interface: ethernet-1-10
+          sim:
+            simNode: server1
+            simNodeInterface: eth1
+        - local:
+            node: leaf2
+            interface: ethernet-1-10
+          sim:
+            simNode: server1
+            simNodeInterface: eth2
+      template: edge
+    - name: border1-edge-pe1
+      endpoints:
+        - local:
+            node: border1
+            interface: ethernet-1-b-1
+      template: edge
+  simulation:
+    simNodeTemplates:
+      - name: testman
+        type: TestMan
+      - name: multitool
+        type: Linux
+        image: ghcr.io/srl-labs/network-multitool:latest
+    simNodes:
+      - name: server1
+        template: multitool
+        annotations:
+          topobuilder.eda.labs/x: "340"
+          topobuilder.eda.labs/y: "900"
+      - name: probe1
+        template: testman
+        annotations:
+          topobuilder.eda.labs/x: "2100"
+          topobuilder.eda.labs/y: "900"

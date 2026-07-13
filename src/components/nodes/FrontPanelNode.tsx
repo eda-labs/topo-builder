@@ -3,7 +3,7 @@ import { Handle, Position, useStore, useUpdateNodeInternals } from '@xyflow/reac
 import { Divider, ListSubheader, Menu, MenuItem } from '@mui/material';
 
 import { useTopologyStore } from '../../lib/store';
-import { breakoutOptionsFor } from '../../lib/connectors';
+import { breakoutOptionsFor, cageNativeSpeed, defaultChannelGbps, type BreakoutOption } from '../../lib/connectors';
 import {
   FP_HEADER_H,
   FP_PAD,
@@ -260,13 +260,29 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
 
   const usedCount = cageHasCables.size;
 
-  const setBreakout = (cage: string, channels: number) => {
-    updateNode(nodeId, { breakouts: { ...breakouts, [cage]: channels } });
+  const setBreakout = (cage: string, option: BreakoutOption) => {
+    const native = cageNativeSpeed(panel, cage);
+    const isDefaultSpeed = option.gbps == null
+      || (native != null && defaultChannelGbps(native, option.channels) === option.gbps);
+    const speeds = Object.fromEntries(
+      Object.entries(data.breakoutSpeeds ?? {}).filter(([key]) => key !== cage),
+    );
+    if (!isDefaultSpeed && option.gbps != null) speeds[cage] = option.gbps;
+    updateNode(nodeId, {
+      breakouts: { ...breakouts, [cage]: option.channels },
+      breakoutSpeeds: Object.keys(speeds).length ? speeds : undefined,
+    });
     triggerYamlRefresh();
   };
   const removeBreakout = (cage: string) => {
     const next = Object.fromEntries(Object.entries(breakouts).filter(([key]) => key !== cage));
-    updateNode(nodeId, { breakouts: Object.keys(next).length ? next : undefined });
+    const speeds = Object.fromEntries(
+      Object.entries(data.breakoutSpeeds ?? {}).filter(([key]) => key !== cage),
+    );
+    updateNode(nodeId, {
+      breakouts: Object.keys(next).length ? next : undefined,
+      breakoutSpeeds: Object.keys(speeds).length ? speeds : undefined,
+    });
     triggerYamlRefresh();
   };
   const openCageMenu = (cage: string) => (e: React.MouseEvent) => {
@@ -405,8 +421,12 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
           const cabled = cageHasCables.has(cage);
           const close = () => { setCageMenu(null); };
           if (breakouts[cage]) {
+            const native = cageNativeSpeed(panel, cage);
+            const gbps = data.breakoutSpeeds?.[cage]
+              ?? (native == null ? null : defaultChannelGbps(native, breakouts[cage]));
+            const boLabel = gbps ? `${breakouts[cage]} × ${gbps}G breakout` : `${breakouts[cage]}× breakout`;
             return [
-              <ListSubheader key="h" sx={{ lineHeight: '28px', bgcolor: 'transparent' }}>{`Port ${cageLabel} · ${breakouts[cage]}× breakout`}</ListSubheader>,
+              <ListSubheader key="h" sx={{ lineHeight: '28px', bgcolor: 'transparent' }}>{`Port ${cageLabel} · ${boLabel}`}</ListSubheader>,
               <Divider key="d" />,
               <MenuItem key="rm" disabled={cabled} onClick={() => { removeBreakout(cage); close(); }}>
                 {cabled ? 'Remove breakout (un-cable channels first)' : 'Remove breakout'}
@@ -420,7 +440,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
             ...(options.length === 0
               ? [<MenuItem key="none" disabled>No breakout available</MenuItem>]
               : options.map(option => (
-                <MenuItem key={option.channels} disabled={cabled} onClick={() => { setBreakout(cage, option.channels); close(); }}>
+                <MenuItem key={option.label} disabled={cabled} onClick={() => { setBreakout(cage, option); close(); }}>
                   {cabled ? `Break out into ${option.label} (un-cable first)` : `Break out into ${option.label}`}
                 </MenuItem>
               ))),

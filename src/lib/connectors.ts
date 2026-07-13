@@ -14,14 +14,14 @@ import type { UINode } from '../types/ui';
 import {
   SR1_LINECARD_STENCILS,
   mdaBayOfLetter,
+  portAddressForInterface,
   resolveNodePanel,
   sanitiseCardType,
   srosCageAddress,
   type NodePanel,
 } from './frontpanel';
 import { isSrosNode } from './interfaces';
-
-interface SpeedGroup { count: number; gbps: number }
+import { platformSpeedGroups, type SpeedGroup } from './portSpeeds';
 
 // Card names encode "<count>-<speed>g[b]" port groups in panel order:
 // "me16-25gb-sfp28+2-100gb-qsfp28" -> 16 cages of 25G followed by 2 cages of 100G.
@@ -68,7 +68,9 @@ function panelSpeedGroups(panel: NodePanel, bay: string | null): SpeedGroup[] {
     if (groups.length) return groups;
   }
   const sr1Card = STENCIL_TO_SR1_CARD.get(panel.stencil);
-  return sr1Card ? cardSpeedGroups(sr1Card) : [];
+  if (sr1Card) return cardSpeedGroups(sr1Card);
+  // Fixed faceplates without cards (SR Linux, SR-1se) carry their speeds per platform.
+  return platformSpeedGroups(panel.platform);
 }
 
 /** Native speed (Gb/s) of a cage on a resolved panel, or null when the card layout is unknown. */
@@ -99,7 +101,29 @@ const SROS_BREAKOUTS: Record<number, { channels: number; gbps: number }[]> = {
   10: [],
 };
 
+// Channelisations SR Linux supports per cage speed (EDA Breakout resources cap channels at 8).
+const SRL_BREAKOUTS: Record<number, { channels: number; gbps: number }[]> = {
+  800: [{ channels: 2, gbps: 400 }, { channels: 4, gbps: 200 }, { channels: 8, gbps: 100 }],
+  400: [{ channels: 4, gbps: 100 }],
+  100: [{ channels: 4, gbps: 25 }, { channels: 4, gbps: 10 }],
+  40: [{ channels: 4, gbps: 10 }],
+  25: [],
+  10: [],
+  1: [],
+};
+
 const GENERIC_CHANNEL_COUNTS = [2, 4, 8];
+
+const isSrosPlatform = (platform: string): boolean =>
+  platform.trim().toLowerCase().startsWith('7750');
+
+const breakoutTableFor = (sros: boolean) => (sros ? SROS_BREAKOUTS : SRL_BREAKOUTS);
+
+/** Per-channel speed implied by evenly dividing a cage: 100G / 4 -> 25. */
+export const defaultChannelGbps = (nativeGbps: number, channels: number): number | null => {
+  const gbps = nativeGbps / channels;
+  return Number.isInteger(gbps) && gbps >= 1 ? gbps : null;
+};
 
 /** "40 × 200G + 6 × 800G" — human summary of a card's port groups, or null when unknown. */
 export function speedGroupsLabel(cardType: string): string | null {
@@ -110,6 +134,7 @@ export function speedGroupsLabel(cardType: string): string | null {
 
 /** Per-speed breakout capabilities of a panel, e.g. ["100G → 2 × 50G · 4 × 25G · 10 × 10G"]. */
 export function panelBreakoutSummary(panel: NodePanel): string[] {
+  const table = breakoutTableFor(isSrosPlatform(panel.platform));
   const speeds = new Set<number>();
   const bays = panel.meta.slotted ? ['1', '2'] : [null];
   for (const bay of bays) {
@@ -117,7 +142,7 @@ export function panelBreakoutSummary(panel: NodePanel): string[] {
   }
   const lines: string[] = [];
   for (const speed of [...speeds].sort((a, b) => b - a)) {
-    const options = SROS_BREAKOUTS[speed];
+    const options = table[speed];
     if (options?.length) {
       const choices = options.map(o => `${o.channels} × ${o.gbps}G`).join(' · ');
       lines.push(`${speed}G → ${choices}`);
@@ -126,17 +151,17 @@ export function panelBreakoutSummary(panel: NodePanel): string[] {
   return lines;
 }
 
-export interface BreakoutOption { channels: number; label: string }
+export interface BreakoutOption { channels: number; gbps?: number; label: string }
 
 /**
- * Breakout choices for a cage. SR OS cages with a known native speed offer only the supported
- * channelisations (labelled with the per-channel speed); everything else falls back to 2/4/8.
+ * Breakout choices for a cage. Cages with a known native speed offer only the channelisations
+ * their OS supports (labelled with the per-channel speed); everything else falls back to 2/4/8.
  */
 export function breakoutOptionsFor(panel: NodePanel, cage: string, sros: boolean): BreakoutOption[] {
-  if (sros) {
-    const speed = cageNativeSpeed(panel, cage);
-    const options = speed == null ? undefined : SROS_BREAKOUTS[speed];
-    if (options) return options.map(o => ({ channels: o.channels, label: `${o.channels} × ${o.gbps}G` }));
+  const speed = cageNativeSpeed(panel, cage);
+  const options = speed == null ? undefined : breakoutTableFor(sros)[speed];
+  if (options) {
+    return options.map(o => ({ channels: o.channels, gbps: o.gbps, label: `${o.channels} × ${o.gbps}G` }));
   }
   return GENERIC_CHANNEL_COUNTS.map(n => ({ channels: n, label: `${n} channels` }));
 }
@@ -191,11 +216,50 @@ export interface NodeComponentsExport {
   residualBreakouts?: Record<string, number>;
 }
 
+// On SR OS a cabled cage rides on a provisioned connector even without a breakout
+// (c1-<native speed>g), so every cage referenced by a link gets one.
+function plainConnectorsForCabledCages(options: {
+  usedInterfaces: string[];
+  panel: NodePanel;
+  breakouts: Record<string, number> | undefined;
+  connectorised: Set<string>;
+}): Component[] {
+  const { usedInterfaces, panel, breakouts, connectorised } = options;
+
+  const channelled = new Set<string>();
+  const cabled = new Set<string>();
+  for (const iface of usedInterfaces) {
+    const address = portAddressForInterface(iface, panel.meta);
+    if (!address || !panel.meta.layout.some(p => p.p === address.cage)) continue;
+    cabled.add(address.cage);
+    // channel 1 also exists on plain c1 connectors ("1/1/c3/1"), so only >= 2 implies a breakout
+    if (address.channel && address.channel >= 2) channelled.add(address.cage);
+  }
+
+  const components: Component[] = [];
+  for (const cage of cabled) {
+    if (connectorised.has(cage) || breakouts?.[cage]) continue;
+    // A channelised interface without breakout state needs a multi-channel connector we
+    // cannot size here; the importer infers the breakout instead of guessing c1.
+    if (channelled.has(cage)) continue;
+    const address = srosCageAddress(cage, panel.components);
+    const speed = cageNativeSpeed(panel, cage);
+    if (!address || speed == null) continue;
+    components.push({ kind: 'connector', slot: `${address.lc}-${address.letter}-${address.port}`, type: `c1-${speed}g` });
+  }
+  return components;
+}
+
 /**
- * Components to emit for a topology node. SR OS breakouts become connector components; explicit
- * components from the YAML/catalog pass through, except connectors superseded by breakout state.
+ * Components to emit for a topology node. SR OS breakouts become connector components, cabled
+ * SR OS cages get their plain c1 connector, and explicit components from the YAML/catalog pass
+ * through, except connectors superseded by breakout state.
  */
-export function exportNodeComponents(node: UINode, nodeTemplates: NodeTemplate[]): NodeComponentsExport {
+export function exportNodeComponents(
+  node: UINode,
+  nodeTemplates: NodeTemplate[],
+  usedInterfaces: string[] = [],
+): NodeComponentsExport {
   const own = node.data.components ?? [];
   const breakouts = node.data.breakouts;
   if (!isSrosNode(node, nodeTemplates)) {
@@ -215,6 +279,16 @@ export function exportNodeComponents(node: UINode, nodeTemplates: NodeTemplate[]
     if (breakouts?.[cage]) return false;
     return (connectorChannels(component.type) ?? 1) === 1;
   });
+
+  if (panel) {
+    const connectorised = new Set<string>();
+    for (const component of [...kept, ...generated]) {
+      if (component.kind !== 'connector' || !component.slot) continue;
+      const cage = cageForConnectorSlot(component.slot, slotted);
+      if (cage) connectorised.add(cage);
+    }
+    generated.push(...plainConnectorsForCabledCages({ usedInterfaces, panel, breakouts, connectorised }));
+  }
 
   const connectors = [...kept.filter(c => c.kind === 'connector'), ...generated].sort(bySlotNumeric);
   const components = [...kept.filter(c => c.kind !== 'connector'), ...connectors];

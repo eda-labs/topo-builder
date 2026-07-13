@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
@@ -56,13 +57,26 @@ export default function ShapeAnnotation({ data, selected }: NodeProps) {
   const d = data as ShapeAnnotationData;
   const updateAnnotation = useTopologyStore(s => s.updateAnnotation);
 
-  const { width, height, strokeColor, fillColor, strokeWidth, strokeStyle } = d;
+  const { strokeColor, fillColor, strokeWidth, strokeStyle } = d;
+  const [size, setSize] = useState(() => ({ width: d.width, height: d.height }));
+
+  useEffect(() => {
+    setSize({ width: d.width, height: d.height });
+  }, [d.width, d.height]);
 
   const handleResize = (_: unknown, params: { width: number; height: number }) => {
-    updateAnnotation(d.annotationId, {
+    setSize({
       width: Math.round(params.width),
       height: Math.round(params.height),
     });
+  };
+
+  const handleResizeEnd = (_: unknown, params: { width: number; height: number }) => {
+    const next = { width: Math.round(params.width), height: Math.round(params.height) };
+    setSize(next);
+    if (next.width !== d.width || next.height !== d.height) {
+      updateAnnotation(d.annotationId, next);
+    }
   };
 
   return (
@@ -72,14 +86,15 @@ export default function ShapeAnnotation({ data, selected }: NodeProps) {
         minWidth={60}
         minHeight={40}
         onResize={handleResize}
+        onResizeEnd={handleResizeEnd}
         lineStyle={{ stroke: 'var(--color-node-border-selected)', strokeWidth: 1 }}
         handleStyle={{ width: 8, height: 8, borderRadius: 2, backgroundColor: 'var(--color-node-border-selected)', border: 'none' }}
       />
-      <div className="relative" style={{ width, height }}>
+      <div className="relative" style={{ width: size.width, height: size.height }}>
         <ShapeSvg
           shapeType={d.shapeType}
-          width={width}
-          height={height}
+          width={size.width}
+          height={size.height}
           strokeColor={strokeColor}
           fillColor={fillColor}
           strokeWidth={strokeWidth}

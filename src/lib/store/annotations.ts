@@ -28,6 +28,7 @@ export function generateAnnotationId(): string {
 
 export type AnnotationSliceCreator = StateCreator<
   AnnotationSlice & {
+    yamlRefreshCounter: number;
     triggerYamlRefresh: () => void;
     saveToUndoHistory: () => void;
   },
@@ -43,39 +44,49 @@ export const createAnnotationSlice: AnnotationSliceCreator = (set, get) => ({
 
   addAnnotation: input => {
     get().saveToUndoHistory();
+    const state = get();
     const id = generateAnnotationId();
     const annotation = { ...input, id };
     set({
-      annotations: [...get().annotations, annotation],
+      annotations: [...state.annotations, annotation],
       selectedAnnotationId: id,
       selectedAnnotationIds: new Set([id]),
+      yamlRefreshCounter: state.yamlRefreshCounter + 1,
     });
-    get().triggerYamlRefresh();
   },
 
   updateAnnotation: (id, update) => {
     get().saveToUndoHistory();
+    const state = get();
     set({
-      annotations: get().annotations.map(a =>
+      annotations: state.annotations.map(a =>
         a.id === id ? { ...a, ...update } : a,
       ),
+      yamlRefreshCounter: state.yamlRefreshCounter + 1,
     });
-    get().triggerYamlRefresh();
   },
 
   deleteAnnotation: id => {
     get().saveToUndoHistory();
-    const newIds = new Set(get().selectedAnnotationIds);
+    const state = get();
+    const newIds = new Set(state.selectedAnnotationIds);
     newIds.delete(id);
     set({
-      annotations: get().annotations.filter(a => a.id !== id),
-      selectedAnnotationId: get().selectedAnnotationId === id ? null : get().selectedAnnotationId,
+      annotations: state.annotations.filter(a => a.id !== id),
+      selectedAnnotationId: state.selectedAnnotationId === id ? null : state.selectedAnnotationId,
       selectedAnnotationIds: newIds,
+      yamlRefreshCounter: state.yamlRefreshCounter + 1,
     });
-    get().triggerYamlRefresh();
   },
 
   selectAnnotation: id => {
+    const state = get();
+    const alreadySelected = id === null
+      ? state.selectedAnnotationId === null && state.selectedAnnotationIds.size === 0
+      : state.selectedAnnotationId === id
+        && state.selectedAnnotationIds.size === 1
+        && state.selectedAnnotationIds.has(id);
+    if (alreadySelected) return;
     set({
       selectedAnnotationId: id,
       selectedAnnotationIds: id ? new Set([id]) : new Set(),
@@ -84,6 +95,12 @@ export const createAnnotationSlice: AnnotationSliceCreator = (set, get) => ({
 
   selectAnnotations: ids => {
     const lastId = ids.size > 0 ? [...ids][ids.size - 1] : null;
+    const current = get().selectedAnnotationIds;
+    if (
+      get().selectedAnnotationId === lastId
+      && current.size === ids.size
+      && [...ids].every(id => current.has(id))
+    ) return;
     set({
       selectedAnnotationIds: ids,
       selectedAnnotationId: lastId,

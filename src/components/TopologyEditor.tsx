@@ -1,11 +1,13 @@
-import { useCallback, useState, useEffect, useMemo, useRef, type ReactNode, type SyntheticEvent } from 'react';
+import { startTransition, useCallback, useState, useEffect, useMemo, useRef, type ReactNode, type SyntheticEvent } from 'react';
 import {
   ReactFlow,
   Controls,
   ControlButton,
   Background,
   BackgroundVariant,
+  ConnectionMode,
   useReactFlow,
+  useStoreApi,
   ReactFlowProvider,
   type NodeTypes,
   type EdgeTypes,
@@ -14,6 +16,7 @@ import {
   type NodeChange,
   type Connection,
   type OnSelectionChangeParams,
+  type ReactFlowProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Box, Tabs, Tab, useTheme, IconButton, Drawer, Typography } from '@mui/material';
@@ -57,6 +60,9 @@ const edgeTypes: EdgeTypes = {
   linkEdge: LinkEdge,
 };
 
+const SNAP_GRID: [number, number] = [15, 15];
+const DEFAULT_EDGE_OPTIONS = { type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH } as const;
+
 export interface TopologyEditorProps extends TopologyThemingProps {
   renderYamlPanel?: () => ReactNode;
   reactFlowColorMode?: 'light' | 'dark';
@@ -68,7 +74,6 @@ export interface TopologyEditorProps extends TopologyThemingProps {
 const pickEditorState = (state: ReturnType<typeof useTopologyStore.getState>) => ({
   nodes: state.nodes,
   edges: state.edges,
-  onNodesChange: state.onNodesChange,
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
   selectNode: state.selectNode,
@@ -656,6 +661,152 @@ function EmptyCanvasHint({ show }: { show: boolean }) {
   );
 }
 
+type CanvasInteractionProps = Pick<
+  ReactFlowProps<Node, Edge<UIEdgeData>>,
+  | 'onEdgesChange'
+  | 'onConnect'
+  | 'onPaneClick'
+  | 'onNodeClick'
+  | 'onEdgeClick'
+  | 'onNodeDoubleClick'
+  | 'onEdgeDoubleClick'
+  | 'onPaneContextMenu'
+  | 'onNodeContextMenu'
+  | 'onEdgeContextMenu'
+  | 'onMoveStart'
+  | 'onNodeDragStart'
+  | 'onSelectionChange'
+  | 'isValidConnection'
+>;
+
+interface TopologyCanvasProps extends CanvasInteractionProps {
+  nodes: Node[];
+  edges: Edge<UIEdgeData>[];
+  controlNodes: Node<UINodeData>[];
+  controlEdges: Edge<UIEdgeData>[];
+  layoutVersion: number;
+  colorMode: 'light' | 'dark';
+  showSimNodes: boolean;
+  setShowSimNodes: (show: boolean) => void;
+  expandedEdges: Set<string>;
+  toggleAllEdgesExpanded: () => void;
+}
+
+function isAnnotationChange(change: NodeChange): boolean {
+  return 'id' in change && typeof change.id === 'string' && change.id.startsWith('a');
+}
+
+function isTransientDragChange(change: NodeChange): boolean {
+  return change.type === 'position' && change.dragging === true;
+}
+
+function commitAnnotationPositions(changes: NodeChange[], refreshYaml: boolean): void {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const change of changes) {
+    if (change.type === 'position' && change.position) {
+      positions.set(change.id, change.position);
+    }
+  }
+  if (positions.size === 0) return;
+
+  useTopologyStore.setState(state => ({
+    annotations: state.annotations.map(annotation => {
+      const position = positions.get(annotation.id);
+      return position ? { ...annotation, position } : annotation;
+    }),
+    ...(refreshYaml ? { yamlRefreshCounter: state.yamlRefreshCounter + 1 } : {}),
+  }));
+}
+
+/**
+ * Keeps pointer-frequency positions inside the canvas. Committing them to the persisted app
+ * store on every mousemove used to serialize the whole topology and re-render every store
+ * subscriber; React Flow now handles smooth internal updates locally and the durable state is
+ * written once when the drag ends.
+ */
+function TopologyCanvas({
+  nodes,
+  edges,
+  controlNodes,
+  controlEdges,
+  layoutVersion,
+  colorMode,
+  showSimNodes,
+  setShowSimNodes,
+  expandedEdges,
+  toggleAllEdgesExpanded,
+  ...interactionProps
+}: TopologyCanvasProps) {
+  const flowStore = useStoreApi();
+  const initialNodes = useRef(nodes);
+  const initialEdges = useRef(edges);
+
+  useEffect(() => {
+    flowStore.getState().setNodes(nodes);
+  }, [flowStore, nodes]);
+
+  useEffect(() => {
+    flowStore.getState().setEdges(edges);
+  }, [flowStore, edges]);
+
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    const regularChanges: NodeChange<Node<UINodeData>>[] = [];
+    const annotationChanges: NodeChange[] = [];
+    for (const change of changes) {
+      if (isTransientDragChange(change)) continue;
+      if (isAnnotationChange(change)) {
+        annotationChanges.push(change);
+      } else {
+        regularChanges.push(change as NodeChange<Node<UINodeData>>);
+      }
+    }
+
+    const store = useTopologyStore.getState();
+    if (regularChanges.length > 0) store.onNodesChange(regularChanges);
+    const regularChangesRefreshYaml = regularChanges.some(change =>
+      change.type === 'remove' || (change.type === 'position' && change.dragging === false));
+    commitAnnotationPositions(annotationChanges, !regularChangesRefreshYaml);
+  }, []);
+
+  return (
+    <ReactFlow
+      defaultNodes={initialNodes.current}
+      defaultEdges={initialEdges.current}
+      onNodesChange={handleNodesChange}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      nodesDraggable
+      nodeDragThreshold={2}
+      elevateNodesOnSelect={false}
+      snapToGrid
+      snapGrid={SNAP_GRID}
+      connectionRadius={24}
+      connectionMode={ConnectionMode.Loose}
+      defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+      colorMode={colorMode}
+      deleteKeyCode={null}
+      selectionKeyCode="Shift"
+      multiSelectionKeyCode="Shift"
+      selectionOnDrag
+      onlyRenderVisibleElements
+      {...interactionProps}
+    >
+      <TopologyControls
+        nodes={controlNodes}
+        edges={controlEdges}
+        showSimNodes={showSimNodes}
+        setShowSimNodes={setShowSimNodes}
+        expandedEdges={expandedEdges}
+        toggleAllEdgesExpanded={toggleAllEdgesExpanded}
+      />
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+      <LayoutHandler layoutVersion={layoutVersion} />
+      <EmptyCanvasHint show={controlNodes.length === 0} />
+      <CableHoverHud />
+    </ReactFlow>
+  );
+}
+
 function TopologyEditorInner({
   theme,
   themeOptions,
@@ -668,7 +819,6 @@ function TopologyEditorInner({
   const {
     nodes,
     edges,
-    onNodesChange,
     onEdgesChange,
     onConnect,
     selectNode,
@@ -758,7 +908,7 @@ function TopologyEditorInner({
 
   useEffect(() => {
     if (selectedNodeId || selectedEdgeId || selectedSimNodeName || selectedAnnotationId) {
-      setActiveTab(1);
+      startTransition(() => { setActiveTab(1); });
     }
   }, [selectedNodeId, selectedEdgeId, selectedSimNodeName, selectedAnnotationId]);
 
@@ -882,37 +1032,6 @@ function TopologyEditorInner({
     return edges.filter(e => !simNodeIds.has(e.source) && !simNodeIds.has(e.target));
   }, [edges, nodes, showSimNodes]);
 
-  const handleNodesChange = useCallback((changes: NodeChange[]) => {
-    const annotationChanges: NodeChange[] = [];
-    const regularChanges: NodeChange[] = [];
-
-    for (const change of changes) {
-      if ('id' in change && typeof change.id === 'string' && change.id.startsWith('a')) {
-        annotationChanges.push(change);
-      } else {
-        regularChanges.push(change);
-      }
-    }
-
-    if (regularChanges.length > 0) {
-      onNodesChange(regularChanges as NodeChange<Node<UINodeData>>[]);
-    }
-
-    for (const change of annotationChanges) {
-      if (change.type === 'position' && 'position' in change && change.position) {
-        const pos = change.position;
-        useTopologyStore.setState(state => ({
-          annotations: state.annotations.map(a =>
-            a.id === change.id ? { ...a, position: pos } : a,
-          ),
-        }));
-        if (!change.dragging) {
-          triggerYamlRefresh();
-        }
-      }
-    }
-  }, [onNodesChange, triggerYamlRefresh]);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (shouldIgnoreGlobalHotkeyTarget(e.target)) return;
@@ -952,12 +1071,12 @@ function TopologyEditorInner({
   }, [selectNode, selectEdge, selectSimNode, selectAnnotation]);
 
   const handleMoveStart = useCallback(() => {
-    setContextMenu(prev => ({ ...prev, open: false }));
+    setContextMenu(prev => prev.open ? { ...prev, open: false } : prev);
   }, []);
 
   const handleNodeDragStart = useCallback(() => {
     saveToUndoHistory();
-    setContextMenu(prev => ({ ...prev, open: false }));
+    setContextMenu(prev => prev.open ? { ...prev, open: false } : prev);
   }, []);
 
   const handleSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
@@ -1338,11 +1457,14 @@ function TopologyEditorInner({
             '& .react-flow__nodes': { zIndex: 'auto !important' },
           }}
         >
-          <ReactFlow
+          <TopologyCanvas
             key={layoutVersion}
             nodes={visibleNodes}
             edges={visibleEdges}
-            onNodesChange={handleNodesChange}
+            controlNodes={nodes}
+            controlEdges={edges}
+            layoutVersion={layoutVersion}
+            colorMode={flowColorMode}
             onEdgesChange={onEdgesChange}
             onConnect={handleConnect}
             onPaneClick={handlePaneClick}
@@ -1355,36 +1477,13 @@ function TopologyEditorInner({
             onEdgeContextMenu={handleEdgeContextMenu}
             onMoveStart={handleMoveStart}
             onNodeDragStart={handleNodeDragStart}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            nodesDraggable
-            nodeDragThreshold={2}
-            elevateNodesOnSelect={false}
-            snapToGrid
-            snapGrid={[15, 15]}
             isValidConnection={isValidConnection}
-            connectionRadius={24}
-            defaultEdgeOptions={{ type: 'linkEdge', interactionWidth: EDGE_INTERACTION_WIDTH }}
-            colorMode={flowColorMode}
-            deleteKeyCode={null}
-            selectionKeyCode="Shift"
-            multiSelectionKeyCode="Shift"
-            selectionOnDrag
             onSelectionChange={handleSelectionChange}
-          >
-            <TopologyControls
-              nodes={nodes}
-              edges={edges}
-              showSimNodes={showSimNodes}
-              setShowSimNodes={setShowSimNodes}
-              expandedEdges={expandedEdges}
-              toggleAllEdgesExpanded={toggleAllEdgesExpanded}
-            />
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-            <LayoutHandler layoutVersion={layoutVersion} />
-            <EmptyCanvasHint show={nodes.length === 0} />
-            <CableHoverHud />
-          </ReactFlow>
+            showSimNodes={showSimNodes}
+            setShowSimNodes={setShowSimNodes}
+            expandedEdges={expandedEdges}
+            toggleAllEdgesExpanded={toggleAllEdgesExpanded}
+          />
         </Box>
 
         <SidePanel

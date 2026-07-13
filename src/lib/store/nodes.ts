@@ -48,6 +48,7 @@ export type NodeSliceCreator = StateCreator<
     selectedNodeId: string | null;
     selectedEdgeId: string | null;
     selectedSimNodeName: string | null;
+    yamlRefreshCounter: number;
     triggerYamlRefresh: () => void;
     setError: (error: string | null) => void;
     saveToUndoHistory: () => void;
@@ -219,9 +220,13 @@ export const createNodeSlice: NodeSliceCreator = (set, get) => ({
   },
 
   onNodesChange: (changes: NodeChange<Node<UINodeData>>[]) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes) });
     const hasRemove = changes.some(c => c.type === 'remove');
     const hasDragEnd = changes.some(c => c.type === 'position' && c.dragging === false);
-    if (hasRemove || hasDragEnd) get().triggerYamlRefresh();
+    const nodes = applyNodeChanges(changes, get().nodes);
+    if (hasRemove || hasDragEnd) {
+      set({ nodes, yamlRefreshCounter: get().yamlRefreshCounter + 1 });
+    } else {
+      set({ nodes });
+    }
   },
 });

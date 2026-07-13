@@ -152,14 +152,6 @@ export default function AppLayout({
   const topologyName = useTopologyStore(state => state.topologyName);
   const namespace = useTopologyStore(state => state.namespace);
   const operation = useTopologyStore(state => state.operation);
-  const nodes = useTopologyStore(state => state.nodes);
-  const edges = useTopologyStore(state => state.edges);
-  const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
-  const linkTemplates = useTopologyStore(state => state.linkTemplates);
-  const simulation = useTopologyStore(state => state.simulation);
-  const annotations = useTopologyStore(state => state.annotations);
-  const expandedEdges = useTopologyStore(state => state.expandedEdges);
-  const showSimNodes = useTopologyStore(state => state.showSimNodes);
   const setTopologyName = useTopologyStore(state => state.setTopologyName);
   const setNamespace = useTopologyStore(state => state.setNamespace);
   const setOperation = useTopologyStore(state => state.setOperation);
@@ -210,11 +202,22 @@ export default function AppLayout({
     if (isStandalone) void edaInit();
   }, [isStandalone]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getExportYaml = () => exportToYaml({
-    topologyName: `${topologyName}-${Date.now()}`,
-    namespace, operation, nodes: normalizeNodeCoordinates(nodes), edges, nodeTemplates, linkTemplates, simulation, annotations,
-    disableAnnotations, schemaVersion,
-  });
+  const getExportYaml = () => {
+    const state = useTopologyStore.getState();
+    return exportToYaml({
+      topologyName: `${state.topologyName}-${Date.now()}`,
+      namespace: state.namespace,
+      operation: state.operation,
+      nodes: normalizeNodeCoordinates(state.nodes),
+      edges: state.edges,
+      nodeTemplates: state.nodeTemplates,
+      linkTemplates: state.linkTemplates,
+      simulation: state.simulation,
+      annotations: state.annotations,
+      disableAnnotations: state.disableAnnotations,
+      schemaVersion: state.schemaVersion,
+    });
+  };
 
   const handleDownload = () => {
     const yaml = getExportYaml();
@@ -255,8 +258,21 @@ export default function AppLayout({
   };
 
   const handleValidate = () => {
+    const state = useTopologyStore.getState();
     const yaml = getEditorContent()
-      || exportToYaml({ topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations, disableAnnotations, schemaVersion });
+      || exportToYaml({
+        topologyName: state.topologyName,
+        namespace: state.namespace,
+        operation: state.operation,
+        nodes: state.nodes,
+        edges: state.edges,
+        nodeTemplates: state.nodeTemplates,
+        linkTemplates: state.linkTemplates,
+        simulation: state.simulation,
+        annotations: state.annotations,
+        disableAnnotations: state.disableAnnotations,
+        schemaVersion: state.schemaVersion,
+      });
     setValidationResult(validateNetworkTopology(yaml, schemaVersion));
     setValidationDialogOpen(true);
   };
@@ -273,14 +289,15 @@ export default function AppLayout({
       return;
     }
 
+    const state = useTopologyStore.getState();
     const svg = buildTopologySvgExport({
-      nodes,
-      edges,
-      annotations,
-      nodeTemplates,
-      simNodeTemplates: simulation.simNodeTemplates,
-      expandedEdges,
-      showSimNodes,
+      nodes: state.nodes,
+      edges: state.edges,
+      annotations: state.annotations,
+      nodeTemplates: state.nodeTemplates,
+      simNodeTemplates: state.simulation.simNodeTemplates,
+      expandedEdges: state.expandedEdges,
+      showSimNodes: state.showSimNodes,
       container,
       backgroundColor: exportBgColor,
       transparentBackground: exportBgTransparent,

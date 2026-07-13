@@ -118,7 +118,7 @@ const portHandleStyle = {
   opacity: 1,
 } as const;
 
-function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, connecting = false, onCageContextMenu }: {
+function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, onCageContextMenu }: {
   nodeId: string;
   nodeName: string;
   handleId: string;
@@ -126,8 +126,6 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, co
   iface: string | null;
   speedGbps: number | null;
   box: PortBox;
-  /** a connection drag is in progress — let drops reach the target handle underneath */
-  connecting?: boolean;
   onCageContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const setHover = useHoverTrace(state => state.setHover);
@@ -164,21 +162,13 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, co
       }}
     >
       <span style={{ opacity: 0.55, pointerEvents: 'none' }}>{label}</span>
-      <Handle
-        type="target"
-        id={`${handleId}-target`}
-        position={Position.Bottom}
-        isConnectableStart={false}
-        style={portHandleStyle}
-      />
-      {/* The source handle covers the target handle; while a drag from elsewhere is in
-          progress it must not swallow the drop, or sim-node -> port connections never land. */}
+      {/* Loose connection mode lets one transparent handle both start and receive a cable. This
+          halves the React Flow subscriptions on port-dense faceplates without changing visuals. */}
       <Handle
         type="source"
         id={handleId}
         position={Position.Bottom}
-        isConnectableEnd={false}
-        style={{ ...portHandleStyle, cursor: 'crosshair', pointerEvents: connecting ? 'none' : undefined }}
+        style={{ ...portHandleStyle, cursor: 'crosshair' }}
       />
     </div>
   );
@@ -290,7 +280,6 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
   const updateNode = useTopologyStore(state => state.updateNode);
   const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
   const detailed = useStore(s => s.transform[2] >= DETAIL_ZOOM);
-  const isConnecting = useStore(s => s.connection.inProgress);
 
   const [cageMenu, setCageMenu] = useState<{ x: number; y: number; cage: string } | null>(null);
 
@@ -497,7 +486,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
                 const occupant = occupants.get(key);
                 if (!occupant) {
                   const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [], channel });
-                  return <FreePort key={key} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} speedGbps={sliverSpeed} box={sliver} connecting={isConnecting} onCageContextMenu={openCageMenu(pos.p)} />;
+                  return <FreePort key={key} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p, channel)} label={String(channel)} iface={iface} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
                 }
                 const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
                 return <UsedPort key={key} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={String(channel)} hot={hot} speedGbps={sliverSpeed} box={sliver} onCageContextMenu={openCageMenu(pos.p)} />;
@@ -508,7 +497,7 @@ function FrontPanelNode({ nodeId, data, selected, panel, sros = false, icon, hea
             const occupant = occupants.get(pos.p);
             if (!occupant) {
               const iface = interfaceForCage(pos.p, { sros, components: panel.components, usedInterfaces: [] });
-              return <FreePort key={pos.p} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p)} label={label} iface={iface} speedGbps={cageSpeed} box={box} connecting={isConnecting} onCageContextMenu={openCageMenu(pos.p)} />;
+              return <FreePort key={pos.p} nodeId={nodeId} nodeName={data.name} handleId={portHandleId(pos.p)} label={label} iface={iface} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;
             }
             const hot = isOccupantHot(occupant, selectedEdgeId, selectedMemberLinkIndices);
             return <UsedPort key={pos.p} nodeId={nodeId} nodeName={data.name} occupant={occupant} label={label} hot={hot} speedGbps={cageSpeed} box={box} onCageContextMenu={openCageMenu(pos.p)} />;

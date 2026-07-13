@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { memo, useCallback, useRef, useEffect, useState } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Box } from '@mui/material';
@@ -9,6 +9,36 @@ import { ANNOTATION_EDGE_ID, ANNOTATION_MEMBER_INDEX } from '../lib/constants';
 import { exportToYaml } from '../lib/yaml-converter';
 
 let editorInstance: editor.IStandaloneCodeEditor | null = null;
+
+const EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
+  minimap: { enabled: false },
+  fontSize: 13,
+  lineNumbers: 'on',
+  scrollBeyondLastLine: false,
+  wordWrap: 'on',
+  automaticLayout: true,
+  folding: true,
+  renderLineHighlight: 'all',
+  tabSize: 2,
+  scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+};
+
+function exportCurrentTopology(): string {
+  const state = useTopologyStore.getState();
+  return exportToYaml({
+    topologyName: state.topologyName,
+    namespace: state.namespace,
+    operation: state.operation,
+    nodes: state.nodes,
+    edges: state.edges,
+    nodeTemplates: state.nodeTemplates,
+    linkTemplates: state.linkTemplates,
+    simulation: state.simulation,
+    annotations: state.annotations,
+    disableAnnotations: state.disableAnnotations,
+    schemaVersion: state.schemaVersion,
+  });
+}
 
 function escapeRegExp(s: string): string {
   return s.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -228,44 +258,41 @@ export function jumpToMemberLinkInEditor(edgeId: string, memberIndex: number): v
   }
 }
 
-export default function YamlEditor() {
-  const {
-    topologyName, namespace, operation, nodes, edges,
-    nodeTemplates, linkTemplates, simulation, annotations,
-    importFromYaml, yamlRefreshCounter, disableAnnotations, schemaVersion,
-  } = useTopologyStore(useShallow(state => ({
-    topologyName: state.topologyName,
-    namespace: state.namespace,
-    operation: state.operation,
-    nodes: state.nodes,
-    edges: state.edges,
-    nodeTemplates: state.nodeTemplates,
-    linkTemplates: state.linkTemplates,
-    simulation: state.simulation,
-    annotations: state.annotations,
+function YamlEditor() {
+  const { importFromYaml, yamlRefreshCounter } = useTopologyStore(useShallow(state => ({
     importFromYaml: state.importFromYaml,
     yamlRefreshCounter: state.yamlRefreshCounter,
-    disableAnnotations: state.disableAnnotations,
-    schemaVersion: state.schemaVersion,
   })));
 
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRefreshingRef = useRef(false);
+  const [initialYaml] = useState(exportCurrentTopology);
 
-  const getYamlFromState = () => exportToYaml({
-    topologyName, namespace, operation, nodes, edges, nodeTemplates, linkTemplates, simulation, annotations,
-    disableAnnotations, schemaVersion,
-  });
+  const refreshEditor = useCallback(() => {
+    const currentEditor = editorRef.current;
+    if (!currentEditor) return;
+    const yaml = exportCurrentTopology();
+    if (currentEditor.getValue() === yaml) return;
+
+    isRefreshingRef.current = true;
+    currentEditor.setValue(yaml);
+    setTimeout(() => { isRefreshingRef.current = false; }, 0);
+  }, []);
 
   useEffect(() => {
-    if (yamlRefreshCounter > 0 && editorRef.current) {
-      isRefreshingRef.current = true;
-      editorRef.current.setValue(getYamlFromState());
-      setTimeout(() => { isRefreshingRef.current = false; }, 0);
+    if (yamlRefreshCounter <= 0 || !editorRef.current) return;
+
+    // Monaco tokenization and layout can be expensive for large topologies. Coalesce refreshes
+    // and run them when the browser is idle so completing a drag always paints first.
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === 'function') {
+      const idleId = requestIdle(refreshEditor, { timeout: 250 });
+      return () => { window.cancelIdleCallback(idleId); };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yamlRefreshCounter]);
+    const timeoutId = setTimeout(refreshEditor, 0);
+    return () => { clearTimeout(timeoutId); };
+  }, [yamlRefreshCounter, refreshEditor]);
 
   const handleEditorMount: OnMount = (editor, monaco) => {
     const themeName = 'ntwfui-dark';
@@ -283,6 +310,7 @@ export default function YamlEditor() {
     monaco.editor.setTheme(themeName);
     editorRef.current = editor;
     editorInstance = editor;
+    refreshEditor();
   };
 
   const handleEditorChange = useCallback((value: string | undefined) => {
@@ -299,23 +327,14 @@ export default function YamlEditor() {
           height="100%"
           language="yaml"
           theme="ntwfui-dark"
-          defaultValue={getYamlFromState()}
+          defaultValue={initialYaml}
           onMount={handleEditorMount}
           onChange={handleEditorChange}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            automaticLayout: true,
-            folding: true,
-            renderLineHighlight: 'all',
-            tabSize: 2,
-            scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-          }}
+          options={EDITOR_OPTIONS}
         />
       </Box>
     </Box>
   );
 }
+
+export default memo(YamlEditor);

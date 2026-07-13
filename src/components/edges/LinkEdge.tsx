@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { type EdgeProps, type Position, useInternalNode } from '@xyflow/react';
 
 import { useTopologyStore } from '../../lib/store';
-import type { UIEdgeData, UINode, UINodeData } from '../../types/ui';
+import type { UIEdgeData, UIEsiLeaf, UINodeData } from '../../types/ui';
 import { topologyEdgeTestId } from '../../lib/testIds';
 import { getHandleCoordinates, getFloatingEdgeParams } from '../../lib/edgeUtils';
 import { resolveNodePanel } from '../../lib/frontpanel';
@@ -35,7 +35,53 @@ function getEdgeNodes(edgeData: UIEdgeData | undefined, source: string, target: 
   };
 }
 
-const NO_NODES: UINode[] = [];
+type InternalFlowNode = NonNullable<ReturnType<typeof useInternalNode>>;
+
+interface EsiLagInternalEdgeProps {
+  id: string;
+  testId?: string;
+  sourceNode: InternalFlowNode;
+  isSelected: boolean;
+  isSimNodeEdge: boolean;
+  isConnectedToSelectedNode: boolean;
+  esiLeaves: UIEsiLeaf[];
+}
+
+/** Subscribe to extra leaf positions only for ESI-LAG edges. */
+function EsiLagInternalEdge({
+  id,
+  testId,
+  sourceNode,
+  isSelected,
+  isSimNodeEdge,
+  isConnectedToSelectedNode,
+  esiLeaves,
+}: EsiLagInternalEdgeProps) {
+  const leafNode0 = useInternalNode(esiLeaves[0]?.nodeId ?? '');
+  const leafNode1 = useInternalNode(esiLeaves[1]?.nodeId ?? '');
+  const leafNode2 = useInternalNode(esiLeaves[2]?.nodeId ?? '');
+  const leafNode3 = useInternalNode(esiLeaves[3]?.nodeId ?? '');
+  const leafNodes = new Map<string, InternalFlowNode>();
+
+  for (const nodeInfo of [leafNode0, leafNode1, leafNode2, leafNode3]) {
+    if (nodeInfo) leafNodes.set(nodeInfo.id, nodeInfo);
+  }
+
+  if (leafNodes.size === 0) return null;
+
+  return (
+    <EsiLagEdge
+      id={id}
+      testId={testId}
+      sourceNode={sourceNode}
+      isSelected={isSelected}
+      isSimNodeEdge={isSimNodeEdge}
+      isConnectedToSelectedNode={isConnectedToSelectedNode}
+      esiLeaves={esiLeaves}
+      leafNodes={leafNodes}
+    />
+  );
+}
 
 export default function LinkEdge({
   id,
@@ -62,10 +108,6 @@ export default function LinkEdge({
   const toggleEdgeExpanded = useTopologyStore(state => state.toggleEdgeExpanded);
   const selectMemberLink = useTopologyStore(state => state.selectMemberLink);
   const selectLag = useTopologyStore(state => state.selectLag);
-  // Only ESI-LAG edges need the node list (to anchor their leaves); a plain edge subscribing to
-  // it would re-render on every drag frame of every node. Endpoint positions come from
-  // useInternalNode, which tracks just the two nodes this edge touches.
-  const nodes = useTopologyStore(state => (edgeData?.edgeType === 'esilag' ? state.nodes : NO_NODES));
   const nodeTemplates = useTopologyStore(state => state.nodeTemplates);
   const edgeRouting = useTopologyStore(state => state.edgeRouting);
 
@@ -117,33 +159,6 @@ export default function LinkEdge({
   const linkCount = memberLinks.length;
   const isExpanded = expandedEdges.has(id);
   const isSelected = Boolean(selected);
-
-  const renderEsiLagEdge = () => {
-    if (!isEsiLag || !esiLeaves?.length) return null;
-
-    const nodeById = new Map(nodes.map(n => [n.id, n]));
-    const leafNodes = new Map<string, { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }>();
-
-    for (const leaf of esiLeaves) {
-      const nodeInfo = nodeById.get(leaf.nodeId);
-      if (nodeInfo) leafNodes.set(leaf.nodeId, nodeInfo);
-    }
-
-    if (leafNodes.size < 1) return null;
-
-    return (
-      <EsiLagEdge
-        id={id}
-        testId={edgeTestId}
-        sourceNode={sourceNode}
-        isSelected={isSelected}
-        isSimNodeEdge={isSimNodeEdge}
-        isConnectedToSelectedNode={isConnectedToSelectedNode}
-        esiLeaves={esiLeaves}
-        leafNodes={leafNodes}
-      />
-    );
-  };
 
   const renderBundleEdge = () => {
     if (!isExpanded || linkCount <= 0) return null;
@@ -204,8 +219,22 @@ export default function LinkEdge({
     }
   };
 
-  const esiLagEdgeElement = renderEsiLagEdge();
-  if (esiLagEdgeElement) return esiLagEdgeElement;
+  // ESI-LAGs fan out to as many as four leaves while React Flow itself only knows about the
+  // first target. The child subscribes to those leaf internals so a locally buffered drag moves
+  // every branch without publishing the whole nodes array to the application store.
+  if (isEsiLag && esiLeaves?.length) {
+    return (
+      <EsiLagInternalEdge
+        id={id}
+        testId={edgeTestId}
+        sourceNode={sourceNode}
+        isSelected={isSelected}
+        isSimNodeEdge={isSimNodeEdge}
+        isConnectedToSelectedNode={isConnectedToSelectedNode}
+        esiLeaves={esiLeaves}
+      />
+    );
+  }
 
   // Front-panel mode: as soon as either endpoint renders a real faceplate, every member link
   // is its own cable anchored at its exact port (no expand/collapse indirection).

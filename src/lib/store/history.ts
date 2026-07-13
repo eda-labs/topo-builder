@@ -34,14 +34,17 @@ export const captureState = (state: {
   namespace: string;
   annotations: UIAnnotation[];
 }): UndoState => ({
-  nodes: JSON.parse(JSON.stringify(state.nodes)) as Node<UINodeData>[],
-  edges: JSON.parse(JSON.stringify(state.edges)) as Edge<UIEdgeData>[],
-  simulation: JSON.parse(JSON.stringify(state.simulation)) as UISimulation,
-  nodeTemplates: JSON.parse(JSON.stringify(state.nodeTemplates)) as NodeTemplate[],
-  linkTemplates: JSON.parse(JSON.stringify(state.linkTemplates)) as LinkTemplate[],
+  // Store updates replace arrays and changed objects instead of mutating them, so snapshots can
+  // safely use structural sharing. Deep JSON cloning here made the first frame of every drag
+  // proportional to the entire topology even though a drag only changes node positions.
+  nodes: state.nodes,
+  edges: state.edges,
+  simulation: state.simulation,
+  nodeTemplates: state.nodeTemplates,
+  linkTemplates: state.linkTemplates,
   topologyName: state.topologyName,
   namespace: state.namespace,
-  annotations: JSON.parse(JSON.stringify(state.annotations)) as UIAnnotation[],
+  annotations: state.annotations,
 });
 
 /**

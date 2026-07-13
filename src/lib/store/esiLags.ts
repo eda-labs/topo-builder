@@ -32,6 +32,8 @@ export interface EsiLagActions {
   createMultihomedLag: (edgeId1: string, edgeId2: string, additionalEdgeIds?: string[]) => void;
   removeLinkFromEsiLag: (edgeId: string, leafIndex: number) => void;
   mergeEdgesIntoEsiLag: (esiLagId: string, edgeIds: string[]) => void;
+  /** release: split the ESI-LAG back into one plain edge per leaf, keeping every member link */
+  dissolveEsiLag: (edgeId: string) => void;
 }
 
 export type EsiLagSlice = EsiLagState & EsiLagActions;
@@ -174,6 +176,47 @@ export const createEsiLagSlice: EsiLagSliceCreator = (set, get) => ({
           }
           : e,
       ),
+    });
+    get().triggerYamlRefresh();
+  },
+
+  dissolveEsiLag: (edgeId: string) => {
+    get().saveToUndoHistory();
+    const edges = get().edges;
+    const edge = edges.find(e => e.id === edgeId);
+    if (!edge || edge.data?.edgeType !== 'esilag' || !edge.data.esiLeaves) return;
+
+    const commonName = edge.data.sourceNode;
+    const memberLinks = edge.data.memberLinks ?? [];
+    const newEdges: UIEdge[] = [];
+    edge.data.esiLeaves.forEach((leaf, leafIndex) => {
+      const member = memberLinks[leafIndex];
+      if (!member) return;
+      const id = generateEdgeId();
+      newEdges.push({
+        id,
+        type: 'linkEdge',
+        source: edge.source,
+        target: leaf.nodeId,
+        sourceHandle: null,
+        targetHandle: null,
+        selected: false,
+        data: {
+          id,
+          sourceNode: commonName,
+          targetNode: leaf.nodeName,
+          edgeType: 'normal',
+          memberLinks: [member],
+        },
+      });
+    });
+
+    set({
+      edges: [...edges.filter(e => e.id !== edgeId), ...newEdges],
+      selectedEdgeId: null,
+      selectedEdgeIds: [],
+      selectedMemberLinkIndices: [],
+      selectedLagId: null,
     });
     get().triggerYamlRefresh();
   },

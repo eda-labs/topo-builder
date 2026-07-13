@@ -21,6 +21,8 @@ export interface BaseNodeProps {
   testId?: string;
   hasEdgeLinks?: boolean;
   onEdgeLinkClick?: () => void;
+  /** unconnected edge links, drawn as short stubs hanging off the node (cable-map style) */
+  edgeLinkCount?: number;
 }
 
 type NodeLike = { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } };
@@ -120,6 +122,42 @@ function EdgeLinkIcon() {
   );
 }
 
+// Stub geometry mirrors cable-map's stub mode (1.25×44 teal pill at 0.72 opacity). The row is
+// capped so a node with many edge links doesn't grow a fringe wider than the node itself.
+const MAX_VISIBLE_STUBS = 12;
+
+function EdgeLinkStubs({ count }: { count: number }) {
+  return (
+    <div
+      aria-hidden
+      data-testid="edge-link-stubs"
+      style={{
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 5,
+        pointerEvents: 'none',
+      }}
+    >
+      {Array.from({ length: Math.min(count, MAX_VISIBLE_STUBS) }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            width: 1.25,
+            height: 44,
+            background: 'var(--color-link-edge)',
+            borderRadius: 999,
+            opacity: 0.72,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function BaseNode({
   nodeId,
   selected,
@@ -129,6 +167,7 @@ export default function BaseNode({
   testId,
   hasEdgeLinks = false,
   onEdgeLinkClick,
+  edgeLinkCount = 0,
 }: BaseNodeProps) {
   // Handle dots depend only on this node's own edges; other nodes' positions are read on
   // demand so neighbour drags don't re-render every node on the canvas.
@@ -198,6 +237,8 @@ export default function BaseNode({
           {middleEllipsis(name, 11)}
         </div>
       </div>
+
+      {edgeLinkCount > 0 && <EdgeLinkStubs count={edgeLinkCount} />}
     </div>
   );
 }

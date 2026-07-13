@@ -19,7 +19,7 @@ import {
   type ReactFlowProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Box, Tabs, Tab, useTheme, IconButton, Drawer, Typography } from '@mui/material';
+import { Box, Tabs, Tab, useTheme, IconButton, Drawer, Typography, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useShallow } from 'zustand/react/shallow';
 
-import { useTopologyStore, undo, redo, canUndo, canRedo, clearUndoHistory, generateUniqueName, saveToUndoHistory } from '../lib/store';
+import { useTopologyStore, undo, redo, clearUndoHistory, generateUniqueName, saveToUndoHistory, useUndoRedoState } from '../lib/store';
 import { DRAWER_WIDTH, DRAWER_TRANSITION_DURATION_MS, EDGE_INTERACTION_WIDTH, ESI_LAG_MAX_EDGES, SESSION_NEW_LINK_ID } from '../lib/constants';
 import type { UINodeData, UIEdgeData, UILagGroup } from '../types/ui';
 import { useCopyPaste } from '../hooks/useCopyPaste';
@@ -187,6 +187,8 @@ function getMemberLinkJumpTarget({
 
   return { edgeId: selectedEdgeId, memberIndex: firstMemberIndex };
 }
+
+const plural = (count: number): string => (count === 1 ? '' : 's');
 
 function shouldIgnoreGlobalHotkeyTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -873,19 +875,15 @@ function TopologyEditorInner({
 
   const { screenToFlowPosition } = useReactFlow();
 
-  const [, setUndoRedoTrigger] = useState(0);
-  const canUndoNow = canUndo();
-  const canRedoNow = canRedo();
+  const { canUndo: canUndoNow, canRedo: canRedoNow } = useUndoRedoState();
 
   const handleUndo = useCallback(() => {
     undo();
-    setUndoRedoTrigger(n => n + 1);
     triggerYamlRefresh();
   }, [triggerYamlRefresh]);
 
   const handleRedo = useCallback(() => {
     redo();
-    setUndoRedoTrigger(n => n + 1);
     triggerYamlRefresh();
   }, [triggerYamlRefresh]);
 
@@ -1341,6 +1339,13 @@ function TopologyEditorInner({
   const canPaste = hasClipboardData();
   const hasContent = nodes.length + edges.length > 0;
 
+  // Clear All wipes the whole canvas in one click — gate it behind a confirmation.
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const handleConfirmClearAll = () => {
+    clearAll();
+    setConfirmClearOpen(false);
+  };
+
   const esiLagValidation = useMemo(
     () => validateEsiLagSelection(selectedEdgeIds, edges),
     [selectedEdgeIds, edges],
@@ -1588,7 +1593,7 @@ function TopologyEditorInner({
         currentSimNodeTemplate={currentSimNodeTemplate}
         linkTemplates={linkTemplates}
         currentLinkTemplate={currentLinkTemplate}
-        onClearAll={clearAll}
+        onClearAll={() => { setConfirmClearOpen(true); }}
         hasSelection={hasSelection}
         hasContent={hasContent}
         canCopy={canCopy}
@@ -1602,6 +1607,33 @@ function TopologyEditorInner({
         onDeleteAnnotation={handleDeleteAnnotation}
         contextMenuFlowPosition={contextMenu.flowPosition}
       />
+
+      <Dialog
+        open={confirmClearOpen}
+        onClose={() => { setConfirmClearOpen(false); }}
+        maxWidth="xs"
+        fullWidth
+        data-testid="clear-all-confirm-dialog"
+      >
+        <DialogTitle>Clear entire topology?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This removes all {nodes.length} node{plural(nodes.length)} and {edges.length} link{plural(edges.length)} from
+            the canvas and resets the templates. Undo can restore the topology.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setConfirmClearOpen(false); }}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            data-testid="clear-all-confirm-button"
+            onClick={handleConfirmClearAll}
+          >
+            Clear All
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {nodeDetails && (
         <PlatformDetailsPopover

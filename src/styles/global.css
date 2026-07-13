@@ -59,6 +59,8 @@
   /* LAG indication — same palette as cable-map (local LAG yellow, multihome LAG purple) */
   --color-link-lag: #f7b737;
   --color-link-mlag: #9765fe;
+  /* Edge links (external connectivity) — cable-map teal */
+  --color-link-edge: #23abb6;
   --color-node-border: #8994a37f;
   --color-node-border-selected: #6098FF;
   --color-node-bg: #000000;
@@ -66,6 +68,36 @@
   --color-handle-bg: #1e1e1e;
   --color-icon-bg: #707070;
   --color-icon-fg: white;
+  --app-scrollbar-thumb: #FFFFFF7F;
+  --app-scrollbar-thumb-hover: #FFFFFF99;
+}
+
+/* EDA scrollbar — same treatment as cable-map: thin, transparent track, translucent rounded
+   thumb inset by a transparent border so it reads as a slim pill. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .react-flow {

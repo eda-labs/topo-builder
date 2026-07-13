@@ -210,6 +210,29 @@ function FreePort({ nodeId, nodeName, handleId, label, iface, speedGbps, box, on
   );
 }
 
+/** Unconnected edge links hang a short stub off the port, mirroring cable-map's stub mode
+    (1.25×44 idle, grown while hover-traced). */
+function EdgeLinkStub({ fill, hot }: { fill: string; hot: boolean }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '100%',
+        width: hot ? 2 : 1.25,
+        height: hot ? 52 : 44,
+        transform: 'translateX(-50%)',
+        background: fill,
+        borderRadius: 999,
+        opacity: hot ? 1 : 0.72,
+        boxShadow: hot ? `0 0 0 1px ${fill}66` : undefined,
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
 function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCageContextMenu }: {
   nodeId: string;
   nodeName: string;
@@ -291,6 +314,7 @@ function UsedPort({ nodeId, nodeName, occupant, label, hot, speedGbps, box, onCa
       }}
     >
       {label}
+      {occupant.kind === 'edge' && <EdgeLinkStub fill={fill} hot={hoverHot} />}
     </div>
   );
 }

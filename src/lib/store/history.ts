@@ -4,6 +4,7 @@
  * Cross-domain state history for undo/redo functionality.
  */
 
+import { useSyncExternalStore } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 
 import type { UINodeData, UIEdgeData, UISimulation, UIAnnotation } from '../../types/ui';
@@ -23,6 +24,29 @@ export interface UndoState {
 
 const undoHistory: UndoState[] = [];
 const redoHistory: UndoState[] = [];
+
+// The histories are plain module arrays; components that show undo/redo availability (navbar
+// buttons, context menu) subscribe here to re-render when the stacks change.
+let historyVersion = 0;
+const historyListeners = new Set<() => void>();
+
+const notifyHistoryChanged = (): void => {
+  historyVersion++;
+  historyListeners.forEach(listener => { listener(); });
+};
+
+export const subscribeToHistory = (listener: () => void): (() => void) => {
+  historyListeners.add(listener);
+  return () => { historyListeners.delete(listener); };
+};
+
+export const getHistoryVersion = (): number => historyVersion;
+
+/** Reactive undo/redo availability — re-renders whenever the history stacks change. */
+export function useUndoRedoState(): { canUndo: boolean; canRedo: boolean } {
+  useSyncExternalStore(subscribeToHistory, getHistoryVersion);
+  return { canUndo: canUndo(), canRedo: canRedo() };
+}
 
 export const captureState = (state: {
   nodes: Node<UINodeData>[];
@@ -57,6 +81,7 @@ export const pushToUndoHistory = (state: UndoState): void => {
     undoHistory.shift();
   }
   redoHistory.length = 0;
+  notifyHistoryChanged();
 };
 
 /**
@@ -68,18 +93,24 @@ export const pushToUndoHistoryForRedo = (state: UndoState): void => {
   if (undoHistory.length > UNDO_LIMIT) {
     undoHistory.shift();
   }
+  notifyHistoryChanged();
 };
 
 export const popFromUndoHistory = (): UndoState | undefined => {
-  return undoHistory.pop();
+  const state = undoHistory.pop();
+  notifyHistoryChanged();
+  return state;
 };
 
 export const pushToRedoHistory = (state: UndoState): void => {
   redoHistory.push(state);
+  notifyHistoryChanged();
 };
 
 export const popFromRedoHistory = (): UndoState | undefined => {
-  return redoHistory.pop();
+  const state = redoHistory.pop();
+  notifyHistoryChanged();
+  return state;
 };
 
 export const canUndo = (): boolean => undoHistory.length > 0;
@@ -88,6 +119,7 @@ export const canRedo = (): boolean => redoHistory.length > 0;
 export const clearHistory = (): void => {
   undoHistory.length = 0;
   redoHistory.length = 0;
+  notifyHistoryChanged();
 };
 
 export const getUndoHistoryLength = (): number => undoHistory.length;

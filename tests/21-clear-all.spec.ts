@@ -10,9 +10,10 @@ test('Clear all resets to base YAML', async ({ page }) => {
   // Add some content
   await addTwoNodesAndConnect(page);
 
-  // Clear All via context menu
+  // Clear All via context menu, confirming the safety dialog
   await canvasPane(page).click({ button: 'right', position: EMPTY_POS });
   await page.getByRole('menuitem', { name: 'Clear All' }).click();
+  await page.getByTestId('clear-all-confirm-button').click();
 
   await expectYamlEquals(page, '21-clear-all.yaml');
 });

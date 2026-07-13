@@ -44,10 +44,12 @@ import {
   Hub as AutoLinkIcon,
   AccountTree as FabricWizardIcon,
   PlayArrow as DeployIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
 } from '@mui/icons-material';
 
 import EdaIcon from '../icons/EdaIcon';
-import { useTopologyStore } from '../lib/store';
+import { useTopologyStore, undo, redo, useUndoRedoState } from '../lib/store';
 import { detectExtension } from '../lib/extensionAPIClient';
 import { exportToYaml, normalizeNodeCoordinates, downloadYaml } from '../lib/yaml-converter';
 import { validateNetworkTopology } from '../lib/validate';
@@ -194,6 +196,11 @@ export default function AppLayout({
 
   const commitSha = typeof __COMMIT_SHA__ === 'string' ? __COMMIT_SHA__ : 'unknown';
   const toolbarTextColor = 'text.primary';
+
+  const { canUndo, canRedo } = useUndoRedoState();
+  const triggerYamlRefresh = useTopologyStore(state => state.triggerYamlRefresh);
+  const handleUndo = () => { undo(); triggerYamlRefresh(); };
+  const handleRedo = () => { redo(); triggerYamlRefresh(); };
 
   useEffect(() => {
     if (error) {
@@ -351,6 +358,21 @@ export default function AppLayout({
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Tooltip title="Undo (Ctrl+Z)">
+                <span>
+                  <IconButton size="small" onClick={handleUndo} disabled={!canUndo} data-testid="navbar-undo" sx={{ color: toolbarTextColor }}>
+                    <UndoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Redo (Ctrl+Shift+Z)">
+                <span>
+                  <IconButton size="small" onClick={handleRedo} disabled={!canRedo} data-testid="navbar-redo" sx={{ color: toolbarTextColor }}>
+                    <RedoIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem sx={{ borderColor: 'divider', my: 0.5 }} />
               {isStandalone && edaStatus === 'connected' && (
                 <>
                   <Tooltip title="Deploy to EDA">

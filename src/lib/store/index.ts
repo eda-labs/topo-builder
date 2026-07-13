@@ -26,6 +26,9 @@ export {
   canUndo as historyCanUndo,
   canRedo as historyCanRedo,
   clearHistory,
+  subscribeToHistory,
+  getHistoryVersion,
+  useUndoRedoState,
 } from './history';
 
 export type { EdaConnectionStatus } from './createStore';

@@ -14,23 +14,34 @@ import FrontPanelNode from './FrontPanelNode';
 import { RoleIcons } from './roleIcons';
 
 function EdgeLinksButton({ count, onClick }: { count: number; onClick: () => void }) {
+  const active = count > 0;
   return (
     <span
       className="cursor-pointer hover:opacity-80"
+      data-testid="edge-links-button"
       onClick={e => { e.stopPropagation(); onClick(); }}
-      title={count > 0 ? `Edit edge links (${count})` : 'Edit edge links'}
+      title={active ? `Edit edge links (${count})` : 'Add edge links (connections to devices outside the topology)'}
       style={{
         flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 3,
         fontSize: 8.5,
         fontWeight: 700,
         lineHeight: 1,
-        padding: '2px 4px',
-        borderRadius: 3,
-        background: count > 0 ? '#23abb6' : '#39445580',
-        color: count > 0 ? '#0b0f14' : 'var(--color-node-text)',
+        padding: '2px 5px',
+        borderRadius: 999,
+        background: active ? '#23abb62e' : '#39445580',
+        color: active ? 'var(--color-link-edge)' : 'var(--color-node-text)',
+        boxShadow: active ? 'inset 0 0 0 1px #23abb680' : undefined,
       }}
     >
-      {count > 0 ? `${count}⇥` : '⇥'}
+      {/* miniature of the edge-link glyph: a port with an arrow leaving the topology */}
+      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
+        <circle cx="4" cy="6" r="2.6" fill="currentColor" />
+        <path d="M7.2 6h3.6M9.2 4.2 11 6 9.2 7.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {active ? count : '+'}
     </span>
   );
 }
@@ -50,7 +61,9 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
     || template?.labels?.['eda.nokia.com/role'];
   const iconSvg = role ? RoleIcons[role] : null;
   const edgeLinks = nodeData.edgeLinks || [];
-  const showEdgeLinkIcon = role === 'leaf';
+  // Leaves get the button by default; any other node keeps it once edge links exist (e.g. from
+  // an imported YAML) so they stay editable.
+  const showEdgeLinkIcon = role === 'leaf' || edgeLinks.length > 0;
 
   const panel = useMemo(() => resolveNodePanel(nodeData, nodeTemplates), [nodeData, nodeTemplates]);
   // isSrosNode only reads data/template, so the node's own data suffices — subscribing to the
@@ -121,6 +134,7 @@ export default function TopoNode({ id, data, selected }: NodeProps) {
           testId={topologyNodeTestId(nodeData.name)}
           hasEdgeLinks={showEdgeLinkIcon}
           onEdgeLinkClick={() => { setEdgeLinksModalOpen(true); }}
+          edgeLinkCount={edgeLinks.length}
         />
       )}
       <EdgeLinksModal
